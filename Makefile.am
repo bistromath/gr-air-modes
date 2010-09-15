@@ -27,7 +27,7 @@ EXTRA_DIST = bootstrap configure config.h.in \
 	Makefile.swig Makefile.swig.gen.t
 
 SUBDIRS = config src
-DIST_SUBDIRS = config src doc
+DIST_SUBDIRS = config src
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA =

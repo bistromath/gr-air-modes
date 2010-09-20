@@ -39,7 +39,7 @@ int air_modes_preamble::work(int noutput_items,
 
 	int size = noutput_items - d_check_width;
 	int pulse_offsets[4];
-	int bit_energies[4];
+	float bit_energies[4];
 
 	for(int i = d_samples_per_chip; i < size; i++) {
 		float pulse_threshold = bit_energy(&inavg[i], d_samples_per_chip) * d_threshold;

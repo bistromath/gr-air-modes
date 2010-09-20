@@ -39,7 +39,7 @@ int air_modes_framer::work(int noutput_items,
 
 	int size = noutput_items - d_check_width; //need to be able to look ahead a full frame
 
-	int reference_level = 0;
+	float reference_level = 0;
 	framer_packet_type packet_attrib;
 
 	for(int i = 0; i < size; i++) {
@@ -67,7 +67,7 @@ int air_modes_framer::work(int noutput_items,
 		//NOTE: you can change the default here to be short packet, and then check for a long packet. don't know which way is better.
 
 		for(int j = (65 * d_samples_per_symbol); j < (70 * d_samples_per_symbol); j += d_samples_per_symbol) {
-			int t_max = (bit_energy(&inraw[i+j], d_samples_per_chip) > bit_energy(&inraw[i+j+d_samples_per_chip], d_samples_per_chip)) ? bit_energy(&inraw[i+j], d_samples_per_chip) : bit_energy(&inraw[i+j+d_samples_per_chip], d_samples_per_chip);
+			float t_max = (bit_energy(&inraw[i+j], d_samples_per_chip) > bit_energy(&inraw[i+j+d_samples_per_chip], d_samples_per_chip)) ? bit_energy(&inraw[i+j], d_samples_per_chip) : bit_energy(&inraw[i+j+d_samples_per_chip], d_samples_per_chip);
 			if(t_max < (reference_level / 2)) packet_attrib = Short_Packet;
 		}
 

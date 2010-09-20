@@ -90,7 +90,7 @@ int air_modes_slicer::work(int noutput_items,
 //				confidence = bool(int(firstchip_inref) + int(secondchip_inref)); //one and only one chip in the reference zone
 
 				//below is the Lincoln Labs slicer. it may produce greater bit errors. supposedly it is more resistant to mode A/C FRUIT.
-
+        //see http://adsb.tc.faa.gov/WG3_Meetings/Meeting8/Squitter-Lon.pdf
 				if(firstchip_inref && !secondchip_inref) {
 					slice = 1;
 					confidence = 1;

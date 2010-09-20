@@ -33,7 +33,7 @@ The following are optional command line parameters:
 -R SUBDEV    Daughter board specification, defaults to first found
 -f FREQ      USRP receive frequency (1090 MHz Default)
 -g GAIN      Daughterboard gain setting. Defaults to mid-range.
--d DECIM     USRP decimation rate
+-r RATE      USRP sample rate
 -t THRESH    Receiver valid pulse threshold
 -a           Output all frames. Defaults only output frames
 
@@ -80,7 +80,6 @@ class adsb_rx_block (gr.top_block):
 		if options.output_all :
 			pass_all = 1
 
-		self.gain = gr.multiply_const_cc(1000000)
 		self.demod = gr.complex_to_mag()
 		self.avg = gr.moving_average_ff(100, 1.0/100, 400);
 		self.preamble = air.modes_preamble(rate, options.threshold)
@@ -95,7 +94,7 @@ class adsb_rx_block (gr.top_block):
 #		else:
 		self.filt = self.u
 
-		self.connect(self.filt, self.gain, self.demod)
+		self.connect(self.filt, self.demod)
 		self.connect(self.demod, self.avg)
 		self.connect(self.demod, (self.preamble, 0))
 		self.connect(self.avg, (self.preamble, 1))

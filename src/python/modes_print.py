@@ -33,7 +33,7 @@ def modes_print(message):
 	else:
 		output = "No handler for message type " + str(msgtype) + " from " + str(ecc)
 
-	output = "(%.0f) " % float(reference) + output
+	output = "(%.0f) " % (10.0*math.log10(float(reference))) + output
 
 	return output
 

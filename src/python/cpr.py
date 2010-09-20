@@ -2,12 +2,15 @@
 #from string import split, join
 #from math import pi, floor, cos, acos
 import math, time
-#this implements CPR position decoding. local only for now.
+#this implements CPR position decoding.
 
 latz = 15
 nbits = 17
-my_lat = 37.76225 #update these later!
-my_lon = -122.44254
+#my_lat = 37.76225 #update these later!
+#my_lon = -122.44254
+#ER
+my_lat = 37.40889176297184
+my_lon = -122.07765340805054
 
 
 def nz(ctype):

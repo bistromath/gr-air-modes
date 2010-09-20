@@ -3,6 +3,7 @@
 
 #betcha this would be faster if you used a table for mode C
 #you could strip out D1 since it's never used, that leaves 11 bits (table is 2048 entries)
+#on the other hand doing it this way is educational for others
 def decode_alt(alt, bit13):
 	if alt & 0x40 and bit13 is True:
 		return "METRIC ERROR"

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 from gnuradio import gr, gru, optfir, eng_notation, blks2, air
 from gnuradio import uhd
 from gnuradio.eng_option import eng_option
@@ -8,7 +7,7 @@ import time, os, sys
 from string import split, join
 from usrpm import usrp_dbid
 from modes_print import modes_output_print
-from modes_sql import modes_sql
+from modes_sql import modes_output_sql
 from modes_sbs1 import modes_output_sbs1
 import gnuradio.gr.gr_threading as _threading
 
@@ -82,11 +81,6 @@ class adsb_rx_block (gr.top_block):
   def tune(self, freq):
     result = self.u.set_center_freq(freq)
     return result
-    
-def post_to_sql(db, query):
-  if query is not None:
-    c = db.cursor()
-    c.execute(query)
 
 if __name__ == '__main__':
   usage = "%prog: [options] output filename"
@@ -122,9 +116,7 @@ if __name__ == '__main__':
   updates = [] #registry of plugin update functions
 
   if options.database is True:
-    import pysqlite3
-    #db = pysqlite3.connect(:memory:)
-    #here we have to initialize the database with the correct tables and relations
+    outputs.append(modes_output_sql().output)
     
   if options.sbs1 is True:
     sbs1port = modes_output_sbs1()
@@ -141,7 +133,7 @@ if __name__ == '__main__':
     try:
       #the update registry is really for the SBS1 plugin -- we're looking for new TCP connections.
       #i think we have to do this here rather than in the output handler because otherwise connections will stack up
-      #until the next output
+      #until the next output arrives
       for update in updates:
         update()
       

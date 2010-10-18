@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import time, os, sys
 from string import split, join
 from altitude import decode_alt

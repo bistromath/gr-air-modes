@@ -10,7 +10,7 @@ class modes_output_sbs1(modes_parse.modes_parse):
     self._s.listen(1)
     self._s.setblocking(0) #nonblocking
     self._conns = [] #list of active connections
-    
+
   def output(self, msg):
     sbs1_msg = self.parse(msg)
     if sbs1_msg is not None:

@@ -3,7 +3,7 @@ from gnuradio import gr, gru, optfir, eng_notation, blks2, air
 from gnuradio import uhd
 from gnuradio.eng_option import eng_option
 from optparse import OptionParser
-import time, os, sys
+import time, os, sys, threading
 from string import split, join
 from usrpm import usrp_dbid
 from modes_print import modes_output_print
@@ -23,9 +23,7 @@ class top_block_runner(_threading.Thread):
         self.tb.run()
         self.done = True
 
-
 class adsb_rx_block (gr.top_block):
-
   def __init__(self, options, args, queue):
     gr.top_block.__init__(self)
 
@@ -101,8 +99,8 @@ if __name__ == '__main__':
           help="set DBSRX baseband bandwidth in Hz [default=%default]")
   parser.add_option("-F","--filename", type="string", default=None,
             help="read data from file instead of USRP")
-  parser.add_option("-D","--database", action="store_true", default=False,
-                      help="send to database instead of printing to screen")
+  parser.add_option("-K","--kml", type="string", default=None,
+                      help="filename for Google Earth KML output")
   parser.add_option("-P","--sbs1", action="store_true", default=False,
                       help="open an SBS-1-compatible server on port 30003")
   parser.add_option("-n","--no-print", action="store_true", default=False,
@@ -115,8 +113,11 @@ if __name__ == '__main__':
   outputs = [] #registry of plugin output functions
   updates = [] #registry of plugin update functions
 
-  if options.database is True:
-    outputs.append(modes_output_sql().output)
+  if options.kml is not None:
+    sqlport = modes_output_sql()
+    outputs.append(sqlport.insert)
+    #also we spawn a thread to run every 30 seconds (or whatever) to generate KML
+    kmlgen = modes_kml(sqlport.db, options.kml) #this is a thread
     
   if options.sbs1 is True:
     sbs1port = modes_output_sbs1()
@@ -153,4 +154,6 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
       fg.stop()
       runner = None
+      if kmlgen is not None: #this breaks your nice output registry scheme
+          kmlgen = None
       break

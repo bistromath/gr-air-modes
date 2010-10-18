@@ -36,15 +36,15 @@ class modes_output_sql(modes_parse.modes_parse):
   def __del__(self):
     self.db.close()
 
-  def output(self, message):
-    query = self.make_query(message)
+  def insert(self, message):
+    query = self.make_insert_query(message)
     if query is not None:
       c = self.db.cursor()
       c.execute(query)
       c.close()
       self.db.commit() #not sure if i have to do this
   
-  def make_query(self, message):
+  def make_insert_query(self, message):
     #assembles a SQL query tailored to our database
     #this version ignores anything that isn't Type 17 for now, because we just don't care
     [msgtype, shortdata, longdata, parity, ecc, reference] = message.split()
@@ -97,9 +97,6 @@ class modes_output_sql(modes_parse.modes_parse):
       elif subsubtype == 1:
         [velocity, heading, vert_spd] = self.parseBDS09_1(shortdata, longdata, parity, ecc)
         retstr = "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")";
-
-    else:
-      print "debug (modes_sql): unknown subtype %i with data %x %x %x" % (subtype, shortdata, longdata, parity,)
 
     return retstr
 

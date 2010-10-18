@@ -79,7 +79,7 @@ class adsb_rx_block (gr.top_block):
 
 			print "Setting gain to %i" % (options.gain,)
 			self.subdev.set_gain(options.gain)
-			self.subdev.set_bw(self.options.bandwidth) #only for DBSRX
+			#self.subdev.set_bw(self.options.bandwidth) #only for DBSRX
 
 			rate = self.u.adc_rate() / options.decim
 

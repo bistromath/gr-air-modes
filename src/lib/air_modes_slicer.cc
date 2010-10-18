@@ -145,8 +145,15 @@ int air_modes_slicer::work(int noutput_items,
 
 			//the limitation on short packets means in practice a short packet has to be at least 6dB above the noise floor in order to be output. long packets can theoretically
 			//be decoded at the 3dB SNR point. below that and the preamble detector won't fire.
+			
+			//in practice, this limitation causes you to see a HUGE number of type 11 packets which pass CRC through random luck.
+			//these packets necessarily have large numbers of low-confidence bits, so we toss them with an arbitrary limit of 10.
+			//that's a pretty dang low threshold so i don't think we'll drop many legit packets
 
 			if(rx_packet.type == Short_Packet && rx_packet.message_type != 11 && rx_packet.numlowconf != 0) continue;
+			if(rx_packet.type == Short_Packet && rx_packet.message_type == 11 && rx_packet.numlowconf >= 10) continue;
+			
+			
 			//if(rx_packet.numlowconf >= 24) continue; //don't even try, this is the maximum number of errors ECC could possibly correct
 			//the above line should be part of ECC, and only checked if the message has parity errors
 

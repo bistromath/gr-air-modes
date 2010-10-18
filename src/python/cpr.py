@@ -6,11 +6,11 @@ import math, time
 
 latz = 15
 nbits = 17
-#my_lat = 37.76225 #update these later!
-#my_lon = -122.44254
+my_lat = 37.76225 #update these later!
+my_lon = -122.44254
 #ER
-my_lat = 37.40889176297184
-my_lon = -122.07765340805054
+#my_lat = 37.40889176297184
+#my_lon = -122.07765340805054
 
 
 def nz(ctype):

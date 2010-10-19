@@ -1,4 +1,4 @@
-#
+#!/usr/bin/env python
 # Copyright 2010 Nick Foster
 # 
 # This file is part of gr-air-modes
@@ -19,8 +19,6 @@
 # Boston, MA 02110-1301, USA.
 # 
 
-
-#!/usr/bin/env python
 from gnuradio import gr, gru, optfir, eng_notation, blks2, air
 from gnuradio import uhd
 from gnuradio.eng_option import eng_option
@@ -31,6 +29,7 @@ from usrpm import usrp_dbid
 from modes_print import modes_output_print
 from modes_sql import modes_output_sql
 from modes_sbs1 import modes_output_sbs1
+from modes_kml import modes_kml
 import gnuradio.gr.gr_threading as _threading
 
 class top_block_runner(_threading.Thread):
@@ -136,11 +135,11 @@ if __name__ == '__main__':
   updates = [] #registry of plugin update functions
 
   if options.kml is not None:
-    sqlport = modes_output_sql()
+    sqlport = modes_output_sql() #create a SQL parser to push stuff into SQLite
     outputs.append(sqlport.insert)
     #also we spawn a thread to run every 30 seconds (or whatever) to generate KML
-    kmlgen = modes_kml(sqlport.db, options.kml) #this is a thread
-    
+    kmlgen = modes_kml(sqlport.db, options.kml) #create a KML generating thread which reads the database
+
   if options.sbs1 is True:
     sbs1port = modes_output_sbs1()
     outputs.append(sbs1port.output)
@@ -176,6 +175,6 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
       fg.stop()
       runner = None
-      if kmlgen is not None: #this breaks your nice output registry scheme
-          kmlgen = None
+      if options.kml is not None:
+          kmlgen.done = True
       break

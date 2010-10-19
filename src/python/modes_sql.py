@@ -19,7 +19,6 @@
 # Boston, MA 02110-1301, USA.
 # 
 
-#!/usr/bin/env python
 import time, os, sys
 from string import split, join
 import modes_parse
@@ -28,7 +27,7 @@ import sqlite3
 class modes_output_sql(modes_parse.modes_parse):
   def __init__(self):
     #create the database
-    self.db = sqlite3.connect(':memory:') #RAM-based database, no persistence
+    self.db = sqlite3.connect('wat.db') #RAM-based database, no persistence
     #now execute a schema to create the tables you need
     c = self.db.cursor()
     query = """CREATE TABLE "positions" (

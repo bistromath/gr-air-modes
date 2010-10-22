@@ -27,10 +27,10 @@ import sqlite3
 class modes_output_sql(modes_parse.modes_parse):
   def __init__(self):
     #create the database
-    self.db = sqlite3.connect('wat.db') #RAM-based database, no persistence
+    self.db = sqlite3.connect('adsb.db')
     #now execute a schema to create the tables you need
     c = self.db.cursor()
-    query = """CREATE TABLE "positions" (
+    query = """CREATE TABLE IF NOT EXISTS "positions" (
                 "icao" INTEGER KEY NOT NULL,
                 "seen" TEXT NOT NULL,
                 "alt"  INTEGER,
@@ -38,7 +38,7 @@ class modes_output_sql(modes_parse.modes_parse):
                 "lon"  REAL
             );"""
     c.execute(query)
-    query = """CREATE TABLE "vectors" (
+    query = """CREATE TABLE IF NOT EXISTS "vectors" (
                 "icao"     INTEGER KEY NOT NULL,
                 "seen"     TEXT NOT NULL,
                 "speed"    REAL,
@@ -46,7 +46,7 @@ class modes_output_sql(modes_parse.modes_parse):
                 "vertical" REAL
             );"""
     c.execute(query)
-    query = """CREATE TABLE "ident" (
+    query = """CREATE TABLE IF NOT EXISTS "ident" (
                 "icao"     INTEGER PRIMARY KEY NOT NULL,
                 "ident"    TEXT NOT NULL
             );"""

@@ -29,6 +29,8 @@ class modes_output_print(modes_parse.modes_parse):
   def parse(self, message):
     [msgtype, shortdata, longdata, parity, ecc, reference] = message.split()
 
+    if reference is None: reference = 0
+
     shortdata = long(shortdata, 16)
     longdata = long(longdata, 16)
     parity = long(parity, 16)
@@ -117,6 +119,8 @@ class modes_output_print(modes_parse.modes_parse):
   def print17(self, shortdata, longdata, parity, ecc):
     icao24 = shortdata & 0xFFFFFF
     subtype = (longdata >> 51) & 0x1F;
+    
+    retstr = None
 
     if subtype == 4:
       msg = self.parseBDS08(shortdata, longdata, parity, ecc)
@@ -131,8 +135,8 @@ class modes_output_print(modes_parse.modes_parse):
 
     elif subtype >= 9 and subtype <= 18:
       [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(shortdata, longdata, parity, ecc)
-
-      retstr = "Type 17 subtype 05 (position report) from " + "%x" % icao24 + " at (" + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ") (" + "%.2f" % rnge + " @ " + "%.0f" % bearing + ") at " + str(altitude) + "ft"
+      if decoded_lat is not None:
+        retstr = "Type 17 subtype 05 (position report) from " + "%x" % icao24 + " at (" + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ") (" + "%.2f" % rnge + " @ " + "%.0f" % bearing + ") at " + str(altitude) + "ft"
 
 #   this is a trigger to capture the bizarre BDS0,5 squitters you keep seeing on the map with latitudes all over the place
 #     if icao24 == 0xa1ede9:

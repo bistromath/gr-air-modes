@@ -84,6 +84,9 @@ class adsb_rx_block (gr.top_block):
 
     self.demod = gr.complex_to_mag()
     self.avg = gr.moving_average_ff(100, 1.0/100, 400);
+#    self.filtcoeffs = gr.firdes.band_reject(1, rate, -691e3, -646e3, 10e3, WIN_HANN)
+#    self.filter = gr.fir_filter_ccc(1, self.filtcoeffs)
+    
     self.preamble = air.modes_preamble(rate, options.threshold)
     self.framer = air.modes_framer(rate)
     self.slicer = air.modes_slicer(rate, queue)
@@ -116,8 +119,6 @@ if __name__ == '__main__':
                       help="set pulse detection threshold above noise in dB [default=%default]")
   parser.add_option("-a","--output-all", action="store_true", default=False,
                       help="output all frames")
-  parser.add_option("-b","--bandwidth", type="eng_float", default=5e6,
-          help="set DBSRX baseband bandwidth in Hz [default=%default]")
   parser.add_option("-F","--filename", type="string", default=None,
             help="read data from file instead of USRP")
   parser.add_option("-K","--kml", type="string", default=None,
@@ -138,7 +139,7 @@ if __name__ == '__main__':
     sqlport = modes_output_sql() #create a SQL parser to push stuff into SQLite
     outputs.append(sqlport.insert)
     #also we spawn a thread to run every 30 seconds (or whatever) to generate KML
-    kmlgen = modes_kml(sqlport.db, options.kml) #create a KML generating thread which reads the database
+    kmlgen = modes_kml('adsb.db', options.kml) #create a KML generating thread which reads the database
 
   if options.sbs1 is True:
     sbs1port = modes_output_sbs1()

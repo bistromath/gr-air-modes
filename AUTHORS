@@ -1,1 +1,7 @@
+Mode S receiver:
+Nick Foster <bistromath@gmail.com>
+
+Parts of the ECC algorithm are from Eric Cottrell's gr-air program.
+
+gr-howto-write-a-block:
 Eric Blossom <eb@comsec.com>

@@ -181,6 +181,9 @@ bruteResultTypeDef modes_ec_brute(modes_packet &err_packet)
 	//here we basically crib EC's air_ms_ec_brute algorithm, because wherever he got it, it's perfect, and that comparison thing is fast to boot.
 	//we assume that the syndrome result has already been calculated
 	//how many bits shall we attempt to flip? let's say a max of 8 bits, to start. remember we're only going after long packets here.
+	
+	//well, in practice, you almost never successfully recover a packet with more than 4 LCBs. so let's put the limit there to save wasting CPU time
+	//on hopeless packets.
 
 	//want to speed things up? instead of going through the "search codes" in numeric order, let's find a way to order them probablistically.
 	//that is, right now, EC's algorithm uses a "search order" which starts with ALL possible low-confidence bits flipped, and goes down counting in binary.

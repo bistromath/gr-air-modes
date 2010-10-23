@@ -84,21 +84,34 @@ class adsb_rx_block (gr.top_block):
 
     self.demod = gr.complex_to_mag()
     self.avg = gr.moving_average_ff(100, 1.0/100, 400);
-#    self.filtcoeffs = gr.firdes.band_reject(1, rate, -691e3, -646e3, 10e3, WIN_HANN)
-#    self.filter = gr.fir_filter_ccc(1, self.filtcoeffs)
+    
+    #the DBSRX especially tends to be spur-prone; the LPF keeps out the
+    #spur multiple that shows up at 2MHz
+    self.filtcoeffs = gr.firdes.low_pass(1, rate, 1.8e6, 200e3)
+    self.filter = gr.fir_filter_fff(1, self.filtcoeffs)
     
     self.preamble = air.modes_preamble(rate, options.threshold)
     self.framer = air.modes_framer(rate)
     self.slicer = air.modes_slicer(rate, queue)
 
-    self.connect(self.u, self.demod)
-    self.connect(self.demod, self.avg)
-    self.connect(self.demod, (self.preamble, 0))
+    self.connect(self.u, self.demod, self.filter)
+    self.connect(self.filter, self.avg)
+    self.connect(self.filter, (self.preamble, 0))
     self.connect(self.avg, (self.preamble, 1))
-    self.connect(self.demod, (self.framer, 0))
+    self.connect(self.filter, (self.framer, 0))
     self.connect(self.preamble, (self.framer, 1))
-    self.connect(self.demod, (self.slicer, 0))
+    self.connect(self.filter, (self.slicer, 0))
     self.connect(self.framer, (self.slicer, 1))
+    
+#use this flowgraph instead to omit the filter
+#    self.connect(self.u, self.demod)
+#    self.connect(self.demod, self.avg)
+#    self.connect(self.demod, (self.preamble, 0))
+#    self.connect(self.avg, (self.preamble, 1))
+#    self.connect(self.demod, (self.framer, 0))
+#    self.connect(self.preamble, (self.framer, 1))
+#    self.connect(self.demod, (self.slicer, 0))
+#    self.connect(self.framer, (self.slicer, 1))
 
   def tune(self, freq):
     result = self.u.set_center_freq(freq)

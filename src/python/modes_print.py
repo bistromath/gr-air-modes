@@ -29,8 +29,6 @@ class modes_output_print(modes_parse.modes_parse):
   def parse(self, message):
     [msgtype, shortdata, longdata, parity, ecc, reference] = message.split()
 
-    if reference is None: reference = 0
-
     shortdata = long(shortdata, 16)
     longdata = long(longdata, 16)
     parity = long(parity, 16)
@@ -54,7 +52,13 @@ class modes_output_print(modes_parse.modes_parse):
     else:
       output = "No handler for message type " + str(msgtype) + " from " + str(ecc)
 
-    output = "(%.0f) " % (10.0*math.log10(float(reference))) + output
+
+    if reference == 0:
+        refdb = 0
+    else:
+        refdb = 10.0*math.log10(reference)
+        
+    output = "(%.0f) " % (refdb) + output
 
     print output
 

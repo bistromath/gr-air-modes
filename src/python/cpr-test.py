@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 #
 # Copyright 2010 Nick Foster
 # 
@@ -18,9 +19,6 @@
 # the Free Software Foundation, Inc., 51 Franklin Street,
 # Boston, MA 02110-1301, USA.
 # 
-
-
-#!/usr/bin/env python
 
 from modes_parse import *
 from cpr import *

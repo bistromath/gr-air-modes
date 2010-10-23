@@ -149,7 +149,7 @@ if __name__ == '__main__':
   updates = [] #registry of plugin update functions
 
   if options.kml is not None:
-    sqlport = modes_output_sql() #create a SQL parser to push stuff into SQLite
+    sqlport = modes_output_sql('adsb.db') #create a SQL parser to push stuff into SQLite
     outputs.append(sqlport.insert)
     #also we spawn a thread to run every 30 seconds (or whatever) to generate KML
     kmlgen = modes_kml('adsb.db', options.kml) #create a KML generating thread which reads the database
@@ -178,8 +178,8 @@ if __name__ == '__main__':
         while queue.empty_p() == 0 :
           msg = queue.delete_head() #blocking read
 
-	  for out in outputs:
-	    out(msg.to_string())
+        for out in outputs:
+            out(msg.to_string())
 
       elif runner.done:
         raise KeyboardInterrupt

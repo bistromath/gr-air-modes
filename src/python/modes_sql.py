@@ -25,9 +25,9 @@ import modes_parse
 import sqlite3
 
 class modes_output_sql(modes_parse.modes_parse):
-  def __init__(self):
+  def __init__(self, filename):
     #create the database
-    self.db = sqlite3.connect('adsb.db')
+    self.db = sqlite3.connect(filename)
     #now execute a schema to create the tables you need
     c = self.db.cursor()
     query = """CREATE TABLE IF NOT EXISTS "positions" (

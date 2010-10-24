@@ -23,11 +23,11 @@ import sqlite3
 import string, math, threading, time
 
 class modes_kml(threading.Thread):
-    def __init__(self, dbfile, filename, timeout=5):
+    def __init__(self, dbfile, filename, localpos, timeout=5):
         threading.Thread.__init__(self)
         self._filename = filename
         self._dbfile = dbfile
-        self.my_coords = [37.76225, -122.44254] #there has got to be a better way of getting your coords in here
+        self.my_coords = localpos
         self._timeout = timeout
         self.done = False
         self.setDaemon(1)

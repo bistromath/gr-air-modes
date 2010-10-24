@@ -26,7 +26,8 @@ import modes_parse
 from datetime import *
 
 class modes_output_sbs1(modes_parse.modes_parse):
-  def __init__(self):
+  def __init__(self, mypos):
+    modes_parse.modes_parse.__init__(self, mypos)
     self._s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self._s.bind(('', 30003))
     self._s.listen(1)

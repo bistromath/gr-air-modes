@@ -27,6 +27,9 @@ from cpr import cpr_decode
 import math
 
 class modes_parse:
+  def __init__(self, mypos):
+      self.my_location = mypos
+    
   def parse0(self, shortdata, parity, ecc):
 #	shortdata = long(shortdata, 16)
     #parity = long(parity)
@@ -166,7 +169,7 @@ class modes_parse:
 
     altitude = decode_alt(enc_alt, False)
 
-    [decoded_lat, decoded_lon, rnge, bearing] = cpr_decode(icao24, encoded_lat, encoded_lon, cpr_format, self._evenlist, self._oddlist, self._lkplist, 0, longdata)
+    [decoded_lat, decoded_lon, rnge, bearing] = cpr_decode(self.my_location, icao24, encoded_lat, encoded_lon, cpr_format, self._evenlist, self._oddlist, self._lkplist, 0, longdata)
 
     return [altitude, decoded_lat, decoded_lon, rnge, bearing]
 

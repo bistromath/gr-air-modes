@@ -19,6 +19,8 @@
 # Boston, MA 02110-1301, USA.
 # 
 
+my_position = [37.76225, -122.44254]
+
 from gnuradio import gr, gru, optfir, eng_notation, blks2, air
 from gnuradio import uhd
 from gnuradio.eng_option import eng_option
@@ -149,18 +151,18 @@ if __name__ == '__main__':
   updates = [] #registry of plugin update functions
 
   if options.kml is not None:
-    sqlport = modes_output_sql('adsb.db') #create a SQL parser to push stuff into SQLite
+    sqlport = modes_output_sql(my_position, 'adsb.db') #create a SQL parser to push stuff into SQLite
     outputs.append(sqlport.insert)
     #also we spawn a thread to run every 30 seconds (or whatever) to generate KML
-    kmlgen = modes_kml('adsb.db', options.kml) #create a KML generating thread which reads the database
+    kmlgen = modes_kml('adsb.db', options.kml, my_position) #create a KML generating thread which reads the database
 
   if options.sbs1 is True:
-    sbs1port = modes_output_sbs1()
+    sbs1port = modes_output_sbs1(my_position)
     outputs.append(sbs1port.output)
     updates.append(sbs1port.add_pending_conns)
     
   if options.no_print is not True:
-    outputs.append(modes_output_print().parse)
+    outputs.append(modes_output_print(my_position).parse)
 
   fg = adsb_rx_block(options, args, queue)
   runner = top_block_runner(fg)

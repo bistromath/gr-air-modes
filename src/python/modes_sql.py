@@ -25,7 +25,8 @@ import modes_parse
 import sqlite3
 
 class modes_output_sql(modes_parse.modes_parse):
-  def __init__(self, filename):
+  def __init__(self, mypos, filename):
+    modes_parse.modes_parse.__init__(self, mypos)
     #create the database
     self.db = sqlite3.connect(filename)
     #now execute a schema to create the tables you need

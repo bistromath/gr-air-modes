@@ -157,7 +157,7 @@ def cpr_resolve_global(evenpos, oddpos, mostrecent, surface): #ok this is consid
 	return [rlat, rlon]
 
 
-def cpr_decode(icao24, encoded_lat, encoded_lon, cpr_format, evenlist, oddlist, lkplist, surface, longdata):
+def cpr_decode(my_location, icao24, encoded_lat, encoded_lon, cpr_format, evenlist, oddlist, lkplist, surface, longdata):
 	#this is a stopgap measure to catch those packets which aren't really position packets. what gives?
 #	if encoded_lat == 0 or encoded_lon == 0:
 		#print "debug: lat or lon zero for longdata %x" % (longdata,)
@@ -208,7 +208,7 @@ def cpr_decode(icao24, encoded_lat, encoded_lon, cpr_format, evenlist, oddlist, 
 
 	else: #no LKP available
 		#print "debug: icao %x not found. attempting local decode." % icao24
-		[local_lat, local_lon] = cpr_resolve_local([my_lat, my_lon], [encoded_lat, encoded_lon], cpr_format, surface) #try local decoding
+		[local_lat, local_lon] = cpr_resolve_local(my_location, [encoded_lat, encoded_lon], cpr_format, surface) #try local decoding
 #		print "debug: local resolve gives %.6f, %.6f" % (local_lat, local_lon)
 		[rnge, bearing] = range_bearing([my_lat, my_lon], [local_lat, local_lon])
 		if rnge < validrange: #if the local decoding can be guaranteed valid

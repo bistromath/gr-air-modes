@@ -26,6 +26,9 @@ import modes_parse
 import math
 
 class modes_output_print(modes_parse.modes_parse):
+  def __init__(self, mypos):
+      modes_parse.modes_parse.__init__(self, mypos)
+      
   def parse(self, message):
     [msgtype, shortdata, longdata, parity, ecc, reference] = message.split()
 

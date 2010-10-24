@@ -31,7 +31,9 @@ longdata = long(sys.argv[2], 16)
 parity = long(sys.argv[3], 16)
 ecc = long(sys.argv[4], 16)
 
-[altitude, decoded_lat, decoded_lon, rnge, bearing] = parseBDS05(shortdata, longdata, parity, ecc)
+parser = modes_parse(my_location)
+
+[altitude, decoded_lat, decoded_lon, rnge, bearing] = parser.parseBDS06(shortdata, longdata, parity, ecc)
 
 if decoded_lat is not None:
 	print "Altitude: %i\nLatitude: %.6f\nLongitude: %.6f\nRange: %.2f\nBearing: %i\n" % (altitude, decoded_lat, decoded_lon, rnge, bearing,)

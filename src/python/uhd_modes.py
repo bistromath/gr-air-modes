@@ -180,7 +180,7 @@ if __name__ == '__main__':
         while queue.empty_p() == 0 :
           msg = queue.delete_head() #blocking read
 
-        for out in outputs:
+          for out in outputs:
             out(msg.to_string())
 
       elif runner.done:

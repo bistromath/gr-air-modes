@@ -186,7 +186,7 @@ class modes_parse:
 
     altitude = 0
 
-    [decoded_lat, decoded_lon, rnge, bearing] = cpr_decode(icao24, encoded_lat, encoded_lon, cpr_format, self._evenlist_ground, self._oddlist_ground, self._lkplist, 1, longdata)
+    [decoded_lat, decoded_lon, rnge, bearing] = cpr_decode(self.my_location, icao24, encoded_lat, encoded_lon, cpr_format, self._evenlist_ground, self._oddlist_ground, self._lkplist, 1, longdata)
 
     return [altitude, decoded_lat, decoded_lon, rnge, bearing]
 

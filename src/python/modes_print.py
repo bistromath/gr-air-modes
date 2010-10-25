@@ -39,8 +39,8 @@ class modes_output_print(modes_parse.modes_parse):
     reference = float(reference)
 
     msgtype = int(msgtype)
-
-    output = str("")
+    
+    output = None;
 
     if msgtype == 0:
       output = self.print0(shortdata, parity, ecc)
@@ -55,15 +55,14 @@ class modes_output_print(modes_parse.modes_parse):
     else:
       output = "No handler for message type " + str(msgtype) + " from " + str(ecc)
 
-
-    if reference == 0:
-        refdb = 0
+    if reference == 0.0:
+        refdb = 0.0
     else:
         refdb = 10.0*math.log10(reference)
         
-    output = "(%.0f) " % (refdb) + output
-
-    print output
+    if output is not None: 
+        output = "(%.0f) " % (refdb) + output
+        print output
 
   def print0(self, shortdata, parity, ecc):
     [vs, cc, sl, ri, altitude] = self.parse0(shortdata, parity, ecc)
@@ -126,7 +125,7 @@ class modes_output_print(modes_parse.modes_parse):
   def print17(self, shortdata, longdata, parity, ecc):
     icao24 = shortdata & 0xFFFFFF
     subtype = (longdata >> 51) & 0x1F;
-    
+
     retstr = None
 
     if subtype == 4:
@@ -135,9 +134,7 @@ class modes_output_print(modes_parse.modes_parse):
 
     elif subtype >= 5 and subtype <= 8:
       [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(shortdata, longdata, parity, ecc)
-      if decoded_lat==0: #no unambiguously valid position available
-        retstr = ""
-      else:
+      if decoded_lat is not None:
         retstr = "Type 17 subtype 06 (surface report) from " + "%x" % icao24 + " at (" + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ") (" + "%.2f" % rnge + " @ " + "%.0f" % bearing + ")"
 
     elif subtype >= 9 and subtype <= 18:
@@ -160,8 +157,8 @@ class modes_output_print(modes_parse.modes_parse):
         retstr = "Type 17 subtype 09-1 (track report) from " + "%x" % icao24 + " with velocity " + "%.0f" % velocity + "kt heading " + "%.0f" % heading + " VS " + "%.0f" % vert_spd
 
       else:
-        retstr = "BDS09 subtype " + str(subsubtype) + " not implemented"
+        retstr = "Type 17 subtype 09-%i" % (subsubtype) + " not implemented"
     else:
-      retstr = "Type 17, subtype " + str(subtype) + " not implemented"
+      retstr = "Type 17 subtype " + str(subtype) + " not implemented"
 
     return retstr

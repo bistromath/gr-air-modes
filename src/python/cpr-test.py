@@ -48,7 +48,10 @@ cpr_format = (longdata >> 34) & 1
 
 enc_alt = (longdata >> 36) & 0x0FFF
 
+[cpr_lat, cpr_lon] = cpr_resolve_local(my_location, [encoded_lat, encoded_lon], cpr_format, 1)
+
 print "Subtype: %i\nEncoded longitude: %x\nEncoded latitude: %x\nCPR format: %i\nEncoded altitude: %x\n" % (subtype, encoded_lon, encoded_lat, cpr_format, enc_alt,)
+print "Pos: %.6f %.6f" % (cpr_lat, cpr_lon)
 
 #print "First argument is order %i, second %i" % ((evendata >> 34) & 1, (odddata >> 34) & 1,)
 

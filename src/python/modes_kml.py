@@ -115,6 +115,12 @@ class modes_kml(threading.Thread):
                     trackstr += " %f, %f, %f" % (pos[4], pos[3], pos[2]*0.3048)
 
                 trackstr = string.lstrip(trackstr)
+            else:
+                alt = 0
+                metric_alt = 0
+                lat = 0
+                lon = 0
+                trackstr = str("")
 
             #now get metadata
             q = "select ident from ident where icao=%i" % icao

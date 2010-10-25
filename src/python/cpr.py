@@ -27,13 +27,13 @@ import math, time
 #this implements CPR position decoding.
 
 latz = 15
-nbits = 17
-my_lat = 37.76225 #update these later!
-my_lon = -122.44254
-#ER
-#my_lat = 37.40889176297184
-#my_lon = -122.07765340805054
 
+def nbits(surface):
+	return 17
+#	if surface == 1:
+#		return 19
+#	else:
+#		return 17
 
 def nz(ctype):
 	return 4 * latz - ctype
@@ -69,7 +69,7 @@ def dlon(declat_in, ctype, surface):
 
 def decode_lat(enclat, ctype, my_lat, surface):
 	tmp1 = dlat(ctype, surface)
-	tmp2 = float(enclat) / (2**nbits)
+	tmp2 = float(enclat) / (2**nbits(surface))
 	j = math.floor(my_lat/tmp1) + math.floor(0.5 + (mod(my_lat, tmp1) / tmp1) - tmp2)
 #	print "dlat gives " + "%.6f " % tmp1 + "with j = " + "%.6f " % j + " and tmp2 = " + "%.6f" % tmp2 + " given enclat " + "%x" % enclat
 
@@ -77,7 +77,7 @@ def decode_lat(enclat, ctype, my_lat, surface):
 
 def decode_lon(declat, enclon, ctype, my_lon, surface):
 	tmp1 = dlon(declat, ctype, surface)
-	tmp2 = float(enclon) / (2.0**nbits)
+	tmp2 = float(enclon) / (2.0**nbits(surface))
 	m = math.floor(my_lon / tmp1) + math.floor(0.5 + (mod(my_lon, tmp1) / tmp1) - tmp2)
 #	print "dlon gives " + "%.6f " % tmp1 + "with m = " + "%.6f " % m + " and tmp2 = " + "%.6f" % tmp2 + " given enclon " + "%x" % enclon
 
@@ -93,8 +93,6 @@ def mod(a, b):
 def cpr_resolve_local(my_location, encoded_location, ctype, surface):
 	[my_lat, my_lon] = my_location
 	[enclat, enclon] = encoded_location
-
-
 
 	decoded_lat = decode_lat(enclat, ctype, my_lat, surface)
 	decoded_lon = decode_lon(decoded_lat, enclon, ctype, my_lon, surface)
@@ -113,12 +111,12 @@ def cpr_resolve_global(evenpos, oddpos, mostrecent, surface): #ok this is consid
 
 	#print "Even position: %x, %x\nOdd position: %x, %x" % (evenpos[0], evenpos[1], oddpos[0], oddpos[1],)
 
-	j = math.floor(((59*evenpos[0] - 60*oddpos[0])/2**nbits) + 0.5) #latitude index
+	j = math.floor(((59*evenpos[0] - 60*oddpos[0])/2**nbits(surface)) + 0.5) #latitude index
 
 	#print "Latitude index: %i" % j #should be 6, getting 5?
 
-	rlateven = dlateven * (mod(j, 60)+evenpos[0]/2**nbits)
-	rlatodd  = dlatodd  * (mod(j, 59)+ oddpos[0]/2**nbits)
+	rlateven = dlateven * (mod(j, 60)+evenpos[0]/2**nbits(surface))
+	rlatodd  = dlatodd  * (mod(j, 59)+ oddpos[0]/2**nbits(surface))
 
 	#print "Rlateven: %f\nRlatodd: %f" % (rlateven, rlatodd,)
 
@@ -140,7 +138,7 @@ def cpr_resolve_global(evenpos, oddpos, mostrecent, surface): #ok this is consid
 
 	#print "ni is %i" % ni
 
-	m =  math.floor(((evenpos[1]*(nlthing-1)-oddpos[1]*(nlthing))/2**nbits)+0.5) #longitude index, THIS LINE IS CORRECT
+	m =  math.floor(((evenpos[1]*(nlthing-1)-oddpos[1]*(nlthing))/2**nbits(surface))+0.5) #longitude index, THIS LINE IS CORRECT
 	#print "m is %f" % m #should be -16
 
 
@@ -149,7 +147,7 @@ def cpr_resolve_global(evenpos, oddpos, mostrecent, surface): #ok this is consid
 	else:
 		enclon = oddpos[1]
 
-	rlon = dl * (mod(ni+m, ni)+enclon/2**nbits)
+	rlon = dl * (mod(ni+m, ni)+enclon/2**nbits(surface))
 
 	if rlon > 180:
 		rlon = rlon - 360.0
@@ -210,7 +208,7 @@ def cpr_decode(my_location, icao24, encoded_lat, encoded_lon, cpr_format, evenli
 		#print "debug: icao %x not found. attempting local decode." % icao24
 		[local_lat, local_lon] = cpr_resolve_local(my_location, [encoded_lat, encoded_lon], cpr_format, surface) #try local decoding
 #		print "debug: local resolve gives %.6f, %.6f" % (local_lat, local_lon)
-		[rnge, bearing] = range_bearing([my_lat, my_lon], [local_lat, local_lon])
+		[rnge, bearing] = range_bearing(my_location, [local_lat, local_lon])
 		if rnge < validrange: #if the local decoding can be guaranteed valid
 			#print "debug: range < 180nm, position valid."
 			lkplist[icao24] = [local_lat, local_lon, time.time()] #update the local position for next time
@@ -233,7 +231,7 @@ def cpr_decode(my_location, icao24, encoded_lat, encoded_lon, cpr_format, evenli
 
 	#print "settled on position: %.6f, %.6f" % (decoded_lat, decoded_lon,)
 	if decoded_lat is not None:
-		[rnge, bearing] = range_bearing([my_lat, my_lon], [decoded_lat, decoded_lon])
+		[rnge, bearing] = range_bearing(my_location, [decoded_lat, decoded_lon])
 	else:
 		rnge = None
 		bearing = None

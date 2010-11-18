@@ -54,11 +54,11 @@ class adsb_rx_block (gr.top_block):
     self.args = args
 
     if options.filename is None:
-      self.u = uhd.simple_source("", uhd.io_type_t.COMPLEX_FLOAT32)
+      self.u = uhd.single_usrp_source("", uhd.io_type_t.COMPLEX_FLOAT32)
 
-      if(options.rx_subdev_spec is None):
-        options.rx_subdev_spec = ""
-      self.u.set_subdev_spec(options.rx_subdev_spec)
+      #if(options.rx_subdev_spec is None):
+       # options.rx_subdev_spec = ""
+      #self.u.set_subdev_spec(options.rx_subdev_spec)
 
       rate = options.rate
       self.u.set_samp_rate(rate)
@@ -66,7 +66,7 @@ class adsb_rx_block (gr.top_block):
 
       if options.gain is None: #set to halfway
         g = self.u.get_gain_range()
-        options.gain = (g.min+g.max) / 2.0
+        options.gain = (g.start()+g.stop()) / 2.0
 
       if not(self.tune(options.freq)):
         print "Failed to set initial frequency"
@@ -89,34 +89,38 @@ class adsb_rx_block (gr.top_block):
     
     #the DBSRX especially tends to be spur-prone; the LPF keeps out the
     #spur multiple that shows up at 2MHz
-    self.filtcoeffs = gr.firdes.low_pass(1, rate, 1.8e6, 200e3)
-    self.filter = gr.fir_filter_fff(1, self.filtcoeffs)
+#    self.filtcoeffs = gr.firdes.low_pass(1, rate, 1.8e6, 200e3)
+#    self.filter = gr.fir_filter_fff(1, self.filtcoeffs)
     
     self.preamble = air.modes_preamble(rate, options.threshold)
     self.framer = air.modes_framer(rate)
     self.slicer = air.modes_slicer(rate, queue)
 
-    self.connect(self.u, self.demod, self.filter)
-    self.connect(self.filter, self.avg)
-    self.connect(self.filter, (self.preamble, 0))
-    self.connect(self.avg, (self.preamble, 1))
-    self.connect(self.filter, (self.framer, 0))
-    self.connect(self.preamble, (self.framer, 1))
-    self.connect(self.filter, (self.slicer, 0))
-    self.connect(self.framer, (self.slicer, 1))
+    #self.nullsink = gr.file_sink(gr.sizeof_gr_complex, "/dev/null")
+
+    #self.connect(self.u, self.nullsink)
+
+#    self.connect(self.u, self.demod, self.filter)
+#    self.connect(self.filter, self.avg)
+#    self.connect(self.filter, (self.preamble, 0))
+#    self.connect(self.avg, (self.preamble, 1))
+#    self.connect(self.filter, (self.framer, 0))
+#    self.connect(self.preamble, (self.framer, 1))
+#    self.connect(self.filter, (self.slicer, 0))
+#    self.connect(self.framer, (self.slicer, 1))
     
 #use this flowgraph instead to omit the filter
-#    self.connect(self.u, self.demod)
-#    self.connect(self.demod, self.avg)
-#    self.connect(self.demod, (self.preamble, 0))
-#    self.connect(self.avg, (self.preamble, 1))
-#    self.connect(self.demod, (self.framer, 0))
-#    self.connect(self.preamble, (self.framer, 1))
-#    self.connect(self.demod, (self.slicer, 0))
-#    self.connect(self.framer, (self.slicer, 1))
+    self.connect(self.u, self.demod)
+    self.connect(self.demod, self.avg)
+    self.connect(self.demod, (self.preamble, 0))
+    self.connect(self.avg, (self.preamble, 1))
+    self.connect(self.demod, (self.framer, 0))
+    self.connect(self.preamble, (self.framer, 1))
+    self.connect(self.demod, (self.slicer, 0))
+    self.connect(self.framer, (self.slicer, 1))
 
   def tune(self, freq):
-    result = self.u.set_center_freq(freq)
+    result = self.u.set_center_freq(freq, 0)
     return result
 
 if __name__ == '__main__':

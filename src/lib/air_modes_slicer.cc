@@ -31,6 +31,7 @@
 #include <iomanip>
 #include <modes_parity.h>
 #include <modes_energy.h>
+#include <gr_tag_info.h>
 
 extern "C"
 {
@@ -56,6 +57,14 @@ air_modes_slicer::air_modes_slicer(int channel_rate, gr_msg_queue_sptr queue) :
 	d_queue = queue;
 
 	set_output_multiple(1+d_check_width * 2); //how do you specify buffer size for sinks?
+}
+
+static bool pmtcompare(pmt::pmt_t x, pmt::pmt_t y)
+{
+  uint64_t t_x, t_y;
+  t_x = pmt::pmt_to_uint64(pmt::pmt_tuple_ref(x, 0));
+  t_y = pmt::pmt_to_uint64(pmt::pmt_tuple_ref(y, 0));
+  return t_x < t_y;
 }
 
 int air_modes_slicer::work(int noutput_items,
@@ -146,8 +155,48 @@ int air_modes_slicer::work(int noutput_items,
 				} else {
 					if(rx_packet.numlowconf < 24) rx_packet.lowconfbits[rx_packet.numlowconf++] = j;
 				}
-
 			}
+			
+			/******************** BEGIN TIMESTAMP BS ******************/
+			uint64_t abs_sample_cnt = nitems_read(0);
+			std::vector<pmt::pmt_t> tags;
+			
+			//printf("nitems_read: %i", abs_sample_cnt);
+			pmt::pmt_t timestamp = pmt::mp(pmt::mp(0), pmt::mp(0)); //so we don't barf if there isn't one
+			
+			get_tags_in_range(tags, 0, abs_sample_cnt, abs_sample_cnt + i);
+			//tags.back() is the most recent timestamp, then.
+			if(tags.size() > 0) {
+				std::sort(tags.begin(), tags.end(), pmtcompare);
+				
+				do {
+					timestamp = tags.back();
+					tags.pop_back();
+				} while(!pmt::pmt_eqv(gr_tags::get_key(timestamp), pmt::pmt_string_to_symbol("time"))); //only interested in timestamps
+			
+				uint64_t timestamp_secs = pmt_to_uint64(pmt_tuple_ref(timestamp, 0));
+				double timestamp_frac = pmt_to_double(pmt_tuple_ref(timestamp, 1));
+				uint64_t timestamp_sample = gr_tags::get_nitems(timestamp);
+				//now we have to offset the timestamp based on the current sample number
+				uint64_t timestamp_delta = (abs_sample_cnt + i) - timestamp_sample;
+			
+				timestamp_frac += timestamp_delta * (1.0 / (d_samples_per_chip * d_chip_rate));
+				if(timestamp_frac > 1.0) {
+					timestamp_frac -= 1.0;
+					timestamp_secs++;
+				}
+			
+				rx_packet.timestamp_secs = timestamp_secs;
+				rx_packet.timestamp_frac = timestamp_frac;
+			}
+			else {
+				rx_packet.timestamp_secs = 0;
+				rx_packet.timestamp_frac = 0;
+			}
+
+			/******************* END TIMESTAMP BS *********************/
+			
+			//increment for the next round
 			i += packet_length * d_samples_per_symbol;
 
 			//here you might want to traverse the whole packet and if you find all 0's, just toss it. don't know why these packets turn up, but they pass ECC.
@@ -237,7 +286,8 @@ int air_modes_slicer::work(int noutput_items,
 				}
 			}
 			
-			d_payload << " " << std::setw(6) << rx_packet.parity << " " << std::dec << rx_packet.reference_level;
+			d_payload << " " << std::setw(6) << rx_packet.parity << " " << std::dec << rx_packet.reference_level
+			          << " " << rx_packet.timestamp_secs << " " << rx_packet.timestamp_frac;
 
 			gr_message_sptr msg = gr_make_message_from_string(std::string(d_payload.str()));
 			d_queue->handle(msg);

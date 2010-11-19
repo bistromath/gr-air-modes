@@ -45,6 +45,7 @@ private:
 	int d_chip_rate;
 	int d_samples_per_chip;
 	int d_samples_per_symbol;
+	double d_secs_per_sample;
 	gr_msg_queue_sptr d_queue;
     std::ostringstream d_payload;
 

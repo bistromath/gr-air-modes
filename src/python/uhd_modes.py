@@ -79,7 +79,6 @@ class adsb_rx_block (gr.top_block):
       self.u = gr.file_source(gr.sizeof_gr_complex, options.filename)
 
     print "Rate is %i" % (rate,)
-    print "Gain is %i" % (self.u.get_gain(),)
     pass_all = 0
     if options.output_all :
       pass_all = 1

@@ -85,15 +85,15 @@ int air_modes_preamble::work(int noutput_items,
 
 			//the packets are so short we choose not to do any sort of closed-loop synchronization after this simple gating. if we get a good center sample, the drift should be negligible.
 
-			pulse_offsets[0] = i;
-			pulse_offsets[1] = i+int(1.0 * d_samples_per_symbol);
-			pulse_offsets[2] = i+int(3.5 * d_samples_per_symbol);
-			pulse_offsets[3] = i+int(4.5 * d_samples_per_symbol);
+			pulse_offsets[0] = 0;
+			pulse_offsets[1] = int(1.0 * d_samples_per_symbol);
+			pulse_offsets[2] = int(3.5 * d_samples_per_symbol);
+			pulse_offsets[3] = int(4.5 * d_samples_per_symbol);
 
-			bit_energies[0] = bit_energy(&inraw[pulse_offsets[0]], d_samples_per_chip);
-			bit_energies[1] = bit_energy(&inraw[pulse_offsets[1]], d_samples_per_chip);
-			bit_energies[2] = bit_energy(&inraw[pulse_offsets[2]], d_samples_per_chip);
-			bit_energies[3] = bit_energy(&inraw[pulse_offsets[3]], d_samples_per_chip);
+			bit_energies[0] = bit_energy(&inraw[i+pulse_offsets[0]], d_samples_per_chip);
+			bit_energies[1] = bit_energy(&inraw[i+pulse_offsets[1]], d_samples_per_chip);
+			bit_energies[2] = bit_energy(&inraw[i+pulse_offsets[2]], d_samples_per_chip);
+			bit_energies[3] = bit_energy(&inraw[i+pulse_offsets[3]], d_samples_per_chip);
 
 			//search for the rest of the pulses at their expected positions
 			if( bit_energies[1] < pulse_threshold) continue;
@@ -128,40 +128,25 @@ int air_modes_preamble::work(int noutput_items,
 			//just for kicks, after validating a preamble, you might want to use all four peaks to form a more accurate "average" center sample time, so that if noise corrupts the first leading edge
 			//sample, you don't mis-sample the entire packet.
 
-			//this could also be done in a separate packet, although it probably saves CPU to do it here
-			//for the 2 samples per chip case, you can just add up the peaks at the expected peak times, then do the same for +1, and -1.
+			//this could also be done in a separate block, although it probably saves CPU to do it here
+			//for the 2 samples per chip case, you can just add up the peaks at the expected peak times, then do the same for +1.
 		if(valid_preamble) {
-
-				gate_sum_now = bit_energies[0] + bit_energies[1] + bit_energies[2] + bit_energies[3];
-//				gate_sum_early = bit_energy(&inraw[pulse_offsets[0]-1], d_samples_per_chip)
-//											 + bit_energy(&inraw[pulse_offsets[1]-1], d_samples_per_chip)
-//											 + bit_energy(&inraw[pulse_offsets[2]-1], d_samples_per_chip)
-//											 + bit_energy(&inraw[pulse_offsets[3]-1], d_samples_per_chip);
-				gate_sum_late =  bit_energy(&inraw[pulse_offsets[0]+1], d_samples_per_chip)
-											 + bit_energy(&inraw[pulse_offsets[1]+1], d_samples_per_chip)
-											 + bit_energy(&inraw[pulse_offsets[2]+1], d_samples_per_chip)
-											 + bit_energy(&inraw[pulse_offsets[3]+1], d_samples_per_chip);
-/*
-			if(d_samples_per_chip <= 2) {
-				gate_sum_now   = inraw[pulse_offsets[0]+0] + inraw[pulse_offsets[1]+0] + inraw[pulse_offsets[2]+0] + inraw[pulse_offsets[3]+0];
-				gate_sum_early = inraw[pulse_offsets[0]-1] + inraw[pulse_offsets[1]-1] + inraw[pulse_offsets[2]-1] + inraw[pulse_offsets[3]-1];
-				gate_sum_late  = inraw[pulse_offsets[0]+1] + inraw[pulse_offsets[1]+1] + inraw[pulse_offsets[2]+1] + inraw[pulse_offsets[3]+1];
-			} else {
-				for(int j = 1-d_samples_per_chip/2; j < d_samples_per_chip/2; j++) {
-					gate_sum_now +=   inraw[j+pulse_offsets[0]+0] + inraw[j+pulse_offsets[1]+0] + inraw[j+pulse_offsets[2]+0] + inraw[j+pulse_offsets[3]+0];
-					gate_sum_early += inraw[j+pulse_offsets[0]-1] + inraw[j+pulse_offsets[1]-1] + inraw[j+pulse_offsets[2]-1] + inraw[j+pulse_offsets[3]-1];
-					gate_sum_late +=  inraw[j+pulse_offsets[0]+1] + inraw[j+pulse_offsets[1]+1] + inraw[j+pulse_offsets[2]+1] + inraw[j+pulse_offsets[3]+1];
-				}
-			}
-*/
-//			if(gate_sum_early > gate_sum_now) { //i think this is redundant
-//				outattrib[i-1] = 1;
-//			}
-			/*else*/ if(gate_sum_late > gate_sum_now) {
-				outattrib[i+1] = 1;
-				i+=1; //so we skip the next one and don't overwrite it
-			}
-			else outattrib[i] = 1;
+			i--;
+			do {
+				i++;
+				gate_sum_now =  bit_energy(&inraw[i+pulse_offsets[0]], d_samples_per_chip)
+							  + bit_energy(&inraw[i+pulse_offsets[1]], d_samples_per_chip)
+						      + bit_energy(&inraw[i+pulse_offsets[2]], d_samples_per_chip)
+							  + bit_energy(&inraw[i+pulse_offsets[3]], d_samples_per_chip);
+				
+				
+				gate_sum_late =  bit_energy(&inraw[i+pulse_offsets[0]+1], d_samples_per_chip)
+							   + bit_energy(&inraw[i+pulse_offsets[1]+1], d_samples_per_chip)
+							   + bit_energy(&inraw[i+pulse_offsets[2]+1], d_samples_per_chip)
+							   + bit_energy(&inraw[i+pulse_offsets[3]+1], d_samples_per_chip);
+			} while(gate_sum_late > gate_sum_now);
+			
+			outattrib[i] = 1;
 
 		} else outattrib[i] = 0;
 	}

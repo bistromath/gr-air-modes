@@ -167,7 +167,7 @@ int air_modes_slicer::work(int noutput_items,
 			uint64_t timestamp_secs, timestamp_sample, timestamp_delta;
 			double timestamp_frac;
 			
-			pmt::pmt_t timestamp = pmt::mp(pmt::mp(0), pmt::mp(0)); //so we don't barf if there isn't one
+			pmt::pmt_t timestamp;
 			
 			get_tags_in_range(tags, 0, abs_sample_cnt, abs_sample_cnt + i, pmt::pmt_string_to_symbol("packet_time_stamp"));
 			//tags.back() is the most recent timestamp, then.

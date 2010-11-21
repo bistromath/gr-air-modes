@@ -86,8 +86,6 @@ int air_modes_slicer::work(int noutput_items,
 			int packet_length = 112;
 			if(inattrib[i] == framer_packet_type(Short_Packet)) packet_length = 56;
 
-			//printf("Packet received from framer w/length %i\n", packet_length);
-
 			rx_packet.type = framer_packet_type(inattrib[i]);
 			memset(&rx_packet.data, 0x00, 14 * sizeof(unsigned char));
 			memset(&rx_packet.lowconfbits, 0x00, 24 * sizeof(unsigned char));

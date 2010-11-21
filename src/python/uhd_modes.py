@@ -73,12 +73,14 @@ class adsb_rx_block (gr.top_block):
 
       print "Setting gain to %i" % (options.gain,)
       self.u.set_gain(options.gain)
+      print "Gain is %i" % (self.u.get_gain(),)
 
     else:
       rate = options.rate
       self.u = gr.file_source(gr.sizeof_gr_complex, options.filename)
 
     print "Rate is %i" % (rate,)
+
     pass_all = 0
     if options.output_all :
       pass_all = 1
@@ -113,8 +115,7 @@ class adsb_rx_block (gr.top_block):
     self.connect(self.demod, self.avg)
     self.connect(self.demod, (self.preamble, 0))
     self.connect(self.avg, (self.preamble, 1))
-    self.connect(self.demod, (self.framer, 0))
-    self.connect(self.preamble, (self.framer, 1))
+    self.connect((self.preamble, 0), (self.framer, 0))
     self.connect(self.demod, (self.slicer, 0))
     self.connect(self.framer, (self.slicer, 1))
 

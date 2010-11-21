@@ -96,28 +96,13 @@ class adsb_rx_block (gr.top_block):
     self.preamble = air.modes_preamble(rate, options.threshold)
     self.framer = air.modes_framer(rate)
     self.slicer = air.modes_slicer(rate, queue)
-
-    #self.nullsink = gr.file_sink(gr.sizeof_gr_complex, "/dev/null")
-
-    #self.connect(self.u, self.nullsink)
-
-#    self.connect(self.u, self.demod, self.filter)
-#    self.connect(self.filter, self.avg)
-#    self.connect(self.filter, (self.preamble, 0))
-#    self.connect(self.avg, (self.preamble, 1))
-#    self.connect(self.filter, (self.framer, 0))
-#    self.connect(self.preamble, (self.framer, 1))
-#    self.connect(self.filter, (self.slicer, 0))
-#    self.connect(self.framer, (self.slicer, 1))
     
-#use this flowgraph instead to omit the filter
     self.connect(self.u, self.demod)
     self.connect(self.demod, self.avg)
     self.connect(self.demod, (self.preamble, 0))
     self.connect(self.avg, (self.preamble, 1))
     self.connect((self.preamble, 0), (self.framer, 0))
-    self.connect(self.demod, (self.slicer, 0))
-    self.connect(self.framer, (self.slicer, 1))
+    self.connect(self.framer, self.slicer)
 
   def tune(self, freq):
     result = self.u.set_center_freq(freq, 0)

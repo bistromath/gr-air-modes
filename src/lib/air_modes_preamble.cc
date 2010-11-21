@@ -51,7 +51,7 @@ air_modes_preamble::air_modes_preamble(int channel_rate, float threshold_db) :
 	str << name() << unique_id();
 	d_me = pmt::pmt_string_to_symbol(str.str());
 	d_key = pmt::pmt_string_to_symbol("preamble_found");
-	//set_history(d_check_width);
+	set_history(d_check_width);
 }
 
 int air_modes_preamble::work(int noutput_items,
@@ -64,7 +64,7 @@ int air_modes_preamble::work(int noutput_items,
 	
 	float *outraw = (float *) output_items[0];
 
-	int size = noutput_items - d_check_width;
+	int size = noutput_items;// - d_check_width;
 	int pulse_offsets[4];
 	float bit_energies[4];
 	

@@ -40,7 +40,7 @@ air_modes_framer_sptr air_make_modes_framer(int channel_rate)
 air_modes_framer::air_modes_framer(int channel_rate) :
     gr_sync_block ("modes_framer",
                    gr_make_io_signature (1, 1, sizeof(float)), //stream 0 is received data
-                   gr_make_io_signature (1, 1, sizeof(unsigned char))) //output is [0, 1, 2]: [no frame, short frame, long frame]
+                   gr_make_io_signature (1, 1, sizeof(float))) //raw samples passed back out
 {
 	//initialize private data here
 	d_chip_rate = 2000000; //2Mchips per second
@@ -49,6 +49,11 @@ air_modes_framer::air_modes_framer(int channel_rate) :
 	d_check_width = 120 * d_samples_per_symbol; //gotta be able to look at two long frame lengths at a time
 												//in the event that FRUIT occurs near the end of the first frame
 	//set_history(d_check_width*2);
+	
+	std::stringstream str;
+	str << name() << unique_id();
+	d_me = pmt::pmt_string_to_symbol(str.str());
+	d_key = pmt::pmt_string_to_symbol("frame_info");
 }
 
 int air_modes_framer::work(int noutput_items,
@@ -57,8 +62,8 @@ int air_modes_framer::work(int noutput_items,
 {
 	//do things!
 	const float *inraw = (const float *) input_items[0];
-	//float *outraw = (float *) output_items[0];
-	unsigned char *outattrib = (unsigned char *) output_items[0];
+	float *outraw = (float *) output_items[0];
+	//unsigned char *outattrib = (unsigned char *) output_items[0];
 	int size = noutput_items - d_check_width*2;
 	float reference_level;
 	framer_packet_type packet_attrib;
@@ -68,7 +73,7 @@ int air_modes_framer::work(int noutput_items,
 	get_tags_in_range(tags, 0, abs_sample_cnt, abs_sample_cnt + size, pmt::pmt_string_to_symbol("preamble_found"));
 	std::vector<pmt::pmt_t>::iterator tag_iter;
 	
-	memset(outattrib, 0x00, size * sizeof(unsigned char));
+	memcpy(outraw, inraw, size * sizeof(float));
 	
 	for(tag_iter = tags.begin(); tag_iter != tags.end(); tag_iter++) {
 		uint64_t i = gr_tags::get_nitems(*tag_iter) - abs_sample_cnt;
@@ -106,7 +111,13 @@ int air_modes_framer::work(int noutput_items,
 		get_tags_in_range(fruit_tags, 0, abs_sample_cnt+i+1, abs_sample_cnt+i+lookahead, pmt::pmt_string_to_symbol("preamble_found"));
 		if(fruit_tags.size() > 0) packet_attrib = Fruited_Packet;
 		
-		outattrib[i] = packet_attrib;
+		//insert tag here
+		add_item_tag(0, //stream ID
+					 nitems_written(0)+i, //sample
+					 d_key,      //preamble_found
+			         pmt::pmt_from_long((long)packet_attrib),
+			         d_me        //block src id
+			        );
 	}
 
 	return size;

@@ -54,7 +54,7 @@ class adsb_rx_block (gr.top_block):
     self.args = args
 
     if options.filename is None:
-      self.u = uhd.simple_source("", uhd.io_type_t.COMPLEX_FLOAT32)
+      self.u = uhd.single_source("", uhd.io_type_t.COMPLEX_FLOAT32)
 
       if(options.rx_subdev_spec is None):
         options.rx_subdev_spec = ""
@@ -79,7 +79,7 @@ class adsb_rx_block (gr.top_block):
       self.u = gr.file_source(gr.sizeof_gr_complex, options.filename)
 
     print "Rate is %i" % (rate,)
-    print "Gain is %i" % (self.u.get_gain(),)
+    
     pass_all = 0
     if options.output_all :
       pass_all = 1

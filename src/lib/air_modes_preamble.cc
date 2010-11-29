@@ -125,10 +125,10 @@ int air_modes_preamble::work(int noutput_items,
 			bool early, late;
 			do {
 				early = late = false;
-				gate_sum_early= bit_energy(&inraw[i+pulse_offsets[0]-1], d_samples_per_chip)
-							  + bit_energy(&inraw[i+pulse_offsets[1]-1], d_samples_per_chip)
-						      + bit_energy(&inraw[i+pulse_offsets[2]-1], d_samples_per_chip)
-							  + bit_energy(&inraw[i+pulse_offsets[3]-1], d_samples_per_chip);
+				//gate_sum_early= bit_energy(&inraw[i+pulse_offsets[0]-1], d_samples_per_chip)
+				//			  + bit_energy(&inraw[i+pulse_offsets[1]-1], d_samples_per_chip)
+				//		      + bit_energy(&inraw[i+pulse_offsets[2]-1], d_samples_per_chip)
+				//			  + bit_energy(&inraw[i+pulse_offsets[3]-1], d_samples_per_chip);
 							  
 				gate_sum_now =  bit_energy(&inraw[i+pulse_offsets[0]], d_samples_per_chip)
 							  + bit_energy(&inraw[i+pulse_offsets[1]], d_samples_per_chip)
@@ -146,7 +146,7 @@ int air_modes_preamble::work(int noutput_items,
 				//else if(early) i--;
 				//if(early && late) early = late = false;
 			} while(late);
-	
+
 			//finally after all this, let's post the preamble!
 			add_item_tag(0, //stream ID
 			             nitems_written(0)+i, //sample

@@ -230,38 +230,25 @@ int air_modes_slicer::work(int noutput_items,
 		rx_packet.parity = modes_check_parity(rx_packet.data, packet_length);
 
 		if(rx_packet.parity && rx_packet.type == Long_Packet) {
-//			long before = rx_packet.parity;
 			bruteResultTypeDef bruteResult = modes_ec_brute(rx_packet);
 
 			if(bruteResult == No_Solution) {
-				//printf("No solution!\n");
 				continue;
 			} else if(bruteResult == Multiple_Solutions) {
-//				printf("Multiple solutions!\n");
 				continue;
 			} else if(bruteResult == Too_Many_LCBs) {
-				//printf("Too many LCBs (%i)!\n", rx_packet.numlowconf);
 				continue;
 			} else if(bruteResult == No_Error) {
-//				printf("No error!\n");
 			} else if(bruteResult == Solution_Found) {
 //				printf("Solution found for %i LCBs!\n", rx_packet.numlowconf);
 			}
-//			rx_packet.parity = modes_check_parity(rx_packet.data, packet_length);
-//			if(rx_packet.parity) printf("Error: packet fails parity check after correction, was %x, now %x\n", before, rx_packet.parity);
 		}
 
-//		if(rx_packet.parity && rx_packet.type == Long_Packet) printf("Error! Bad packet forwarded to the queue.\n");
-		//now we have a complete packet with confidence data, let's print it to the message queue
-		//here, rather than send the entire packet, since we've already done parity checking and ECC in C++, we'll
-		//send just the data (no confidence bits), separated into fields for easier parsing.
 		//we'll replicate some data by sending the message type as the first field, followed by the first 8+24=32 bits of the packet, followed by
 		//56 long packet data bits if applicable (zero-padded if not), followed by parity
 
 		d_payload.str("");
-
 		d_payload << std::dec << std::setw(2) << std::setfill('0') << rx_packet.message_type << std::hex << " ";
-
 		for(int m = 0; m < 4; m++) {
 			d_payload << std::setw(2) << std::setfill('0') << unsigned(rx_packet.data[m]);
 		}

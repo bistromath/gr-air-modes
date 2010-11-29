@@ -54,7 +54,7 @@ class adsb_rx_block (gr.top_block):
     self.args = args
 
     if options.filename is None:
-      self.u = uhd.single_source("", uhd.io_type_t.COMPLEX_FLOAT32)
+      self.u = uhd.single_usrp_source("", uhd.io_type_t.COMPLEX_FLOAT32)
 
       if(options.rx_subdev_spec is None):
         options.rx_subdev_spec = ""

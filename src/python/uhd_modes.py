@@ -116,7 +116,7 @@ class adsb_rx_block (gr.top_block):
 #    self.connect(self.framer, (self.slicer, 1))
 
   def tune(self, freq):
-    result = self.u.set_center_freq(freq)
+    result = self.u.set_center_freq(freq, 0)
     return result
 
 if __name__ == '__main__':

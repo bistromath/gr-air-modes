@@ -153,8 +153,15 @@ teststamps   = [10,
                ]
 
 #this function is the iterative solver core of the mlat function below
-def mlat_iter(rel_stations, prange_obs, xguess = [0,0,0], numrounds = 10):
-    for i in range(0,numrounds):
+#we use limit as a goal to stop solving when we get "close enough" (error magnitude in meters for that iteration)
+#basically 20 meters is way less than the anticipated error of the system so it doesn't make sense to continue
+#it's possible this could fail in situations where the solution converges slowly
+#because the change in ERROR is not necessarily the error itself
+#still, it should converge quickly when close, so it SHOULDN'T give more than 2-3x the precision in total error
+def mlat_iter(rel_stations, prange_obs, xguess = [0,0,0], limit = 20, maxrounds = 50):
+    xerr = [1e9, 1e9, 1e9]
+    rounds = 0
+    while numpy.linalg.norm(xerr) > limit:
         prange_est = []
         for station in rel_stations:
             prange_est.append([numpy.linalg.norm(station - xguess)])
@@ -166,18 +173,28 @@ def mlat_iter(rel_stations, prange_obs, xguess = [0,0,0], numrounds = 10):
         #now we have H, the Jacobian, and can solve for residual error
         xerr = numpy.dot(numpy.linalg.solve(numpy.dot(H.T,H), H.T), dphat).flatten()
         xguess += xerr
+        rounds += 1
+        if rounds > maxrounds:
+            raise Exception("Failed to converge!")
+            break
     return xguess
 
 #func mlat:
 #uses a modified GPS pseudorange solver to locate aircraft by multilateration.
-#stations is a list of listening station positions in X,Y,Z ECEF format, geoid corrected
-#timestamps is a list of times at which the correlated squitters were heard
+#replies is a list of reports, in ([lat, lon, alt], timestamp) format
 #altitude is the barometric altitude of the aircraft as returned by the aircraft
 #returns the estimated position of the aircraft in (lat, lon, alt) geoid-corrected WGS84.
-def mlat(stations, timestamps, altitude):
-    if len(timestamps) != len(stations): 
-        raise Exception("Must have x timestamps for x stations reporting!")
+#let's make it take a list of tuples so we can sort by them
+def mlat(replies, altitude):
+    sorted_replies = sorted(replies, key=lambda time: time[1])
 
+    stations = []
+    timestamps = []
+    #i really couldn't figure out how to unpack this, sorry
+    for i in range(0, len(replies)):
+        stations.append( sorted_replies[i][0] )
+        timestamps.append( sorted_replies[i][1] )
+    
     me_llh = stations[0]
     me = llh2geoid(stations[0])
     

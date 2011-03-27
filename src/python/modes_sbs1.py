@@ -54,34 +54,87 @@ class modes_output_sbs1(modes_parse.modes_parse):
 
   def __del__(self):
     self._s.close()
-            
+
+  def current_time(self):
+    timenow = datetime.now()
+    return [timenow.strftime("%Y/%m/%d"), timenow.strftime("%H:%M:%S.000")]
+
+  def decode_fs(self, fs):
+    if fs == 0:
+      return "0,0,0,0"
+    elif fs == 1:
+      return "0,0,0,1"
+    elif fs == 2:
+      return "1,0,0,0"
+    elif fs == 3:
+      return "1,0,0,1"
+    elif fs == 4:
+      return "1,0,0,"
+    elif fs == 5:
+      return "0,0,0,"
+    else:
+      return ",,,"
+
   def parse(self, message):
     #assembles a SBS-1-style output string from the received message
-    #this version ignores anything that isn't Type 17 for now, because we just don't care
 
-    [msgtype, shortdata, longdata, parity, ecc, reference, time] = message.split()
+    [msgtype, shortdata, longdata, parity, ecc, reference, timestamp] = message.split()
 
     shortdata = long(shortdata, 16)
     longdata = long(longdata, 16)
     parity = long(parity, 16)
     ecc = long(ecc, 16)
     msgtype = int(msgtype)
-
     outmsg = None
 
-    if msgtype == 17:
-        outmsg = self.pp17(shortdata, longdata, parity, ecc)
-
+    if msgtype == 0:
+      outmsg = self.pp0(shortdata, parity, ecc)
+    elif msgtype == 4:
+      outmsg = self.pp4(shortdata, parity, ecc)
+    elif msgtype == 5:
+      outmsg = self.pp5(shortdata, parity, ecc)
+    elif msgtype == 11:
+      outmsg = self.pp11(shortdata, parity, ecc)
+    elif msgtype == 17:
+      outmsg = self.pp17(shortdata, longdata, parity, ecc)
     return outmsg
+
+  def pp0(self, shortdata, parity, ecc):
+    [datestr, timestr] = self.current_time()
+    [vs, cc, sl, ri, altitude] = self.parse0(shortdata, parity, ecc)
+    retstr = "MSG,7,0,0,0,0,%s,%s,%s,%s,,%s,,,,,,,,,," % (datestr,timestr,datestr,timestr,altitude)
+    if vs:
+      retstr += "1\n"
+    else:
+      retstr += "0\n"
+    return retstr
+
+  def pp4(self, shortdata, parity, ecc):
+    [datestr, timestr] = self.current_time()
+    [fs, dr, um, altitude] = self.parse4(shortdata, parity, ecc)
+    retstr = "MSG,5,0,0,0,0,%s,%s,%s,%s,,%s,,,,,,," % (datestr,timestr,datestr,timestr,altitude)
+    return retstr + self.decode_fs(fs) + "\n"
+
+  def pp5(self, shortdata, parity, ecc):
+    # I'm not sure what to do with the identiifcation shortdata & 0x1FFF
+    [datestr, timestr] = self.current_time()
+    [fs, dr, um] = self.parse5(shortdata, parity, ecc)
+    retstr = "MSG,6,0,0,0,0,%s,%s,%s,%s,,,,,,,,," % (datestr,timestr,datestr,timestr)
+    return retstr + self.decode_fs(fs) + "\n"
+
+  def pp11(self, shortdata, parity, ecc):
+    [datestr, timestr] = self.current_time()
+    [icao24, interrogator, ca] = self.parse11(shortdata, parity, ecc)
+    return "MSG,8,0,0,%X,0,%s,%s,%s,%s,,,,,,,,,,,,\n" % (icao24,datestr,timestr,datestr,timestr)
 
   def pp17(self, shortdata, longdata, parity, ecc):
     icao24 = shortdata & 0xFFFFFF	
     subtype = (longdata >> 51) & 0x1F
 
     retstr = None
-    timenow = datetime.now()
-    datestr = timenow.strftime("%Y/%m/%d")
-    timestr = timenow.strftime("%H:%M:%S.000") #we'll get better timestamps later, hopefully with actual VRT time in them
+    #we'll get better timestamps later, hopefully with actual VRT time
+    #in them
+    [datestr, timestr] = self.current_time()
 
     if subtype == 4:
       msg = self.parseBDS08(shortdata, longdata, parity, ecc)
@@ -94,7 +147,10 @@ class modes_output_sbs1(modes_parse.modes_parse):
       else:
         retstr = "MSG,3,0,0,%X,0,%s,%s,%s,%s,,%i,,,%.5f,%.5f,,,,0,0,0\n" % (icao24, datestr, timestr, datestr, timestr, altitude, decoded_lat, decoded_lon)
 
-    elif subtype >= 9 and subtype <= 18 and subtype != 15: #i'm eliminating type 15 records because they don't appear to be valid position reports.
+    elif subtype >= 9 and subtype <= 18 and subtype != 15:
+      # WRONG (rnge, bearing)
+      # i'm eliminating type 15 records because they don't appear to be
+      # valid position reports.
       [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(shortdata, longdata, parity, ecc)
       if decoded_lat is None: #no unambiguously valid position available
         retstr = None
@@ -102,6 +158,7 @@ class modes_output_sbs1(modes_parse.modes_parse):
         retstr = "MSG,3,0,0,%X,0,%s,%s,%s,%s,,%i,,,%.5f,%.5f,,,,0,0,0\n" % (icao24, datestr, timestr, datestr, timestr, altitude, decoded_lat, decoded_lon)
 
     elif subtype == 19:
+      # WRONG (heading, vert_spd)
       subsubtype = (longdata >> 48) & 0x07
       if subsubtype == 0:
         [velocity, heading, vert_spd] = self.parseBDS09_0(shortdata, longdata, parity, ecc)
@@ -110,8 +167,5 @@ class modes_output_sbs1(modes_parse.modes_parse):
       elif subsubtype == 1:
         [velocity, heading, vert_spd] = self.parseBDS09_1(shortdata, longdata, parity, ecc)
         retstr = "MSG,4,0,0,%X,0,%s,%s,%s,%s,,,%.1f,%.1f,,,%i,,,,,\n" % (icao24, datestr, timestr, datestr, timestr, velocity, heading, vert_spd)
-
-    #else:
-      #print "debug (modes_sbs1): unknown subtype %i with data %x %x %x\n" % (subtype, shortdata, longdata, parity,)
 
     return retstr

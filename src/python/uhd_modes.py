@@ -19,7 +19,8 @@
 # Boston, MA 02110-1301, USA.
 # 
 
-my_position = [37.76225, -122.44254]
+#my_position = [37.76225, -122.44254]
+my_position = [37.409066,-122.077836]
 
 from gnuradio import gr, gru, optfir, eng_notation, blks2, air
 from gnuradio import uhd

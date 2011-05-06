@@ -59,7 +59,7 @@ class modes_output_sbs1(modes_parse.modes_parse):
     #assembles a SBS-1-style output string from the received message
     #this version ignores anything that isn't Type 17 for now, because we just don't care
 
-    [msgtype, shortdata, longdata, parity, ecc, reference] = message.split()
+    [msgtype, shortdata, longdata, parity, ecc, reference, time_secs, time_frac] = message.split()
 
     shortdata = long(shortdata, 16)
     longdata = long(longdata, 16)

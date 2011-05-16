@@ -47,6 +47,7 @@ private:
 	int d_samples_per_symbol;
 	float d_threshold_db;
 	float d_threshold;
+	pmt::pmt_t d_me, d_key;
 
 public:
     int work (int noutput_items,

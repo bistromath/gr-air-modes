@@ -44,6 +44,7 @@ private:
 	int d_chip_rate;
 	int d_samples_per_chip;
 	int d_samples_per_symbol;
+	pmt::pmt_t d_me, d_key;
 
 public:
     int work (int noutput_items,

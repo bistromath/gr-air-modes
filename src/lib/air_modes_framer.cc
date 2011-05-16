@@ -28,6 +28,9 @@
 #include <gr_io_signature.h>
 #include <air_modes_types.h>
 #include <modes_energy.h>
+#include <gr_tag_info.h>
+#include <iostream>
+#include <string.h>
 
 air_modes_framer_sptr air_make_modes_framer(int channel_rate)
 {
@@ -36,16 +39,21 @@ air_modes_framer_sptr air_make_modes_framer(int channel_rate)
 
 air_modes_framer::air_modes_framer(int channel_rate) :
     gr_sync_block ("modes_framer",
-                   gr_make_io_signature2 (2, 2, sizeof(float), sizeof(unsigned char)), //stream 0 is received data, stream 1 is binary preamble detector output
-                   gr_make_io_signature (1, 1, sizeof(unsigned char))) //output is [0, 1, 2]: [no frame, short frame, long frame]
+                   gr_make_io_signature (1, 1, sizeof(float)), //stream 0 is received data
+                   gr_make_io_signature (1, 1, sizeof(float))) //raw samples passed back out
 {
 	//initialize private data here
 	d_chip_rate = 2000000; //2Mchips per second
 	d_samples_per_chip = channel_rate / d_chip_rate; //must be integer number of samples per chip to work
 	d_samples_per_symbol = d_samples_per_chip * 2;
-	d_check_width = 120 * d_samples_per_symbol; //gotta be able to look at two long frame lengths at a time in the event that FRUIT occurs near the end of the first frame
-
-	set_output_multiple(1+d_check_width*2);
+	d_check_width = 120 * d_samples_per_symbol; //gotta be able to look at two long frame lengths at a time
+												//in the event that FRUIT occurs near the end of the first frame
+	//set_history(d_check_width*2);
+	
+	std::stringstream str;
+	str << name() << unique_id();
+	d_me = pmt::pmt_string_to_symbol(str.str());
+	d_key = pmt::pmt_string_to_symbol("frame_info");
 }
 
 int air_modes_framer::work(int noutput_items,
@@ -54,60 +62,62 @@ int air_modes_framer::work(int noutput_items,
 {
 	//do things!
 	const float *inraw = (const float *) input_items[0];
-	const unsigned char *inattrib = (const unsigned char *) input_items[1];
-	
-	//float *outraw = (float *) output_items[0];
-	unsigned char *outattrib = (unsigned char *) output_items[0];
-
-	int size = noutput_items - d_check_width; //need to be able to look ahead a full frame
-
-	float reference_level = 0;
+	float *outraw = (float *) output_items[0];
+	//unsigned char *outattrib = (unsigned char *) output_items[0];
+	int size = noutput_items - d_check_width*2;
+	float reference_level;
 	framer_packet_type packet_attrib;
-
-	for(int i = 0; i < size; i++) {
-
-		packet_attrib = No_Packet;
-
-		if(!inattrib[i]) {
-			outattrib[i] = packet_attrib;
-			continue; //if there's no preamble marker, forget it, move on
-		}
-
+	std::vector<pmt::pmt_t> tags;
+	
+	uint64_t abs_sample_cnt = nitems_read(0);
+	get_tags_in_range(tags, 0, abs_sample_cnt, abs_sample_cnt + size, pmt::pmt_string_to_symbol("preamble_found"));
+	std::vector<pmt::pmt_t>::iterator tag_iter;
+	
+	memcpy(outraw, inraw, size * sizeof(float));
+	
+	for(tag_iter = tags.begin(); tag_iter != tags.end(); tag_iter++) {
+		uint64_t i = gr_tags::get_nitems(*tag_iter) - abs_sample_cnt;
 		//first, assume we have a long packet
 		packet_attrib = Long_Packet;
 
 		//let's use the preamble marker to get a reference level for the packet
 		reference_level = (bit_energy(&inraw[i], d_samples_per_chip) 
-										 + bit_energy(&inraw[i+int(1.0*d_samples_per_symbol)], d_samples_per_chip) 
-										 + bit_energy(&inraw[i+int(3.5*d_samples_per_symbol)], d_samples_per_chip) 
-										 + bit_energy(&inraw[i+int(4.5*d_samples_per_symbol)], d_samples_per_chip)) / 4;
-
+                         + bit_energy(&inraw[i+int(1.0*d_samples_per_symbol)], d_samples_per_chip) 
+                         + bit_energy(&inraw[i+int(3.5*d_samples_per_symbol)], d_samples_per_chip) 
+                         + bit_energy(&inraw[i+int(4.5*d_samples_per_symbol)], d_samples_per_chip)) / 4;
+		
 		//armed with our reference level, let's look for marks within 3dB of the reference level in bits 57-62 (65-70, see above)
 		//if bits 57-62 have marks in either chip, we've got a long packet
 		//otherwise we have a short packet
-
 		//NOTE: you can change the default here to be short packet, and then check for a long packet. don't know which way is better.
-
 		for(int j = (65 * d_samples_per_symbol); j < (70 * d_samples_per_symbol); j += d_samples_per_symbol) {
-			float t_max = (bit_energy(&inraw[i+j], d_samples_per_chip) > bit_energy(&inraw[i+j+d_samples_per_chip], d_samples_per_chip)) ? bit_energy(&inraw[i+j], d_samples_per_chip) : bit_energy(&inraw[i+j+d_samples_per_chip], d_samples_per_chip);
-			if(t_max < (reference_level / 2)) packet_attrib = Short_Packet;
+			float t_max = std::max(bit_energy(&inraw[i+j], d_samples_per_chip), 
+			                       bit_energy(&inraw[i+j+d_samples_per_chip], d_samples_per_chip)
+			                      );
+			if(t_max < (reference_level / 2.0)) packet_attrib = Short_Packet;
 		}
-
-		//BUT: we must also loop through the entire packet to make sure it is clear of additional preamble markers! if it has another preamble marker, it's been FRUITed, and we must only
+		
+		//BUT: we must also loop through the entire packet to make sure it is clear of additional preamble markers! 
+		//if it has another preamble marker, it's been FRUITed, and we must only
 		//mark the new packet (i.e., just continue).
 
 		int lookahead;
-		if(packet_attrib == Long_Packet) lookahead = 112;
-		else lookahead = 56;
+		if(packet_attrib == Long_Packet) lookahead = 112 * d_samples_per_symbol;
+		else lookahead = 56 * d_samples_per_symbol;
 
-		for(int j = i+1; j < i+(lookahead * d_samples_per_symbol); j++) {
-			if(inattrib[j]) packet_attrib = Fruited_Packet; //FRUITed by mode S! in this case, we drop this first packet
-			//if(inraw[j] > (reference_level * 2)) packet_attrib = Fruited_Packet; //catches strong Mode A/C fruit inside the packet
-			//but good error correction should cope with that
-		}
-
-		outattrib[i] = packet_attrib;
-
+		//ok we have to re-do lookahead for this tagged version.
+		//we can do this by looking for tags that fall within that window
+		std::vector<pmt::pmt_t> fruit_tags;
+		get_tags_in_range(fruit_tags, 0, abs_sample_cnt+i+1, abs_sample_cnt+i+lookahead, pmt::pmt_string_to_symbol("preamble_found"));
+		if(fruit_tags.size() > 0) packet_attrib = Fruited_Packet;
+		
+		//insert tag here
+		add_item_tag(0, //stream ID
+					 nitems_written(0)+i, //sample
+					 d_key,      //preamble_found
+			         pmt::pmt_from_long((long)packet_attrib),
+			         d_me        //block src id
+			        );
 	}
 
 	return size;

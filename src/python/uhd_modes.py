@@ -19,7 +19,8 @@
 # Boston, MA 02110-1301, USA.
 # 
 
-my_position = [37.76225, -122.44254]
+#my_position = [37.76225, -122.44254]
+my_position = [37.409066,-122.077836]
 
 from gnuradio import gr, gru, optfir, eng_notation, blks2, air
 from gnuradio import uhd
@@ -56,9 +57,9 @@ class adsb_rx_block (gr.top_block):
     if options.filename is None:
       self.u = uhd.single_usrp_source("", uhd.io_type_t.COMPLEX_FLOAT32, 1)
 
-      if(options.rx_subdev_spec is None):
-        options.rx_subdev_spec = ""
-      self.u.set_subdev_spec(options.rx_subdev_spec)
+      #if(options.rx_subdev_spec is None):
+       # options.rx_subdev_spec = ""
+      #self.u.set_subdev_spec(options.rx_subdev_spec)
 
       rate = options.rate
       self.u.set_samp_rate(rate)
@@ -66,20 +67,21 @@ class adsb_rx_block (gr.top_block):
 
       if options.gain is None: #set to halfway
         g = self.u.get_gain_range()
-        options.gain = (g.min+g.max) / 2.0
+        options.gain = (g.start()+g.stop()) / 2.0
 
       if not(self.tune(options.freq)):
         print "Failed to set initial frequency"
 
       print "Setting gain to %i" % (options.gain,)
       self.u.set_gain(options.gain)
+      print "Gain is %i" % (self.u.get_gain(),)
 
     else:
       rate = options.rate
       self.u = gr.file_source(gr.sizeof_gr_complex, options.filename)
 
     print "Rate is %i" % (rate,)
-    
+
     pass_all = 0
     if options.output_all :
       pass_all = 1
@@ -89,31 +91,19 @@ class adsb_rx_block (gr.top_block):
     
     #the DBSRX especially tends to be spur-prone; the LPF keeps out the
     #spur multiple that shows up at 2MHz
-    self.filtcoeffs = gr.firdes.low_pass(1, rate, 1.8e6, 200e3)
-    self.filter = gr.fir_filter_fff(1, self.filtcoeffs)
+#    self.filtcoeffs = gr.firdes.low_pass(1, rate, 1.8e6, 200e3)
+#    self.filter = gr.fir_filter_fff(1, self.filtcoeffs)
     
     self.preamble = air.modes_preamble(rate, options.threshold)
     self.framer = air.modes_framer(rate)
     self.slicer = air.modes_slicer(rate, queue)
-
-    self.connect(self.u, self.demod, self.filter)
-    self.connect(self.filter, self.avg)
-    self.connect(self.filter, (self.preamble, 0))
-    self.connect(self.avg, (self.preamble, 1))
-    self.connect(self.filter, (self.framer, 0))
-    self.connect(self.preamble, (self.framer, 1))
-    self.connect(self.filter, (self.slicer, 0))
-    self.connect(self.framer, (self.slicer, 1))
     
-#use this flowgraph instead to omit the filter
-#    self.connect(self.u, self.demod)
-#    self.connect(self.demod, self.avg)
-#    self.connect(self.demod, (self.preamble, 0))
-#    self.connect(self.avg, (self.preamble, 1))
-#    self.connect(self.demod, (self.framer, 0))
-#    self.connect(self.preamble, (self.framer, 1))
-#    self.connect(self.demod, (self.slicer, 0))
-#    self.connect(self.framer, (self.slicer, 1))
+    self.connect(self.u, self.demod)
+    self.connect(self.demod, self.avg)
+    self.connect(self.demod, (self.preamble, 0))
+    self.connect(self.avg, (self.preamble, 1))
+    self.connect((self.preamble, 0), (self.framer, 0))
+    self.connect(self.framer, self.slicer)
 
   def tune(self, freq):
     result = self.u.set_center_freq(freq, 0)

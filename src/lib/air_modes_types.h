@@ -36,8 +36,7 @@ struct modes_packet {
 	framer_packet_type type; //what length packet are we
 	unsigned int message_type;
 	float reference_level;
-	unsigned long timestamp_secs; //timestamp from tags
-	double timestamp_frac;
+	double timestamp;
 };
 
 #endif

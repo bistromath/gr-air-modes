@@ -27,7 +27,6 @@ grinclude_HEADERS =		\
 	air_modes_framer.h	\
 	air_modes_slicer.h	\
 	air_modes_types.h	\
-	modes_energy.h	\
 	modes_parity.h
 
 ###################################
@@ -52,7 +51,6 @@ air_la_swig_sources = 	\
 	air_modes_preamble.cc	\
 	air_modes_framer.cc	\
 	air_modes_slicer.cc	\
-	modes_energy.cc	\
 	modes_parity.cc
 
 # additional arguments to the SWIG command

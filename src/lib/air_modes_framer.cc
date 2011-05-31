@@ -27,7 +27,6 @@
 #include <air_modes_framer.h>
 #include <gr_io_signature.h>
 #include <air_modes_types.h>
-#include <modes_energy.h>
 #include <gr_tag_info.h>
 #include <iostream>
 #include <string.h>
@@ -81,18 +80,18 @@ int air_modes_framer::work(int noutput_items,
 		packet_attrib = Long_Packet;
 
 		//let's use the preamble marker to get a reference level for the packet
-		reference_level = (bit_energy(&inraw[i], d_samples_per_chip) 
-                         + bit_energy(&inraw[i+int(1.0*d_samples_per_symbol)], d_samples_per_chip) 
-                         + bit_energy(&inraw[i+int(3.5*d_samples_per_symbol)], d_samples_per_chip) 
-                         + bit_energy(&inraw[i+int(4.5*d_samples_per_symbol)], d_samples_per_chip)) / 4;
+		reference_level = (inraw[i]
+                        + inraw[i+int(1.0*d_samples_per_symbol)]
+                        + inraw[i+int(3.5*d_samples_per_symbol)]
+                        + inraw[i+int(4.5*d_samples_per_symbol)]) / 4;
 		
 		//armed with our reference level, let's look for marks within 3dB of the reference level in bits 57-62 (65-70, see above)
 		//if bits 57-62 have marks in either chip, we've got a long packet
 		//otherwise we have a short packet
 		//NOTE: you can change the default here to be short packet, and then check for a long packet. don't know which way is better.
 		for(int j = (65 * d_samples_per_symbol); j < (70 * d_samples_per_symbol); j += d_samples_per_symbol) {
-			float t_max = std::max(bit_energy(&inraw[i+j], d_samples_per_chip), 
-			                       bit_energy(&inraw[i+j+d_samples_per_chip], d_samples_per_chip)
+			float t_max = std::max(inraw[i+j], 
+			                       inraw[i+j+d_samples_per_chip]
 			                      );
 			if(t_max < (reference_level / 2.0)) packet_attrib = Short_Packet;
 		}

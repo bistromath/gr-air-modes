@@ -30,7 +30,6 @@
 #include <sstream>
 #include <iomanip>
 #include <modes_parity.h>
-#include <modes_energy.h>
 #include <gr_tag_info.h>
 
 extern "C"
@@ -111,10 +110,10 @@ int air_modes_slicer::work(int noutput_items,
 		rx_packet.numlowconf = 0;
 
 			//let's use the preamble marker to get a reference level for the packet
-		rx_packet.reference_level = (bit_energy(&inraw[i], d_samples_per_chip) 
-									 + bit_energy(&inraw[i+int(1.0*d_samples_per_symbol)], d_samples_per_chip) 
-									 + bit_energy(&inraw[i+int(3.5*d_samples_per_symbol)], d_samples_per_chip) 
-									 + bit_energy(&inraw[i+int(4.5*d_samples_per_symbol)], d_samples_per_chip)) / 4;
+		rx_packet.reference_level = (inraw[i]
+								   + inraw[i+int(1.0*d_samples_per_symbol)]
+								   + inraw[i+int(3.5*d_samples_per_symbol)]
+								   + inraw[i+int(4.5*d_samples_per_symbol)]) / 4;
 
 		i += 8 * d_samples_per_symbol; //move to the center of the first bit of the data
 
@@ -125,8 +124,8 @@ int air_modes_slicer::work(int noutput_items,
 			bool slice, confidence;
 			float firstchip_energy=0, secondchip_energy=0;
 
-			firstchip_energy = bit_energy(&inraw[firstchip], d_samples_per_chip);
-			secondchip_energy = bit_energy(&inraw[secondchip], d_samples_per_chip);
+			firstchip_energy = inraw[firstchip];
+			secondchip_energy = inraw[secondchip];
 
 			//3dB limits for bit slicing and confidence measurement
 			float highlimit=rx_packet.reference_level*2;

@@ -26,7 +26,6 @@
 
 #include <air_modes_preamble.h>
 #include <gr_io_signature.h>
-#include <modes_energy.h>
 #include <string.h>
 #include <iostream>
 
@@ -54,6 +53,18 @@ air_modes_preamble::air_modes_preamble(int channel_rate, float threshold_db) :
 	set_history(d_check_width);
 }
 
+static int early_late(const float *data) {
+	float gate_sum_early, gate_sum_now, gate_sum_late;
+
+	gate_sum_early = data[-1];
+	gate_sum_now = data[0];
+	gate_sum_late = data[1];
+
+	if(gate_sum_early > gate_sum_now) return -1;
+	else if(gate_sum_late > gate_sum_now) return 1;
+	else return 0;
+}
+
 int air_modes_preamble::work(int noutput_items,
                           gr_vector_const_void_star &input_items,
 		                  gr_vector_void_star &output_items)
@@ -73,12 +84,12 @@ int air_modes_preamble::work(int noutput_items,
 	uint64_t abs_out_sample_cnt = nitems_written(0);
 
 	for(int i = d_samples_per_chip; i < size; i++) {
-		float pulse_threshold = bit_energy(&inavg[i], d_samples_per_chip) * d_threshold;
+		float pulse_threshold = inavg[i] * d_threshold;
 		bool valid_preamble = false;
 		float gate_sum_now = 0, gate_sum_early = 0, gate_sum_late = 0;
 
-		if(bit_energy(&inraw[i], d_samples_per_chip) > pulse_threshold) { //if the sample is greater than the reference level by the specified amount
-			int gate_sum = early_late(&inraw[i], d_samples_per_chip); //see modes_energy.cc
+		if(inraw[i] > pulse_threshold) { //if the sample is greater than the reference level by the specified amount
+			int gate_sum = early_late(&inraw[i]);
 			if(gate_sum != 0) continue; //if either the early gate or the late gate had greater energy, keep moving.
 			//the packets are so short we choose not to do any sort of closed-loop synchronization after this simple gating. 
 			//if we get a good center sample, the drift should be negligible.
@@ -87,10 +98,10 @@ int air_modes_preamble::work(int noutput_items,
 			pulse_offsets[2] = int(3.5 * d_samples_per_symbol);
 			pulse_offsets[3] = int(4.5 * d_samples_per_symbol);
 
-			bit_energies[0] = bit_energy(&inraw[i+pulse_offsets[0]], d_samples_per_chip);
-			bit_energies[1] = bit_energy(&inraw[i+pulse_offsets[1]], d_samples_per_chip);
-			bit_energies[2] = bit_energy(&inraw[i+pulse_offsets[2]], d_samples_per_chip);
-			bit_energies[3] = bit_energy(&inraw[i+pulse_offsets[3]], d_samples_per_chip);
+			bit_energies[0] = inraw[i+pulse_offsets[0]];
+			bit_energies[1] = inraw[i+pulse_offsets[1]];
+			bit_energies[2] = inraw[i+pulse_offsets[2]];
+			bit_energies[3] = inraw[i+pulse_offsets[3]];
 
 			//search for the rest of the pulses at their expected positions
 			if( bit_energies[1] < pulse_threshold) continue;
@@ -105,9 +116,9 @@ int air_modes_preamble::work(int noutput_items,
 			//search between pulses and all the way out to 8.0us to make sure there are no pulses inside the "0" chips. make sure all the samples are <= (inraw[peak] * d_threshold).
 			//so 0.5us has to be < space_threshold, as does (1.5-3), 4, (5-7.5) in order to qualify.
 			for(int j = 1.5 * d_samples_per_symbol; j <= 3 * d_samples_per_symbol; j+=d_samples_per_chip) 
-				if(bit_energy(&inraw[i+j], d_samples_per_chip) > space_threshold) valid_preamble = false;
+				if(inraw[i+j] > space_threshold) valid_preamble = false;
 			for(int j = 5 * d_samples_per_symbol; j <= 7.5 * d_samples_per_symbol; j+=d_samples_per_chip)
-				if(bit_energy(&inraw[i+j], d_samples_per_chip) > space_threshold) valid_preamble = false;
+				if(inraw[i+j] > space_threshold) valid_preamble = false;
 
 			//make sure all four peaks are within 3dB of each other
 			float minpeak = avgpeak * 0.5;//-3db, was 0.631; //-2db
@@ -125,20 +136,20 @@ int air_modes_preamble::work(int noutput_items,
 			bool early, late;
 			do {
 				early = late = false;
-				//gate_sum_early= bit_energy(&inraw[i+pulse_offsets[0]-1], d_samples_per_chip)
-				//			  + bit_energy(&inraw[i+pulse_offsets[1]-1], d_samples_per_chip)
-				//		      + bit_energy(&inraw[i+pulse_offsets[2]-1], d_samples_per_chip)
-				//			  + bit_energy(&inraw[i+pulse_offsets[3]-1], d_samples_per_chip);
+				//gate_sum_early= inraw[i+pulse_offsets[0]-1]
+				//			  + inraw[i+pulse_offsets[1]-1]
+				//		      + inraw[i+pulse_offsets[2]-1]
+				//			  + inraw[i+pulse_offsets[3]-1];
 							  
-				gate_sum_now =  bit_energy(&inraw[i+pulse_offsets[0]], d_samples_per_chip)
-							  + bit_energy(&inraw[i+pulse_offsets[1]], d_samples_per_chip)
-						      + bit_energy(&inraw[i+pulse_offsets[2]], d_samples_per_chip)
-							  + bit_energy(&inraw[i+pulse_offsets[3]], d_samples_per_chip);
+				gate_sum_now =  inraw[i+pulse_offsets[0]]
+							  + inraw[i+pulse_offsets[1]]
+						      + inraw[i+pulse_offsets[2]]
+							  + inraw[i+pulse_offsets[3]];
 				
-				gate_sum_late = bit_energy(&inraw[i+pulse_offsets[0]+1], d_samples_per_chip)
-							  + bit_energy(&inraw[i+pulse_offsets[1]+1], d_samples_per_chip)
-							  + bit_energy(&inraw[i+pulse_offsets[2]+1], d_samples_per_chip)
-							  + bit_energy(&inraw[i+pulse_offsets[3]+1], d_samples_per_chip);
+				gate_sum_late = inraw[i+pulse_offsets[0]+1]
+							  + inraw[i+pulse_offsets[1]+1]
+							  + inraw[i+pulse_offsets[2]+1]
+							  + inraw[i+pulse_offsets[3]+1];
 
 				early = (gate_sum_early > gate_sum_now);
 				late = (gate_sum_late > gate_sum_now);

@@ -96,19 +96,22 @@ class adsb_rx_block (gr.top_block):
 #    self.filter = gr.fir_filter_fff(1, self.filtcoeffs)
 
     #this is an integrate-and-dump filter to act as a matched filter
+    #for the essentially rectangular Mode S pulses.
+    #you could get fancy here and shape it accordingly but i'm pretty
+    #sure you wouldn't get anything out of it
     self.filtcoeffs = list(numpy.ones(int(rate/2e6)))
     #i think downstream blocks can therefore process at 2Msps -- try this
     #self.filter = gr.fir_filter_fff(int(rate/2e6), self.filtcoeffs)
     self.filter = gr.fir_filter_fff(1, self.filtcoeffs)
+    #rate = int(2e6)
     
-    #rate = 2e6
     self.preamble = air.modes_preamble(rate, options.threshold)
     self.framer = air.modes_framer(rate)
     self.slicer = air.modes_slicer(rate, queue)
     
-    self.connect(self.u, self.demod)
-    self.connect(self.demod, self.avg)
-    self.connect(self.demod, (self.preamble, 0))
+    self.connect(self.u, self.demod, self.filter)
+    self.connect(self.filter, self.avg)
+    self.connect(self.filter, (self.preamble, 0))
     self.connect(self.avg, (self.preamble, 1))
     self.connect((self.preamble, 0), (self.framer, 0))
     self.connect(self.framer, self.slicer)

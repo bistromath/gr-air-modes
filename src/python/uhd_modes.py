@@ -34,7 +34,6 @@ from modes_sql import modes_output_sql
 from modes_sbs1 import modes_output_sbs1
 from modes_kml import modes_kml
 import gnuradio.gr.gr_threading as _threading
-import numpy
 
 class top_block_runner(_threading.Thread):
     def __init__(self, tb):
@@ -97,9 +96,10 @@ class adsb_rx_block (gr.top_block):
 
     #this is an integrate-and-dump filter to act as a matched filter
     #for the essentially rectangular Mode S pulses.
-    #you could get fancy here and shape it accordingly but i'm pretty
-    #sure you wouldn't get anything out of it
-    self.filtcoeffs = list(numpy.ones(int(rate/2e6)))
+    self.filtcoeffs = list()
+    for i in range(int(rate/2e6)):
+        self.filtcoeffs.append(1.0 / (rate/2e6))
+
     #i think downstream blocks can therefore process at 2Msps -- try this
     #self.filter = gr.fir_filter_fff(int(rate/2e6), self.filtcoeffs)
     self.filter = gr.fir_filter_fff(1, self.filtcoeffs)

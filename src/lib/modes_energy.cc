@@ -40,7 +40,8 @@ int early_late(const float *data, int samples_per_chip) {
 
 //return total bit energy of a chip centered at the current point (we bias right for even samples per chip)
 float bit_energy(const float *data, int samples_per_chip) {
-	float energy = 0;
+	return *data;
+/*	float energy = 0;
 	if(samples_per_chip <= 2) {
 		energy = data[0];
 	} else {
@@ -49,4 +50,5 @@ float bit_energy(const float *data, int samples_per_chip) {
 		}
 	}
 	return energy;
+*/
 }

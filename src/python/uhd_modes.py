@@ -34,6 +34,7 @@ from modes_sql import modes_output_sql
 from modes_sbs1 import modes_output_sbs1
 from modes_kml import modes_kml
 import gnuradio.gr.gr_threading as _threading
+import numpy
 
 class top_block_runner(_threading.Thread):
     def __init__(self, tb):
@@ -87,13 +88,20 @@ class adsb_rx_block (gr.top_block):
       pass_all = 1
 
     self.demod = gr.complex_to_mag()
-    self.avg = gr.moving_average_ff(100, 1.0/100, 400);
+    self.avg = gr.moving_average_ff(100, 1.0/100, 400)
     
     #the DBSRX especially tends to be spur-prone; the LPF keeps out the
     #spur multiple that shows up at 2MHz
 #    self.filtcoeffs = gr.firdes.low_pass(1, rate, 1.8e6, 200e3)
 #    self.filter = gr.fir_filter_fff(1, self.filtcoeffs)
+
+    #this is an integrate-and-dump filter to act as a matched filter
+    self.filtcoeffs = list(numpy.ones(int(rate/2e6)))
+    #i think downstream blocks can therefore process at 2Msps -- try this
+    #self.filter = gr.fir_filter_fff(int(rate/2e6), self.filtcoeffs)
+    self.filter = gr.fir_filter_fff(1, self.filtcoeffs)
     
+    #rate = 2e6
     self.preamble = air.modes_preamble(rate, options.threshold)
     self.framer = air.modes_framer(rate)
     self.slicer = air.modes_slicer(rate, queue)

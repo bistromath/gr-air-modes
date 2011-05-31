@@ -67,8 +67,8 @@ static bool pmtcompare(pmt::pmt_t x, pmt::pmt_t y)
   t_y = pmt::pmt_to_uint64(pmt::pmt_tuple_ref(y, 0));
   return t_x < t_y;
 }
-
-static double pmt_to_timestamp(pmt::pmt_t tstamp, sample_cnt, secs_per_sample) {
+/*
+static double pmt_to_timestamp(pmt::pmt_t tstamp, uint64_t sample_cnt, double secs_per_sample) {
 	double frac;
 	uint64_t secs, sample, sample_age;
 
@@ -81,7 +81,7 @@ static double pmt_to_timestamp(pmt::pmt_t tstamp, sample_cnt, secs_per_sample) {
 	sample_age = (sample_cnt + i) - sample;
 	return sample_age * secs_per_sample + frac + secs;
 }
-
+*/
 int air_modes_slicer::work(int noutput_items,
                           gr_vector_const_void_star &input_items,
 		                  gr_vector_void_star &output_items)
@@ -176,7 +176,7 @@ int air_modes_slicer::work(int noutput_items,
 			
 		/******************** BEGIN TIMESTAMP BS ******************/
 		rx_packet.timestamp = 0;
-		
+		/*
 		uint64_t abs_sample_cnt = nitems_read(0);
 		std::vector<pmt::pmt_t> tags;
 		uint64_t timestamp_secs, timestamp_sample, timestamp_delta;
@@ -191,6 +191,7 @@ int air_modes_slicer::work(int noutput_items,
 		if(d_timestamp) {
 			rx_packet.timestamp = pmt_to_timestamp(d_timestamp, abs_sample_cnt + i, d_secs_per_sample);
 		}
+		*/
 		/******************* END TIMESTAMP BS *********************/
 			
 		//increment for the next round

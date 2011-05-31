@@ -41,13 +41,14 @@ private:
     friend air_modes_slicer_sptr air_make_modes_slicer(int channel_rate, gr_msg_queue_sptr queue);
     air_modes_slicer(int channel_rate, gr_msg_queue_sptr queue);
 
-	int d_check_width;
-	int d_chip_rate;
-	int d_samples_per_chip;
-	int d_samples_per_symbol;
-	double d_secs_per_sample;
-	gr_msg_queue_sptr d_queue;
+    int d_check_width;
+    int d_chip_rate;
+    int d_samples_per_chip;
+    int d_samples_per_symbol;
+    double d_secs_per_sample;
+    gr_msg_queue_sptr d_queue;
     std::ostringstream d_payload;
+    pmt::pmt_t d_timestamp;
 
 public:
     int work (int noutput_items,

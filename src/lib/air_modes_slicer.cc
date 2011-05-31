@@ -68,6 +68,20 @@ static bool pmtcompare(pmt::pmt_t x, pmt::pmt_t y)
   return t_x < t_y;
 }
 
+static double pmt_to_timestamp(pmt::pmt_t tstamp, sample_cnt, secs_per_sample) {
+	double frac;
+	uint64_t secs, sample, sample_age;
+
+	if(gr_tags::get_name(tstamp) != "time") return 0;
+	
+	secs = pmt_to_uint64(pmt_tuple_ref(gr_tags::get_value(tstamp), 0));
+	frac = pmt_to_double(pmt_tuple_ref(gr_tags::get_value(tstamp), 1));
+	sample = gr_tags::get_nitems(d_timestamp);
+	//now we have to offset the timestamp based on the current sample number
+	sample_age = (sample_cnt + i) - sample;
+	return sample_age * secs_per_sample + frac + secs;
+}
+
 int air_modes_slicer::work(int noutput_items,
                           gr_vector_const_void_star &input_items,
 		                  gr_vector_void_star &output_items)
@@ -165,30 +179,18 @@ int air_modes_slicer::work(int noutput_items,
 		
 		uint64_t abs_sample_cnt = nitems_read(0);
 		std::vector<pmt::pmt_t> tags;
-		static uint64_t timestamp_secs, timestamp_sample, timestamp_delta;
-		static double timestamp_frac;
-		double timestamp_total;
-			
-		pmt::pmt_t timestamp;
+		uint64_t timestamp_secs, timestamp_sample, timestamp_delta;
+		double timestamp_frac;
 		
 		get_tags_in_range(tags, 0, abs_sample_cnt, abs_sample_cnt + i, pmt::pmt_string_to_symbol("time"));
 		//tags.back() is the most recent timestamp, then.
 		if(tags.size() > 0) {
-			//if nobody but the USRP is producing timestamps this isn't necessary
-			//std::sort(tags.begin(), tags.end(), pmtcompare);
-			timestamp = tags.back();
+			d_timestamp = tags.back();
 		}
 
-		if(timestamp.get()) {
-			timestamp_secs = pmt_to_uint64(pmt_tuple_ref(gr_tags::get_value(timestamp), 0));
-			timestamp_frac = pmt_to_double(pmt_tuple_ref(gr_tags::get_value(timestamp), 1));
-			timestamp_sample = gr_tags::get_nitems(timestamp);
+		if(d_timestamp) {
+			rx_packet.timestamp = pmt_to_timestamp(d_timestamp, abs_sample_cnt + i, d_secs_per_sample);
 		}
-		//now we have to offset the timestamp based on the current sample number
-		timestamp_delta = (abs_sample_cnt + i) - timestamp_sample;
-		timestamp_total = timestamp_delta * d_secs_per_sample + timestamp_frac + timestamp_secs;
-		
-		rx_packet.timestamp = timestamp_total;
 		/******************* END TIMESTAMP BS *********************/
 			
 		//increment for the next round

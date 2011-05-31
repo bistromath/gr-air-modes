@@ -112,8 +112,12 @@ int air_modes_preamble::work(int noutput_items,
 
 			float avgpeak = (bit_energies[0] + bit_energies[1] + bit_energies[2] + bit_energies[3]) / 4;
 
-			float space_threshold = bit_energies[0] / d_threshold; //set the threshold requirement for spaces (0 chips) to threshold dB below the current peak
-			//search between pulses and all the way out to 8.0us to make sure there are no pulses inside the "0" chips. make sure all the samples are <= (inraw[peak] * d_threshold).
+			//set the threshold requirement for spaces (0 chips) to
+			//threshold dB below the current peak
+			float space_threshold = bit_energies[0] / d_threshold;
+			//search between pulses and all the way out to 8.0us to make
+			//sure there are no pulses inside the "0" chips. make sure
+			//all the samples are <= (inraw[peak] * d_threshold).
 			//so 0.5us has to be < space_threshold, as does (1.5-3), 4, (5-7.5) in order to qualify.
 			for(int j = 1.5 * d_samples_per_symbol; j <= 3 * d_samples_per_symbol; j+=d_samples_per_chip) 
 				if(inraw[i+j] > space_threshold) valid_preamble = false;

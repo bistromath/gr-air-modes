@@ -53,6 +53,7 @@ class adsb_rx_block (gr.top_block):
 
     self.options = options
     self.args = args
+    rate = int(options.rate)
 
     if options.filename is None:
       self.u = uhd.single_usrp_source("", uhd.io_type_t.COMPLEX_FLOAT32, 1)
@@ -61,7 +62,6 @@ class adsb_rx_block (gr.top_block):
        # options.rx_subdev_spec = ""
       #self.u.set_subdev_spec(options.rx_subdev_spec)
 
-      rate = options.rate
       self.u.set_samp_rate(rate)
       rate = int(self.u.get_samp_rate()) #retrieve actual
 
@@ -77,7 +77,6 @@ class adsb_rx_block (gr.top_block):
       print "Gain is %i" % (self.u.get_gain(),)
 
     else:
-      rate = options.rate
       self.u = gr.file_source(gr.sizeof_gr_complex, options.filename)
 
     print "Rate is %i" % (rate,)
@@ -96,6 +95,8 @@ class adsb_rx_block (gr.top_block):
 
     #this is an integrate-and-dump filter to act as a matched filter
     #for the essentially rectangular Mode S pulses.
+    #if a particular Mode S transponder is using a pulse shaping filter,
+    #this will not be optimal.
     self.filtcoeffs = list()
     for i in range(int(rate/2e6)):
         self.filtcoeffs.append(1.0 / (rate/2e6))
@@ -129,7 +130,7 @@ if __name__ == '__main__':
                       help="set receive frequency in Hz [default=%default]", metavar="FREQ")
   parser.add_option("-g", "--gain", type="int", default=None,
                       help="set RF gain", metavar="dB")
-  parser.add_option("-r", "--rate", type="int", default=4000000,
+  parser.add_option("-r", "--rate", type="eng_float", default=4000000,
                       help="set ADC sample rate [default=%default]")
   parser.add_option("-T", "--threshold", type="eng_float", default=3.0,
                       help="set pulse detection threshold above noise in dB [default=%default]")

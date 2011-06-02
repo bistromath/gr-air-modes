@@ -154,13 +154,13 @@ def cpr_resolve_global(evenpos, oddpos, mostrecent, surface): #ok this is consid
 
 	return [rlat, rlon]
 
+def weed_poslist(poslist):
+	for key, item in poslist.items():
+	if time.time() - item[2] > 900:
+		del poslist[key]
 
 def cpr_decode(my_location, icao24, encoded_lat, encoded_lon, cpr_format, evenlist, oddlist, lkplist, surface, longdata):
-	#this is a stopgap measure to catch those packets which aren't really position packets. what gives?
-#	if encoded_lat == 0 or encoded_lon == 0:
-		#print "debug: lat or lon zero for longdata %x" % (longdata,)
-#		return [None, None, None, None]
-
+	#add the info to the position reports list for global decoding
 	if cpr_format==1:
 		oddlist[icao24] = [encoded_lat, encoded_lon, time.time()]
 	else:
@@ -169,29 +169,20 @@ def cpr_decode(my_location, icao24, encoded_lat, encoded_lon, cpr_format, evenli
 	[decoded_lat, decoded_lon] = [None, None]
 
 	#okay, let's traverse the lists and weed out those entries that are older than 15 minutes, as they're unlikely to be useful.
-	for key, item in lkplist.items():
-		if time.time() - item[2] > 900:
-			del lkplist[key]
-
-	for key, item in evenlist.items():
-		if time.time() - item[2] > 900:
-			del evenlist[key]
-
-	for key, item in oddlist.items():
-		if time.time() - item[2] > 900:
-			del oddlist[key]
+	weed_poslist(lkplist)
+	weed_poslist(evenlist)
+	weed_poslist(oddlist)
 
 	#here we perform global/emitter-centered CPR decoding as follows:
 	#first, check for the ICAO number in the planelist. if there is a decoded position in there, use that for emitter-centered decoding and be done with it.
-
 	if surface==1:
 		validrange = 45
 	else:
 		validrange = 180
 
 	if icao24 in lkplist:
-		#print "debug: icao found in LKP table. EC decoding with local position list %s" % str(lkplist[icao24][0:2])
-		[decoded_lat, decoded_lon] = cpr_resolve_local(lkplist[icao24][0:2], [encoded_lat, encoded_lon], cpr_format, surface) #do emitter-centered local decoding
+		#do emitter-centered local decoding
+		[decoded_lat, decoded_lon] = cpr_resolve_local(lkplist[icao24][0:2], [encoded_lat, encoded_lon], cpr_format, surface)
 		lkplist[icao24] = [decoded_lat, decoded_lon, time.time()] #update the local position for next time
 
 ############debug info for plotting strange position reports###############
@@ -204,31 +195,26 @@ def cpr_decode(my_location, icao24, encoded_lat, encoded_lon, cpr_format, evenli
 #		
 ############debug info for plotting strange position reports###############
 
-	else: #no LKP available
-		#print "debug: icao %x not found. attempting local decode." % icao24
-#		[local_lat, local_lon] = cpr_resolve_local(my_location, [encoded_lat, encoded_lon], cpr_format, surface) #try local decoding
-#		print "debug: local resolve gives %.6f, %.6f" % (local_lat, local_lon)
-#		[rnge, bearing] = range_bearing(my_location, [local_lat, local_lon])
-#		if rnge < validrange: #if the local decoding can be guaranteed valid
-			#print "debug: range < 180nm, position valid."
-#			lkplist[icao24] = [local_lat, local_lon, time.time()] #update the local position for next time
-#			[decoded_lat, decoded_lon] = [local_lat, local_lon]
-#		else: #if the local decoding can't be guaranteed valid AND you couldn't find an LKP
-		if True:
-			print "debug: range > %inm, attempting global decode." % validrange
-			#attempt global decode
+	else if my_location is not None: #if we have a location, use it
+		[local_lat, local_lon] = cpr_resolve_local(my_location, [encoded_lat, encoded_lon], cpr_format, surface) #try local decoding
+		[rnge, bearing] = range_bearing(my_location, [local_lat, local_lon])
+		if rnge < validrange: #if the local decoding can be guaranteed valid
+			lkplist[icao24] = [local_lat, local_lon, time.time()] #update the local position for next time
+			[decoded_lat, decoded_lon] = [local_lat, local_lon]
+		else: #if the local decoding can't be guaranteed valid, attempt a global decode
+#			print "debug: range > %inm, attempting global decode." % validrange
 			if (icao24 in evenlist) and (icao24 in oddlist):
-				print "debug: ICAOs found in both lists."
+#				print "debug: ICAOs found in both lists."
 				if abs(evenlist[icao24][2] - oddlist[icao24][2]) < 10: #if there's less than 10 seconds of time difference between the reports
 					print "debug: valid even/odd positions, performing global decode."
 					newer = (oddlist[icao24][2] - evenlist[icao24][2]) > 0 #figure out which report is newer
 					[decoded_lat, decoded_lon] = cpr_resolve_global(evenlist[icao24][0:2], oddlist[icao24][0:2], newer, surface) #do a global decode
 					if decoded_lat is not None:
 						lkplist[icao24] = [decoded_lat, decoded_lon, time.time()]
-				else:
-					print "debug: timestamps not close enough to be valid."
-			else:
-					print "debug: even/odd information not found."
+#				else:
+#					print "debug: timestamps not close enough to be valid."
+#			else:
+#					print "debug: even/odd information not found."
 
 	#print "settled on position: %.6f, %.6f" % (decoded_lat, decoded_lon,)
 	if decoded_lat is not None:
@@ -240,7 +226,8 @@ def cpr_decode(my_location, icao24, encoded_lat, encoded_lon, cpr_format, evenli
 	return [decoded_lat, decoded_lon, rnge, bearing]
 
 
-
+#calculate range and bearing between two lat/lon points
+#should probably throw this in the mlat py somewhere or make another lib
 def range_bearing(loc_a, loc_b):
 	[a_lat, a_lon] = loc_a
 	[b_lat, b_lon] = loc_b

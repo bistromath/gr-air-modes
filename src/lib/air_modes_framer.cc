@@ -64,6 +64,7 @@ int air_modes_framer::work(int noutput_items,
 	float *outraw = (float *) output_items[0];
 	//unsigned char *outattrib = (unsigned char *) output_items[0];
 	int size = noutput_items - d_check_width*2;
+	if(size < 0) return 0;
 	float reference_level;
 	framer_packet_type packet_attrib;
 	std::vector<pmt::pmt_t> tags;

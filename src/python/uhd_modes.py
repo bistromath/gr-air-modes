@@ -100,8 +100,8 @@ class adsb_rx_block (gr.top_block):
     #if a particular Mode S transponder is using a pulse shaping filter,
     #this will not be optimal.
     self.filtcoeffs = list()
-    for i in range(int(rate/2e6)):
-        self.filtcoeffs.append(1.0 / (rate/2e6))
+    for i in range(int(rate/4e6)):
+        self.filtcoeffs.append(1.0 / (rate/4e6))
 
     #i think downstream blocks can therefore process at 2Msps -- try this
     #self.filter = gr.fir_filter_fff(int(rate/2e6), self.filtcoeffs)

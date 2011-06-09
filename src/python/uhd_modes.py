@@ -20,7 +20,8 @@
 # 
 
 #my_position = [37.76225, -122.44254]
-my_position = [37.409066,-122.077836]
+#my_position = [37.409066,-122.077836]
+my_position = None
 
 from gnuradio import gr, gru, optfir, eng_notation, blks2, air
 from gnuradio import uhd
@@ -34,6 +35,7 @@ from modes_sql import modes_output_sql
 from modes_sbs1 import modes_output_sbs1
 from modes_kml import modes_kml
 import gnuradio.gr.gr_threading as _threading
+import csv
 
 class top_block_runner(_threading.Thread):
     def __init__(self, tb):
@@ -58,9 +60,9 @@ class adsb_rx_block (gr.top_block):
     if options.filename is None:
       self.u = uhd.single_usrp_source("", uhd.io_type_t.COMPLEX_FLOAT32, 1)
 
-      #if(options.rx_subdev_spec is None):
-       # options.rx_subdev_spec = ""
-      #self.u.set_subdev_spec(options.rx_subdev_spec)
+      if(options.rx_subdev_spec is None):
+        options.rx_subdev_spec = ""
+      self.u.set_subdev_spec(options.rx_subdev_spec)
 
       self.u.set_samp_rate(rate)
       rate = int(self.u.get_samp_rate()) #retrieve actual
@@ -144,8 +146,13 @@ if __name__ == '__main__':
                       help="open an SBS-1-compatible server on port 30003")
   parser.add_option("-n","--no-print", action="store_true", default=False,
                       help="disable printing decoded packets to stdout")
+  parser.add_option("-l","--location", type="string", default=None,
+                      help="GPS coordinates of receiving station in format xx.xxxxx,xx.xxxxx")
   (options, args) = parser.parse_args()
 
+  if options.location is not None:
+    reader = csv.reader([options.location])
+    my_position = reader.next()
 
   queue = gr.msg_queue()
   

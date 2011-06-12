@@ -92,17 +92,14 @@ class adsb_rx_block (gr.top_block):
     
     #the DBSRX especially tends to be spur-prone; the LPF keeps out the
     #spur multiple that shows up at 2MHz
-    #self.lpfiltcoeffs = gr.firdes.low_pass(1, rate, 1.8e6, 200e3)
-    #self.lpfilter = gr.fir_filter_fff(1, self.lpfiltcoeffs)
-
-    #self.filter = gr.fir_filter_fff(1, self.filtcoeffs)
-    #rate = int(2e6)
+    self.lpfiltcoeffs = gr.firdes.low_pass(1, rate, 1.8e6, 200e3)
+    self.lpfilter = gr.fir_filter_ccc(1, self.lpfiltcoeffs)
     
     self.preamble = air.modes_preamble(rate, options.threshold)
     #self.framer = air.modes_framer(rate)
     self.slicer = air.modes_slicer(rate, queue)
     
-    self.connect(self.u, self.demod)
+    self.connect(self.u, self.lpfilter, self.demod)
     self.connect(self.demod, self.avg)
     self.connect(self.demod, (self.preamble, 0))
     self.connect(self.avg, (self.preamble, 1))

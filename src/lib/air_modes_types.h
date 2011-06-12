@@ -39,4 +39,9 @@ struct modes_packet {
 	double timestamp;
 };
 
+struct slice_result_t {
+	bool decision;
+	bool confidence;
+};
+
 #endif

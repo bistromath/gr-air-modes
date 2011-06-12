@@ -70,8 +70,8 @@ static bool pmtcompare(pmt::pmt_t x, pmt::pmt_t y)
 
 //this slicer is courtesy of Lincoln Labs. supposedly it is more resistant to mode A/C FRUIT.
 //see http://adsb.tc.faa.gov/WG3_Meetings/Meeting8/Squitter-Lon.pdf
-static bool slicer(const float bit0, const float bit1, const float ref) {
-	bool slice, confidence;
+static slice_result_t slicer(const float bit0, const float bit1, const float ref) {
+	slice_result_t result;
 
 	//3dB limits for bit slicing and confidence measurement
 	float highlimit=ref*2;
@@ -81,28 +81,28 @@ static bool slicer(const float bit0, const float bit1, const float ref) {
 	bool secondchip_inref = ((bit1 > lowlimit) && (bit1 < highlimit));
 
 	if(firstchip_inref && !secondchip_inref) {
-		slice = 1;
-		confidence = 1;
+		result.decision = 1;
+		result.confidence = 1;
 	}
 	else if(secondchip_inref && !firstchip_inref) {
-		slice = 0;
-		confidence = 1;
+		result.decision = 0;
+		result.confidence = 1;
 	} 
 	else if(firstchip_inref && secondchip_inref) {
-		slice = bit0 > bit1;
-		confidence = 0;
+		result.decision = bit0 > bit1;
+		result.confidence = 0;
 	}
 	else if(!firstchip_inref && !secondchip_inref) { //in this case, we determine the bit by whichever is larger, and we determine high confidence if the low chip is 6dB below reference.
-		slice = bit0 > bit1;
-		if(slice) {
-			if(bit1 < lowlimit * 0.5) confidence = 1;
-			else confidence = 0;
+		result.decision = bit0 > bit1;
+		if(result.decision) {
+			if(bit1 < lowlimit * 0.5) result.confidence = 1;
+			else result.confidence = 0;
 		} else {
-			if(bit0 < lowlimit * 0.5) confidence = 1;
-			else confidence = 0;
+			if(bit0 < lowlimit * 0.5) result.confidence = 1;
+			else result.confidence = 0;
 		}
 	}
-	return slice;
+	return result;
 }
 
 /*
@@ -155,10 +155,9 @@ int air_modes_slicer::work(int noutput_items,
 		//now let's slice the header so we can determine if it's a short pkt or a long pkt
 		unsigned char pkt_hdr = 0;
 		for(int j=0; j < 5; j++) {
-			bool slice = slicer(in[i+j*2], in[i+j*2+1], rx_packet.reference_level);
-			if(slice) pkt_hdr += 1 << (4-j);
+			slice_result_t slice_result = slicer(in[i+j*2], in[i+j*2+1], rx_packet.reference_level);
+			if(slice_result.decision) pkt_hdr += 1 << (4-j);
 		}
-		//std::cout << "SLICER: TYPE " << int(pkt_hdr) << std::endl;
 
 		if(pkt_hdr == 17) rx_packet.type = Long_Packet;
 		else rx_packet.type = Short_Packet;
@@ -169,18 +168,18 @@ int air_modes_slicer::work(int noutput_items,
 		//it's slice time!
 		//TODO: don't repeat your work here, you already have the first 5 bits
 		for(int j = 0; j < packet_length; j++) {
-			bool slice = slicer(in[i+j*2], in[i+j*2+1], rx_packet.reference_level);
+			slice_result_t slice_result = slicer(in[i+j*2], in[i+j*2+1], rx_packet.reference_level);
 
 			//put the data into the packet
-			if(slice) {
+			if(slice_result.decision) {
 				rx_packet.data[j/8] += 1 << (7-(j%8));
 			}
 			//put the confidence decision into the packet
-//			if(confidence) {
+			if(slice_result.confidence) {
 				//rx_packet.confidence[j/8] += 1 << (7-(j%8));
-//			} else {
-//				if(rx_packet.numlowconf < 24) rx_packet.lowconfbits[rx_packet.numlowconf++] = j;
-//			}
+			} else {
+				if(rx_packet.numlowconf < 24) rx_packet.lowconfbits[rx_packet.numlowconf++] = j;
+			}
 		}
 			
 		/******************** BEGIN TIMESTAMP BS ******************/

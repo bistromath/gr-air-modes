@@ -95,7 +95,7 @@ class adsb_rx_block (gr.top_block):
     #self.lpfiltcoeffs = gr.firdes.low_pass(1, rate, 1.8e6, 200e3)
     #self.lpfilter = gr.fir_filter_fff(1, self.lpfiltcoeffs)
 
-    self.filter = gr.fir_filter_fff(1, self.filtcoeffs)
+    #self.filter = gr.fir_filter_fff(1, self.filtcoeffs)
     #rate = int(2e6)
     
     self.preamble = air.modes_preamble(rate, options.threshold)

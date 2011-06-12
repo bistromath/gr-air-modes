@@ -138,7 +138,7 @@ int air_modes_preamble::general_work(int noutput_items,
 			//all right i'm prepared to call this a preamble			
 			//let's integrate and dump the output
 			//FIXME: disable and use center sample
-			bool life_sucks = false;
+			bool life_sucks = true;
 			if(life_sucks) {
 				for(int j=0; j<240; j++) {
 					out[j] = in[i+j*d_samples_per_chip];

@@ -129,7 +129,6 @@ int air_modes_slicer::work(int noutput_items,
 	int size = noutput_items - d_check_width; //since it's a sync block, i assume that it runs with ninput_items = noutput_items
 
 	int i;
-	static int n_ok=0, n_badcrc=0, n_loconf=0, n_zeroes=0;
 	
 	std::vector<pmt::pmt_t> tags;
 	uint64_t abs_sample_cnt = nitems_read(0);
@@ -208,19 +207,19 @@ int air_modes_slicer::work(int noutput_items,
 		for(int m = 0; m < 14; m++) {
 			if(rx_packet.data[m]) zeroes = 0;
 		}
-		if(zeroes) {n_zeroes++; continue;} //toss it
+		if(zeroes) {continue;} //toss it
 
 		rx_packet.message_type = (rx_packet.data[0] >> 3) & 0x1F; //get the message type for the parser to conveniently use, and to make decisions on ECC methods
 
-		if(rx_packet.type == Short_Packet && rx_packet.message_type != 11 && rx_packet.numlowconf > 0) {n_loconf++; continue;}
-		if(rx_packet.message_type == 11 && rx_packet.numlowconf >= 10) {n_loconf++; continue;}
+		if(rx_packet.type == Short_Packet && rx_packet.message_type != 11 && rx_packet.numlowconf > 0) {continue;}
+		if(rx_packet.message_type == 11 && rx_packet.numlowconf >= 10) {continue;}
 			
 		rx_packet.parity = modes_check_parity(rx_packet.data, packet_length);
 
 		//parity for packets that aren't type 11 or type 17 is encoded with the transponder ID, which we don't know
 		//therefore we toss 'em if there's syndrome
 		//parity for the other short packets is usually nonzero, so they can't really be trusted that far
-		if(rx_packet.parity && (rx_packet.message_type == 11 || rx_packet.message_type == 17)) {n_badcrc++; continue;}
+		if(rx_packet.parity && (rx_packet.message_type == 11 || rx_packet.message_type == 17)) {continue;}
 
 		//we no longer attempt to brute force error correct via syndrome. it really only gets you 1% additional returns,
 		//at the expense of a lot of CPU time and complexity
@@ -256,9 +255,6 @@ int air_modes_slicer::work(int noutput_items,
 		          << " " << std::setprecision(10) << std::setw(10) << rx_packet.timestamp;
 			gr_message_sptr msg = gr_make_message_from_string(std::string(d_payload.str()));
 		d_queue->handle(msg);
-		n_ok++;
-		std::cout << "n_ok: " << n_ok << " n_loconf: " << n_loconf << " n_badcrc: " << n_badcrc << " n_zeroes: " << n_zeroes << std::endl;
-
 	}
 
 	return size;

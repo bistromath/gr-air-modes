@@ -24,7 +24,6 @@ include $(top_srcdir)/Makefile.common
 # C/C++ headers get installed in ${prefix}/include/gnuradio
 grinclude_HEADERS =		\
 	air_modes_preamble.h	\
-	air_modes_framer.h	\
 	air_modes_slicer.h	\
 	air_modes_types.h	\
 	modes_parity.h
@@ -49,7 +48,6 @@ air_pythondir_category =	\
 # additional sources for the SWIG-generated library
 air_la_swig_sources = 	\
 	air_modes_preamble.cc	\
-	air_modes_framer.cc	\
 	air_modes_slicer.cc	\
 	modes_parity.cc
 

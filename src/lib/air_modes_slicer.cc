@@ -212,7 +212,7 @@ int air_modes_slicer::work(int noutput_items,
 
 		rx_packet.message_type = (rx_packet.data[0] >> 3) & 0x1F; //get the message type for the parser to conveniently use, and to make decisions on ECC methods
 
-		if(rx_packet.type == Short_Packet && rx_packet.message_type != 11 && rx_packet.numlowconf > 2) {n_loconf++; continue;}
+		if(rx_packet.type == Short_Packet && rx_packet.message_type != 11 && rx_packet.numlowconf > 0) {n_loconf++; continue;}
 		if(rx_packet.message_type == 11 && rx_packet.numlowconf >= 10) {n_loconf++; continue;}
 			
 		rx_packet.parity = modes_check_parity(rx_packet.data, packet_length);

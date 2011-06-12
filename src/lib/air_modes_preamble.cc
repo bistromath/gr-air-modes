@@ -55,19 +55,13 @@ air_modes_preamble::air_modes_preamble(int channel_rate, float threshold_db) :
 	set_history(d_check_width);
 }
 
-static int early_late(const float *data) {
-	if(data[-1] > data[0]) return -1;
-	else if(data[1] > data[0]) return 1;
-	else return 0;
-}
-
 static void integrate_and_dump(float *out, const float *in, int chips, int samps_per_chip) {
 	for(int i=0; i<chips; i++) {
 		float acc = 0;
 		for(int j=0; j<samps_per_chip; j++) {
 			acc += in[i*samps_per_chip+j];
 		}
-		out[i] = acc/samps_per_chip;
+		out[i] = acc;
 	}
 }
 
@@ -94,10 +88,10 @@ int air_modes_preamble::general_work(int noutput_items,
 	float *out = (float *) output_items[0];
 
 	//fixme move into .h
-	const int pulse_offsets[4] = {0,
-	                              int(1.0 * d_samples_per_symbol),
-	                              int(3.5 * d_samples_per_symbol),
-	                              int(4.5 * d_samples_per_symbol)
+	const int pulse_offsets[4] = {    0,
+	                              int(2 * d_samples_per_chip),
+	                              int(7 * d_samples_per_chip),
+	                              int(9 * d_samples_per_chip)
 	                             };
 
 	uint64_t abs_out_sample_cnt = nitems_written(0);
@@ -137,7 +131,7 @@ int air_modes_preamble::general_work(int noutput_items,
 
 			//be sure we've got enough room in the input buffer to copy out a whole packet
 			if(ninputs-i < 240*d_samples_per_chip) {
-				consume_each(i);
+				consume_each(i-1);
 				return 0;
 			}
 
@@ -157,10 +151,13 @@ int air_modes_preamble::general_work(int noutput_items,
 			         pmt::pmt_from_double((double) space_threshold),
 			         d_me        //block src id
 			        );
+			//std::cout << "PREAMBLE" << std::endl;
 			
 			//produce only one output per work call
+			//we consume a short packet length, while generating a long one
+			//that way we don't miss two short pkts in the span of one long one
 			consume_each(i+240*d_samples_per_chip);
-			return 240; //fixme debug should be 240
+			return 240;
 		}
 	}
 	

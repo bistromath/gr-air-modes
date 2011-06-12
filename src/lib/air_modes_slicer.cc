@@ -55,11 +55,12 @@ air_modes_slicer::air_modes_slicer(int channel_rate, gr_msg_queue_sptr queue) :
 	d_samples_per_symbol = d_samples_per_chip * 2;
 	d_check_width = 120 * d_samples_per_symbol; //how far you will have to look ahead
 	d_queue = queue;
-	d_secs_per_sample = 1.0 / channel_rate;
+	d_secs_per_sample = 1.0 / d_chip_rate;
 
 	set_output_multiple(1+d_check_width * 2); //how do you specify buffer size for sinks?
 }
 
+//FIXME i'm sure this exists in gr
 static bool pmtcompare(pmt::pmt_t x, pmt::pmt_t y)
 {
   uint64_t t_x, t_y;
@@ -158,12 +159,9 @@ int air_modes_slicer::work(int noutput_items,
 			slice_result_t slice_result = slicer(in[i+j*2], in[i+j*2+1], rx_packet.reference_level);
 			if(slice_result.decision) pkt_hdr += 1 << (4-j);
 		}
-
 		if(pkt_hdr == 17) rx_packet.type = Long_Packet;
 		else rx_packet.type = Short_Packet;
-		
-		int packet_length;
-		packet_length = (rx_packet.type == framer_packet_type(Short_Packet)) ? 56 : 112;
+		int packet_length = (rx_packet.type == framer_packet_type(Short_Packet)) ? 56 : 112;
 
 		//it's slice time!
 		//TODO: don't repeat your work here, you already have the first 5 bits
@@ -227,7 +225,7 @@ int air_modes_slicer::work(int noutput_items,
 		//that's a pretty dang low threshold so i don't think we'll drop many legit packets
 
 		if(rx_packet.type == Short_Packet && rx_packet.message_type != 11 && rx_packet.numlowconf != 0) continue;
-		if(rx_packet.type == Short_Packet && rx_packet.message_type == 11 && rx_packet.numlowconf >= 10) continue;
+		if(rx_packet.message_type == 11 && rx_packet.numlowconf >= 10) continue;
 			
 
 		//if(rx_packet.numlowconf >= 24) continue; //don't even try, this is the maximum number of errors ECC could possibly correct

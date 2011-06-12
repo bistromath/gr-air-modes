@@ -19,9 +19,9 @@
 # Boston, MA 02110-1301, USA.
 # 
 
-#my_position = [37.76225, -122.44254]
+my_position = [37.76225, -122.44254]
 #my_position = [37.409066,-122.077836]
-my_position = None
+#my_position = None
 
 from gnuradio import gr, gru, optfir, eng_notation, blks2, air
 from gnuradio import uhd
@@ -92,32 +92,21 @@ class adsb_rx_block (gr.top_block):
     
     #the DBSRX especially tends to be spur-prone; the LPF keeps out the
     #spur multiple that shows up at 2MHz
-#    self.filtcoeffs = gr.firdes.low_pass(1, rate, 1.8e6, 200e3)
-#    self.filter = gr.fir_filter_fff(1, self.filtcoeffs)
+    #self.lpfiltcoeffs = gr.firdes.low_pass(1, rate, 1.8e6, 200e3)
+    #self.lpfilter = gr.fir_filter_fff(1, self.lpfiltcoeffs)
 
-    #this is an integrate-and-dump filter to act as a matched filter
-    #for the essentially rectangular Mode S pulses.
-    #if a particular Mode S transponder is using a pulse shaping filter,
-    #this will not be optimal.
-    self.filtcoeffs = list()
-    for i in range(int(rate/4e6)):
-        self.filtcoeffs.append(1.0 / (rate/4e6))
-
-    #i think downstream blocks can therefore process at 2Msps -- try this
-    #self.filter = gr.fir_filter_fff(int(rate/2e6), self.filtcoeffs)
     self.filter = gr.fir_filter_fff(1, self.filtcoeffs)
     #rate = int(2e6)
     
     self.preamble = air.modes_preamble(rate, options.threshold)
-    self.framer = air.modes_framer(rate)
+    #self.framer = air.modes_framer(rate)
     self.slicer = air.modes_slicer(rate, queue)
     
-    self.connect(self.u, self.demod, self.filter)
-    self.connect(self.filter, self.avg)
-    self.connect(self.filter, (self.preamble, 0))
+    self.connect(self.u, self.demod)
+    self.connect(self.demod, self.avg)
+    self.connect(self.demod, (self.preamble, 0))
     self.connect(self.avg, (self.preamble, 1))
-    self.connect((self.preamble, 0), (self.framer, 0))
-    self.connect(self.framer, self.slicer)
+    self.connect((self.preamble, 0), (self.slicer, 0))
 
   def tune(self, freq):
     result = self.u.set_center_freq(freq, 0)

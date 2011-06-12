@@ -35,17 +35,19 @@ air_modes_preamble_sptr air_make_modes_preamble(int channel_rate, float threshol
 }
 
 air_modes_preamble::air_modes_preamble(int channel_rate, float threshold_db) :
-    gr_sync_block ("modes_preamble",
+    gr_block ("modes_preamble",
                    gr_make_io_signature2 (2, 2, sizeof(float), sizeof(float)), //stream 0 is received data, stream 1 is moving average for reference
-                   gr_make_io_signature (1, 1, sizeof(float))) //the original data. we pass it out in order to use tags.
+                   gr_make_io_signature (1, 1, sizeof(float))) //the output packets
 {
 	d_chip_rate = 2000000; //2Mchips per second
 	d_samples_per_chip = channel_rate / d_chip_rate; //must be integer number of samples per chip to work
 	d_samples_per_symbol = d_samples_per_chip * 2;
-	d_check_width = 7.5 * d_samples_per_symbol; //only search to this far from the end of the stream buffer
+	d_check_width = 120 * d_samples_per_symbol; //only search to this far from the end of the stream buffer
 	d_threshold_db = threshold_db;
 	d_threshold = powf(10., threshold_db/10.); //the level that the sample must be above the moving average in order to qualify as a pulse
+	
 	set_output_multiple(1+d_check_width*2);
+	
 	std::stringstream str;
 	str << name() << unique_id();
 	d_me = pmt::pmt_string_to_symbol(str.str());
@@ -59,111 +61,110 @@ static int early_late(const float *data) {
 	else return 0;
 }
 
-int air_modes_preamble::work(int noutput_items,
+static void integrate_and_dump(float *out, const float *in, int chips, int samps_per_chip) {
+	for(int i=0; i<chips; i++) {
+		float acc = 0;
+		for(int j=0; j<samps_per_chip; j++) {
+			acc += in[i*samps_per_chip+j];
+		}
+		out[i] = acc/samps_per_chip;
+	}
+}
+
+//the preamble pattern in bits
+//fixme goes in .h
+static const bool preamble_bits[] = {1, 0, 1, 0, 0, 0, 0, 1, 0, 1};
+static double correlate_preamble(const float *in, int samples_per_chip) {
+	double corr = 0.0;
+	for(int i=0; i<10; i++) {
+		for(int j=0; j<samples_per_chip;j++)
+			if(preamble_bits[i]) corr += in[i*samples_per_chip+j];
+	}
+	return corr;
+}
+
+int air_modes_preamble::general_work(int noutput_items,
+						  gr_vector_int &ninput_items,
                           gr_vector_const_void_star &input_items,
 		                  gr_vector_void_star &output_items)
 {
-	//do things!
 	const float *in = (const float *) input_items[0];
 	const float *inavg = (const float *) input_items[1];
-	
+	const int ninputs = std::min(ninput_items[0], ninput_items[1]); //just in case
 	float *out = (float *) output_items[0];
 
-	int size = noutput_items;
+	//fixme move into .h
 	const int pulse_offsets[4] = {0,
 	                              int(1.0 * d_samples_per_symbol),
 	                              int(3.5 * d_samples_per_symbol),
 	                              int(4.5 * d_samples_per_symbol)
 	                             };
 
-	float preamble_pulses[4];
-	
-	memcpy(out, in, size * sizeof(float));
-	
 	uint64_t abs_out_sample_cnt = nitems_written(0);
 
-	for(int i = d_samples_per_chip; i < size; i++) {
+	for(int i=0; i < ninputs; i++) {
 		float pulse_threshold = inavg[i] * d_threshold;
-		bool valid_preamble = false;
-		float gate_sum_now = 0, gate_sum_early = 0, gate_sum_late = 0;
+		if(in[i] > pulse_threshold) { //hey we got a candidate
+			if(in[i+1] > in[i]) continue; //wait for the peak
+			//check to see the rest of the pulses are there
+			if( in[i+pulse_offsets[1]] < pulse_threshold ) continue;
+			if( in[i+pulse_offsets[2]] < pulse_threshold ) continue;
+			if( in[i+pulse_offsets[3]] < pulse_threshold ) continue;
 
-		if(in[i] > pulse_threshold) { //if the sample is greater than the reference level by the specified amount
-			int gate_sum = early_late(&in[i]);
-			if(gate_sum != 0) continue; //if either the early gate or the late gate had greater energy, keep moving.
-			//the packets are so short we choose not to do any sort of closed-loop synchronization after this simple gating. 
-			//if we get a good center sample, the drift should be negligible.
-			preamble_pulses[0] = in[i+pulse_offsets[0]];
-			preamble_pulses[1] = in[i+pulse_offsets[1]];
-			preamble_pulses[2] = in[i+pulse_offsets[2]];
-			preamble_pulses[3] = in[i+pulse_offsets[3]];
-
-			//search for the rest of the pulses at their expected positions
-			if( preamble_pulses[1] < pulse_threshold ) continue;
-			if( preamble_pulses[2] < pulse_threshold ) continue;
-			if( preamble_pulses[3] < pulse_threshold ) continue;
-
-			valid_preamble = true; //this gets falsified by the following statements to disqualify a preamble
-
-			float avgpeak = (preamble_pulses[0] + preamble_pulses[1] + preamble_pulses[2] + preamble_pulses[3]) / 4;
-
-			//set the threshold requirement for spaces (0 chips) to
-			//threshold dB below the current peak
-			float space_threshold = preamble_pulses[0] / d_threshold;
-			//search between pulses and all the way out to 8.0us to make
-			//sure there are no pulses inside the "0" chips. make sure
-			//all the samples are <= (in[peak] * d_threshold).
-			//so 0.5us has to be < space_threshold, as does (1.5-3), 4, (5-7.5) in order to qualify.
-			for(int j = 1.5 * d_samples_per_symbol; j <= 3 * d_samples_per_symbol; j+=d_samples_per_chip) 
-				if(in[i+j] > space_threshold) valid_preamble = false;
-			for(int j = 5 * d_samples_per_symbol; j <= 7.5 * d_samples_per_symbol; j+=d_samples_per_chip)
-				if(in[i+j] > space_threshold) valid_preamble = false;
-
-			//make sure all four peaks are within 3dB of each other
-			float minpeak = avgpeak * 0.5;//-3db, was 0.631; //-2db
-			float maxpeak = avgpeak * 2.0;//3db, was 1.585; //2db
-
-			if(preamble_pulses[0] < minpeak || preamble_pulses[0] > maxpeak) continue;
-			if(preamble_pulses[1] < minpeak || preamble_pulses[1] > maxpeak) continue;
-			if(preamble_pulses[2] < minpeak || preamble_pulses[2] > maxpeak) continue;
-			if(preamble_pulses[3] < minpeak || preamble_pulses[3] > maxpeak) continue;
-		}
-
-		if(valid_preamble) {
-			//get a more accurate chip center by finding the energy peak across all four preamble peaks
-			//there's some weirdness in the early part, so i ripped it out.
-			bool early, late;
+			//get a more accurate bit center by finding the correlation peak across all four preamble bits
+			bool late = false;
 			do {
-				early = late = false;
-				//gate_sum_early= in[i+pulse_offsets[0]-1]
-				//			  + in[i+pulse_offsets[1]-1]
-				//		      + in[i+pulse_offsets[2]-1]
-				//			  + in[i+pulse_offsets[3]-1];
-							  
-				gate_sum_now =  in[i+pulse_offsets[0]]
-							  + in[i+pulse_offsets[1]]
-						      + in[i+pulse_offsets[2]]
-							  + in[i+pulse_offsets[3]];
-				
-				gate_sum_late = in[i+pulse_offsets[0]+1]
-							  + in[i+pulse_offsets[1]+1]
-							  + in[i+pulse_offsets[2]+1]
-							  + in[i+pulse_offsets[3]+1];
-
-				early = (gate_sum_early > gate_sum_now);
-				late = (gate_sum_late > gate_sum_now);
+				double now_corr = correlate_preamble(in+i, d_samples_per_chip);
+				double late_corr = correlate_preamble(in+i+1, d_samples_per_chip);
+				late = (late_corr > now_corr);
 				if(late) i++;
-				//else if(early) i--;
-				//if(early && late) early = late = false;
 			} while(late);
 
-			//finally after all this, let's post the preamble!
+			//now check to see that the rest of the chips in the preamble
+			//are below the peaks by threshold dB
+			float avgpeak = ( in[i+pulse_offsets[0]]
+			                + in[i+pulse_offsets[1]]
+			                + in[i+pulse_offsets[2]]
+			                + in[i+pulse_offsets[3]]) / 4.0;
+
+			float space_threshold = inavg[i] + (avgpeak - inavg[i])/d_threshold;
+			bool valid_preamble = true; //f'in c++
+			for( int j=1.5*d_samples_per_symbol; j<=3*d_samples_per_symbol; j++)
+				if(in[i+j] > space_threshold) valid_preamble = false;
+			for( int j=5*d_samples_per_symbol; j<=7.5*d_samples_per_symbol; j++)
+				if(in[i+j] > space_threshold) valid_preamble = false;
+			if(!valid_preamble) continue;
+
+			//be sure we've got enough room in the input buffer to copy out a whole packet
+			if(ninputs-i < 240*d_samples_per_chip) {
+				consume_each(i);
+				return 0;
+			}
+
+			//all right i'm prepared to call this a preamble			
+			//let's integrate and dump the output
+			i -= d_samples_per_chip-1;
+			integrate_and_dump(out, &in[i], 240, d_samples_per_chip);
+//			out[0] = 1.0; //for debug
+//			out[1] = out[2] = out[3] = out[4] = avgpeak;
+//			out[5] = out[6] = out[7] = out[8] = space_threshold;
+//			out[9] = 0.0;
+
+			//now tag the preamble
 			add_item_tag(0, //stream ID
-			             nitems_written(0)+i, //sample
-			             d_key,      //preamble_found
-			             pmt::PMT_T, //meaningless for us
-			             d_me        //block src id
-			            );
+					 nitems_written(0), //sample
+					 d_key,      //frame_info
+			         pmt::pmt_from_double((double) space_threshold),
+			         d_me        //block src id
+			        );
+			
+			//produce only one output per work call
+			consume_each(i+240*d_samples_per_chip);
+			return 240; //fixme debug should be 240
 		}
 	}
-	return size;
+	
+	//didn't get anything this time
+	consume_each(ninputs);
+	return 0;
 }

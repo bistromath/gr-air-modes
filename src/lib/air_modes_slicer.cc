@@ -31,6 +31,7 @@
 #include <iomanip>
 #include <modes_parity.h>
 #include <gr_tag_info.h>
+#include <iostream>
 
 extern "C"
 {
@@ -50,7 +51,7 @@ air_modes_slicer::air_modes_slicer(int channel_rate, gr_msg_queue_sptr queue) :
 {
 	//initialize private data here
 	d_chip_rate = 2000000; //2Mchips per second
-	d_samples_per_chip = channel_rate / d_chip_rate; //must be integer number of samples per chip to work
+	d_samples_per_chip = 2;//FIXME this is constant now channel_rate / d_chip_rate;
 	d_samples_per_symbol = d_samples_per_chip * 2;
 	d_check_width = 120 * d_samples_per_symbol; //how far you will have to look ahead
 	d_queue = queue;
@@ -66,6 +67,44 @@ static bool pmtcompare(pmt::pmt_t x, pmt::pmt_t y)
   t_y = pmt::pmt_to_uint64(pmt::pmt_tuple_ref(y, 0));
   return t_x < t_y;
 }
+
+//this slicer is courtesy of Lincoln Labs. supposedly it is more resistant to mode A/C FRUIT.
+//see http://adsb.tc.faa.gov/WG3_Meetings/Meeting8/Squitter-Lon.pdf
+static bool slicer(const float bit0, const float bit1, const float ref) {
+	bool slice, confidence;
+
+	//3dB limits for bit slicing and confidence measurement
+	float highlimit=ref*2;
+	float lowlimit=ref*0.5;
+	
+	bool firstchip_inref  = ((bit0 > lowlimit) && (bit0 < highlimit));
+	bool secondchip_inref = ((bit1 > lowlimit) && (bit1 < highlimit));
+
+	if(firstchip_inref && !secondchip_inref) {
+		slice = 1;
+		confidence = 1;
+	}
+	else if(secondchip_inref && !firstchip_inref) {
+		slice = 0;
+		confidence = 1;
+	} 
+	else if(firstchip_inref && secondchip_inref) {
+		slice = bit0 > bit1;
+		confidence = 0;
+	}
+	else if(!firstchip_inref && !secondchip_inref) { //in this case, we determine the bit by whichever is larger, and we determine high confidence if the low chip is 6dB below reference.
+		slice = bit0 > bit1;
+		if(slice) {
+			if(bit1 < lowlimit * 0.5) confidence = 1;
+			else confidence = 0;
+		} else {
+			if(bit0 < lowlimit * 0.5) confidence = 1;
+			else confidence = 0;
+		}
+	}
+	return slice;
+}
+
 /*
 static double pmt_to_timestamp(pmt::pmt_t tstamp, uint64_t sample_cnt, double secs_per_sample) {
 	double frac;
@@ -85,92 +124,63 @@ int air_modes_slicer::work(int noutput_items,
                           gr_vector_const_void_star &input_items,
 		                  gr_vector_void_star &output_items)
 {
-	//do things!
-	const float *inraw = (const float *) input_items[0];
+	const float *in = (const float *) input_items[0];
 	int size = noutput_items - d_check_width; //since it's a sync block, i assume that it runs with ninput_items = noutput_items
 
 	int i;
 	
 	std::vector<pmt::pmt_t> tags;
 	uint64_t abs_sample_cnt = nitems_read(0);
-	get_tags_in_range(tags, 0, abs_sample_cnt, abs_sample_cnt + size, pmt::pmt_string_to_symbol("frame_info"));
+	get_tags_in_range(tags, 0, abs_sample_cnt, abs_sample_cnt + size, pmt::pmt_string_to_symbol("preamble_found"));
 	std::vector<pmt::pmt_t>::iterator tag_iter;
 	
 	for(tag_iter = tags.begin(); tag_iter != tags.end(); tag_iter++) {
 		uint64_t i = gr_tags::get_nitems(*tag_iter) - abs_sample_cnt;
 		modes_packet rx_packet;
-		framer_packet_type packet_type = framer_packet_type(pmt::pmt_to_long(gr_tags::get_value(*tag_iter)));
 
-		int packet_length;
-		packet_length = packet_type == framer_packet_type(Short_Packet) ? 56 : 112;
-
-		rx_packet.type = packet_type;
 		memset(&rx_packet.data, 0x00, 14 * sizeof(unsigned char));
 		memset(&rx_packet.lowconfbits, 0x00, 24 * sizeof(unsigned char));
 		rx_packet.numlowconf = 0;
 
-			//let's use the preamble marker to get a reference level for the packet
-		rx_packet.reference_level = (inraw[i]
-								   + inraw[i+int(1.0*d_samples_per_symbol)]
-								   + inraw[i+int(3.5*d_samples_per_symbol)]
-								   + inraw[i+int(4.5*d_samples_per_symbol)]) / 4;
+		//let's use the preamble to get a reference level for the packet
+		//fixme: a better thing to do is create a bi-level avg 1 and avg 0
+		//through simple statistics, then take the median for your slice level
+		//this won't improve decoding but will improve confidence
+		rx_packet.reference_level = (in[i]
+								   + in[i+2]
+								   + in[i+7]
+								   + in[i+9]) / 4.0;
 
-		i += 8 * d_samples_per_symbol; //move to the center of the first bit of the data
+		i += 16; //move on up to the first bit of the packet data
+		//now let's slice the header so we can determine if it's a short pkt or a long pkt
+		unsigned char pkt_hdr = 0;
+		for(int j=0; j < 5; j++) {
+			bool slice = slicer(in[i+j*2], in[i+j*2+1], rx_packet.reference_level);
+			if(slice) pkt_hdr += 1 << (4-j);
+		}
+		//std::cout << "SLICER: TYPE " << int(pkt_hdr) << std::endl;
 
-		//here we calculate the total energy contained in each chip of the symbol
+		if(pkt_hdr == 17) rx_packet.type = Long_Packet;
+		else rx_packet.type = Short_Packet;
+		
+		int packet_length;
+		packet_length = (rx_packet.type == framer_packet_type(Short_Packet)) ? 56 : 112;
+
+		//it's slice time!
+		//TODO: don't repeat your work here, you already have the first 5 bits
 		for(int j = 0; j < packet_length; j++) {
-			int firstchip = i+j*d_samples_per_symbol;
-			int secondchip = firstchip + d_samples_per_chip;
-			bool slice, confidence;
-			float firstchip_energy=0, secondchip_energy=0;
+			bool slice = slicer(in[i+j*2], in[i+j*2+1], rx_packet.reference_level);
 
-			firstchip_energy = inraw[firstchip];
-			secondchip_energy = inraw[secondchip];
-
-			//3dB limits for bit slicing and confidence measurement
-			float highlimit=rx_packet.reference_level*2;
-			float lowlimit=rx_packet.reference_level*0.5;
-			bool firstchip_inref = ((firstchip_energy > lowlimit) && (firstchip_energy < highlimit));
-			bool secondchip_inref = ((secondchip_energy > lowlimit) && (secondchip_energy < highlimit));
-
-			//these two lines for a super simple naive slicer.
-//			slice = firstchip_energy > secondchip_energy;
-//			confidence = bool(int(firstchip_inref) + int(secondchip_inref)); //one and only one chip in the reference zone
-
-			//below is the Lincoln Labs slicer. it may produce greater bit errors. supposedly it is more resistant to mode A/C FRUIT.
-        //see http://adsb.tc.faa.gov/WG3_Meetings/Meeting8/Squitter-Lon.pdf
-			if(firstchip_inref && !secondchip_inref) {
-				slice = 1;
-				confidence = 1;
-			}
-			else if(secondchip_inref && !firstchip_inref) {
-				slice = 0;
-				confidence = 1;
-			} 
-			else if(firstchip_inref && secondchip_inref) {
-				slice = firstchip_energy > secondchip_energy;
-				confidence = 0;
-			}
-			else if(!firstchip_inref && !secondchip_inref) { //in this case, we determine the bit by whichever is larger, and we determine high confidence if the low chip is 6dB below reference.
-				slice = firstchip_energy > secondchip_energy;
-				if(slice) {
-					if(secondchip_energy < lowlimit * 0.5) confidence = 1;
-					else confidence = 0;
-				} else {
-					if(firstchip_energy < lowlimit * 0.5) confidence = 1;
-					else confidence = 0;
-				}
-			}
-				//put the data into the packet
+			//put the data into the packet
 			if(slice) {
 				rx_packet.data[j/8] += 1 << (7-(j%8));
 			}
 			//put the confidence decision into the packet
-			if(confidence) {
+//			if(confidence) {
 				//rx_packet.confidence[j/8] += 1 << (7-(j%8));
-			} else {
-				if(rx_packet.numlowconf < 24) rx_packet.lowconfbits[rx_packet.numlowconf++] = j;
-			}
+//			} else {
+//				if(rx_packet.numlowconf < 24) rx_packet.lowconfbits[rx_packet.numlowconf++] = j;
+//			}
 		}
 			
 		/******************** BEGIN TIMESTAMP BS ******************/

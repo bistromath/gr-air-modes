@@ -60,8 +60,8 @@ int air_modes_framer::work(int noutput_items,
 		                  gr_vector_void_star &output_items)
 {
 	//do things!
-	const float *inraw = (const float *) input_items[0];
-	float *outraw = (float *) output_items[0];
+	const float *in = (const float *) input_items[0];
+	float *out = (float *) output_items[0];
 	//unsigned char *outattrib = (unsigned char *) output_items[0];
 	int size = noutput_items - d_check_width*2;
 	if(size < 0) return 0;
@@ -73,7 +73,7 @@ int air_modes_framer::work(int noutput_items,
 	get_tags_in_range(tags, 0, abs_sample_cnt, abs_sample_cnt + size, pmt::pmt_string_to_symbol("preamble_found"));
 	std::vector<pmt::pmt_t>::iterator tag_iter;
 	
-	memcpy(outraw, inraw, size * sizeof(float));
+	memcpy(out, in, size * sizeof(float));
 	
 	for(tag_iter = tags.begin(); tag_iter != tags.end(); tag_iter++) {
 		uint64_t i = gr_tags::get_nitems(*tag_iter) - abs_sample_cnt;
@@ -81,18 +81,18 @@ int air_modes_framer::work(int noutput_items,
 		packet_attrib = Long_Packet;
 
 		//let's use the preamble marker to get a reference level for the packet
-		reference_level = (inraw[i]
-                        + inraw[i+int(1.0*d_samples_per_symbol)]
-                        + inraw[i+int(3.5*d_samples_per_symbol)]
-                        + inraw[i+int(4.5*d_samples_per_symbol)]) / 4;
+		reference_level = (in[i]
+                        + in[i+2]
+                        + in[i+7]
+                        + in[i+9]) / 4.0;
 		
 		//armed with our reference level, let's look for marks within 3dB of the reference level in bits 57-62 (65-70, see above)
 		//if bits 57-62 have marks in either chip, we've got a long packet
 		//otherwise we have a short packet
 		//NOTE: you can change the default here to be short packet, and then check for a long packet. don't know which way is better.
 		for(int j = (65 * d_samples_per_symbol); j < (70 * d_samples_per_symbol); j += d_samples_per_symbol) {
-			float t_max = std::max(inraw[i+j], 
-			                       inraw[i+j+d_samples_per_chip]
+			float t_max = std::max(in[i+j], 
+			                       in[i+j+d_samples_per_chip]
 			                      );
 			if(t_max < (reference_level / 2.0)) packet_attrib = Short_Packet;
 		}
@@ -114,7 +114,7 @@ int air_modes_framer::work(int noutput_items,
 		//insert tag here
 		add_item_tag(0, //stream ID
 					 nitems_written(0)+i, //sample
-					 d_key,      //preamble_found
+					 d_key,      //frame_info
 			         pmt::pmt_from_long((long)packet_attrib),
 			         d_me        //block src id
 			        );

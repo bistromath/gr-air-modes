@@ -137,12 +137,12 @@ int air_modes_preamble::general_work(int noutput_items,
 
 			//all right i'm prepared to call this a preamble			
 			//let's integrate and dump the output
-			i -= d_samples_per_chip-1;
-			integrate_and_dump(out, &in[i], 240, d_samples_per_chip);
-//			out[0] = 1.0; //for debug
-//			out[1] = out[2] = out[3] = out[4] = avgpeak;
-//			out[5] = out[6] = out[7] = out[8] = space_threshold;
-//			out[9] = 0.0;
+			//FIXME: disable and use center sample
+			for(int j=0; j<240; j++) {
+				out[j] = in[i+j*d_samples_per_chip];
+			}
+			//i -= d_samples_per_chip-1;
+			//integrate_and_dump(out, &in[i], 240, d_samples_per_chip);
 
 			//now tag the preamble
 			add_item_tag(0, //stream ID
@@ -154,8 +154,6 @@ int air_modes_preamble::general_work(int noutput_items,
 			//std::cout << "PREAMBLE" << std::endl;
 			
 			//produce only one output per work call
-			//we consume a short packet length, while generating a long one
-			//that way we don't miss two short pkts in the span of one long one
 			consume_each(i+240*d_samples_per_chip);
 			return 240;
 		}

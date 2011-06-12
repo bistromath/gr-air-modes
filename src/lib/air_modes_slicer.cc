@@ -93,7 +93,7 @@ static slice_result_t slicer(const float bit0, const float bit1, const float ref
 		result.decision = bit0 > bit1;
 		result.confidence = 0;
 	}
-	else if(!firstchip_inref && !secondchip_inref) { //in this case, we determine the bit by whichever is larger, and we determine high confidence if the low chip is 6dB below reference.
+	else {//if(!firstchip_inref && !secondchip_inref) {
 		result.decision = bit0 > bit1;
 		if(result.decision) {
 			if(bit1 < lowlimit * 0.5) result.confidence = 1;
@@ -129,6 +129,7 @@ int air_modes_slicer::work(int noutput_items,
 	int size = noutput_items - d_check_width; //since it's a sync block, i assume that it runs with ninput_items = noutput_items
 
 	int i;
+	static int n_ok=0, n_badcrc=0, n_loconf=0, n_zeroes=0;
 	
 	std::vector<pmt::pmt_t> tags;
 	uint64_t abs_sample_cnt = nitems_read(0);
@@ -207,46 +208,22 @@ int air_modes_slicer::work(int noutput_items,
 		for(int m = 0; m < 14; m++) {
 			if(rx_packet.data[m]) zeroes = 0;
 		}
-		if(zeroes) continue; //toss it
+		if(zeroes) {n_zeroes++; continue;} //toss it
 
 		rx_packet.message_type = (rx_packet.data[0] >> 3) & 0x1F; //get the message type for the parser to conveniently use, and to make decisions on ECC methods
 
-		//we note that short packets other than type 11 CANNOT be reliably decoded, since the a/c address is encoded with the parity bits.
-		//mode S in production ATC use relies on the fact that these short packets are reply squitters to transponder requests, 
-		//and so the radar should already know the expected a/c reply address. so, error-correction makes no sense on short packets (other than type 11)
-		//this means two things: first, we will DROP short packets (other than type 11) with ANY low-confidence bits, since we can't be confident that we're seeing real data
-		//second, we will only perform error correction on LONG type S packets.
-
-		//the limitation on short packets means in practice a short packet has to be at least 6dB above the noise floor in order to be output. long packets can theoretically
-		//be decoded at the 3dB SNR point. below that and the preamble detector won't fire.
-		
-		//in practice, this limitation causes you to see a HUGE number of type 11 packets which pass CRC through random luck.
-		//these packets necessarily have large numbers of low-confidence bits, so we toss them with an arbitrary limit of 10.
-		//that's a pretty dang low threshold so i don't think we'll drop many legit packets
-
-		if(rx_packet.type == Short_Packet && rx_packet.message_type != 11 && rx_packet.numlowconf != 0) continue;
-		if(rx_packet.message_type == 11 && rx_packet.numlowconf >= 10) continue;
+		if(rx_packet.type == Short_Packet && rx_packet.message_type != 11 && rx_packet.numlowconf > 2) {n_loconf++; continue;}
+		if(rx_packet.message_type == 11 && rx_packet.numlowconf >= 10) {n_loconf++; continue;}
 			
-
-		//if(rx_packet.numlowconf >= 24) continue; //don't even try, this is the maximum number of errors ECC could possibly correct
-		//the above line should be part of ECC, and only checked if the message has parity errors
-
 		rx_packet.parity = modes_check_parity(rx_packet.data, packet_length);
 
-		if(rx_packet.parity && rx_packet.type == Long_Packet) {
-			bruteResultTypeDef bruteResult = modes_ec_brute(rx_packet);
+		//parity for packets that aren't type 11 or type 17 is encoded with the transponder ID, which we don't know
+		//therefore we toss 'em if there's syndrome
+		//parity for the other short packets is usually nonzero, so they can't really be trusted that far
+		if(rx_packet.parity && (rx_packet.message_type == 11 || rx_packet.message_type == 17)) {n_badcrc++; continue;}
 
-			if(bruteResult == No_Solution) {
-				continue;
-			} else if(bruteResult == Multiple_Solutions) {
-				continue;
-			} else if(bruteResult == Too_Many_LCBs) {
-				continue;
-			} else if(bruteResult == No_Error) {
-			} else if(bruteResult == Solution_Found) {
-//				printf("Solution found for %i LCBs!\n", rx_packet.numlowconf);
-			}
-		}
+		//we no longer attempt to brute force error correct via syndrome. it really only gets you 1% additional returns,
+		//at the expense of a lot of CPU time and complexity
 
 		//we'll replicate some data by sending the message type as the first field, followed by the first 8+24=32 bits of the packet, followed by
 		//56 long packet data bits if applicable (zero-padded if not), followed by parity
@@ -279,6 +256,8 @@ int air_modes_slicer::work(int noutput_items,
 		          << " " << std::setprecision(10) << std::setw(10) << rx_packet.timestamp;
 			gr_message_sptr msg = gr_make_message_from_string(std::string(d_payload.str()));
 		d_queue->handle(msg);
+		n_ok++;
+		std::cout << "n_ok: " << n_ok << " n_loconf: " << n_loconf << " n_badcrc: " << n_badcrc << " n_zeroes: " << n_zeroes << std::endl;
 
 	}
 

@@ -29,7 +29,6 @@ from gnuradio.eng_option import eng_option
 from optparse import OptionParser
 import time, os, sys, threading
 from string import split, join
-from usrpm import usrp_dbid
 from modes_print import modes_output_print
 from modes_sql import modes_output_sql
 from modes_sbs1 import modes_output_sbs1

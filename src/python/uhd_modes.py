@@ -29,7 +29,6 @@ from gnuradio.eng_option import eng_option
 from optparse import OptionParser
 import time, os, sys, threading
 from string import split, join
-from usrpm import usrp_dbid
 from modes_print import modes_output_print
 from modes_sql import modes_output_sql
 from modes_sbs1 import modes_output_sbs1
@@ -63,6 +62,8 @@ class adsb_rx_block (gr.top_block):
       if(options.rx_subdev_spec is None):
         options.rx_subdev_spec = ""
       self.u.set_subdev_spec(options.rx_subdev_spec)
+      if not options.antenna is None:
+        self.u.set_antenna(options.antenna)
 
       self.u.set_samp_rate(rate)
       rate = int(self.u.get_samp_rate()) #retrieve actual
@@ -114,6 +115,8 @@ if __name__ == '__main__':
   parser = OptionParser(option_class=eng_option, usage=usage)
   parser.add_option("-R", "--rx-subdev-spec", type="string",
           help="select USRP Rx side A or B", metavar="SUBDEV")
+  parser.add_option("-A", "--antenna", type="string",
+          help="select which antenna to use on daughterboard")
   parser.add_option("-f", "--freq", type="eng_float", default=1090e6,
                       help="set receive frequency in Hz [default=%default]", metavar="FREQ")
   parser.add_option("-g", "--gain", type="int", default=None,

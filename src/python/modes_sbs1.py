@@ -128,7 +128,7 @@ class modes_output_sbs1(modes_parse.modes_parse):
     return "MSG,8,0,0,%X,0,%s,%s,%s,%s,,,,,,,,,,,,\n" % (icao24,datestr,timestr,datestr,timestr)
 
   def pp17(self, shortdata, longdata, parity, ecc):
-    icao24 = shortdata & 0xFFFFFF	
+    icao24 = shortdata & 0xFFFFFF
     subtype = (longdata >> 51) & 0x1F
 
     retstr = None
@@ -136,19 +136,22 @@ class modes_output_sbs1(modes_parse.modes_parse):
     #in them
     [datestr, timestr] = self.current_time()
 
-    if subtype == 4:
+    if subtype >= 1 and subtype <= 4:
+      # Aircraft Identification
       msg = self.parseBDS08(shortdata, longdata, parity, ecc)
       retstr = "MSG,1,0,0,%X,0,%s,%s,%s,%s,%s,,,,,,,,,,,\n" % (icao24, datestr, timestr, datestr, timestr, msg)
 
     elif subtype >= 5 and subtype <= 8:
+      # Surface position measurement
       [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(shortdata, longdata, parity, ecc)
       if decoded_lat is None: #no unambiguously valid position available
         retstr = None
       else:
-        retstr = "MSG,3,0,0,%X,0,%s,%s,%s,%s,,%i,,,%.5f,%.5f,,,,0,0,0\n" % (icao24, datestr, timestr, datestr, timestr, altitude, decoded_lat, decoded_lon)
+        retstr = "MSG,2,0,0,%X,0,%s,%s,%s,%s,,%i,,,%.5f,%.5f,,,,0,0,0\n" % (icao24, datestr, timestr, datestr, timestr, altitude, decoded_lat, decoded_lon)
 
     elif subtype >= 9 and subtype <= 18 and subtype != 15:
-      # WRONG (rnge, bearing)
+      # Airborne position measurements
+      # WRONG (rnge, bearing), is this still true?
       # i'm eliminating type 15 records because they don't appear to be
       # valid position reports.
       [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(shortdata, longdata, parity, ecc)
@@ -158,7 +161,8 @@ class modes_output_sbs1(modes_parse.modes_parse):
         retstr = "MSG,3,0,0,%X,0,%s,%s,%s,%s,,%i,,,%.5f,%.5f,,,,0,0,0\n" % (icao24, datestr, timestr, datestr, timestr, altitude, decoded_lat, decoded_lon)
 
     elif subtype == 19:
-      # WRONG (heading, vert_spd)
+      # Airborne velocity measurements
+      # WRONG (heading, vert_spd), Is this still true?
       subsubtype = (longdata >> 48) & 0x07
       if subsubtype == 0:
         [velocity, heading, vert_spd] = self.parseBDS09_0(shortdata, longdata, parity, ecc)

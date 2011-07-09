@@ -79,7 +79,7 @@ class modes_output_sbs1(modes_parse.modes_parse):
 
   def current_time(self):
     timenow = datetime.now()
-    return [timenow.strftime("%Y/%m/%d"), timenow.strftime("%H:%M:%S.000")]
+    return [timenow.strftime("%Y/%m/%d"), timenow.strftime("%H:%M:%S.%f")[0:-3]]
 
   def decode_fs(self, fs):
     if fs == 0:

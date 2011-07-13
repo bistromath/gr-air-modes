@@ -4,6 +4,11 @@ import numpy
 from scipy.ndimage import map_coordinates
 
 #functions for multilateration.
+#this library is more or less based around the so-called "GPS equation", the canonical
+#iterative method for getting position from GPS satellite time difference of arrival data.
+#here, instead of multiple orbiting satellites with known time reference and position,
+#we have multiple fixed stations with known time references (GPSDO, hopefully) and known
+#locations (again, GPSDO).
 
 #NB: because of the way this solver works, at least 3 stations and timestamps
 #are required. this function will not return hyperbolae for underconstrained systems.
@@ -156,8 +161,6 @@ teststamps   = [10,
 #we use limit as a goal to stop solving when we get "close enough" (error magnitude in meters for that iteration)
 #basically 20 meters is way less than the anticipated error of the system so it doesn't make sense to continue
 #it's possible this could fail in situations where the solution converges slowly
-#because the change in ERROR is not necessarily the error itself
-#still, it should converge quickly when close, so it SHOULDN'T give more than 2-3x the precision in total error
 def mlat_iter(rel_stations, prange_obs, xguess = [0,0,0], limit = 20, maxrounds = 50):
     xerr = [1e9, 1e9, 1e9]
     rounds = 0
@@ -171,7 +174,8 @@ def mlat_iter(rel_stations, prange_obs, xguess = [0,0,0], limit = 20, maxrounds 
             H.append((numpy.array(-rel_stations[row,:])-xguess) / prange_est[row])
         H = numpy.array(H)
         #now we have H, the Jacobian, and can solve for residual error
-        xerr = numpy.dot(numpy.linalg.solve(numpy.dot(H.T,H), H.T), dphat).flatten()
+        #xerr = numpy.dot(numpy.linalg.solve(numpy.dot(H.T,H), H.T), dphat).flatten()
+        xerr = numpy.linalg.lstsq(H, dphat)[0].flatten() #let's not get crazy here
         xguess += xerr
         rounds += 1
         if rounds > maxrounds:
@@ -191,10 +195,10 @@ def mlat(replies, altitude):
     stations = []
     timestamps = []
     #i really couldn't figure out how to unpack this, sorry
-    for i in range(0, len(replies)):
-        stations.append( sorted_replies[i][0] )
-        timestamps.append( sorted_replies[i][1] )
-    
+    for sorted_reply in sorted_replies:
+        stations.append(sorted_reply[0])
+        timestamps.append(sorted_reply[1])
+
     me_llh = stations[0]
     me = llh2geoid(stations[0])
     
@@ -203,7 +207,8 @@ def mlat(replies, altitude):
         rel_stations.append(numpy.array(llh2geoid(station)) - numpy.array(me))
     rel_stations.append([0,0,0]-numpy.array(me)) #arne saknussemm, reporting in
     rel_stations = numpy.array(rel_stations) #convert list of arrays to 2d array
-    
+
+    #differentiate the timestamps to get TDOA
     tdoa = []
     for stamp in timestamps[1:]:
         tdoa.append(stamp - timestamps[0])
@@ -231,5 +236,13 @@ def mlat(replies, altitude):
     
     xyzpos_corr = mlat_iter(rel_stations, prange_obs, xyzpos) #start off with a really close guess
     llhpos = ecef2llh(xyzpos_corr+me)
+
+    #and now, what the hell, let's try to get dilution of precision data
+    #avec is the vector of relative ranges to the aircraft from each of the stations
+#    for i in range(len(avec)):
+#        avec[i] = numpy.array(avec[i]) / numpy.linalg.norm(numpy.array(avec[i]))
+#    numpy.append(avec, [[-1],[-1],[-1],[-1]], 1) #must be # of stations
+#    doparray = numpy.linalg.inv(avec.T*avec)
+#the diagonal elements of doparray will be the x, y, z DOPs.
     
     return llhpos

@@ -151,7 +151,8 @@ c = 299792458 / 1.0003 #modified for refractive index of air, why not
 #we use limit as a goal to stop solving when we get "close enough" (error magnitude in meters for that iteration)
 #basically 20 meters is way less than the anticipated error of the system so it doesn't make sense to continue
 #it's possible this could fail in situations where the solution converges slowly
-def mlat_iter(rel_stations, prange_obs, xguess = [0,0,0], limit = 20, maxrounds = 50):
+#TODO: this fails to converge for some seriously advantageous geometry
+def mlat_iter(rel_stations, prange_obs, xguess = [0,0,0], limit = 20, maxrounds = 100):
     xerr = [1e9, 1e9, 1e9]
     rounds = 0
     while numpy.linalg.norm(xerr) > limit:
@@ -161,11 +162,12 @@ def mlat_iter(rel_stations, prange_obs, xguess = [0,0,0], limit = 20, maxrounds 
         dphat = prange_obs - prange_est
         H = []
         for row in range(0,len(rel_stations)):
-            H.append((numpy.array(-rel_stations[row,:])-xguess) / prange_est[row])
+            H.append((numpy.array(-rel_stations[row,:])+xguess) / prange_est[row])
         H = numpy.array(H)
         #now we have H, the Jacobian, and can solve for residual error
-        xerr = numpy.linalg.lstsq(H, dphat)[0].flatten() #let's not get crazy here
+        xerr = numpy.linalg.lstsq(H, dphat)[0].flatten()
         xguess += xerr
+        print xguess, xerr
         rounds += 1
         if rounds > maxrounds:
             raise Exception("Failed to converge!")
@@ -207,13 +209,17 @@ def mlat(replies, altitude):
         prange_obs.append([c * stamp])
 
     #so here we calc the estimated pseudorange to the center of the earth, using station[0] as a reference point for the geoid
+    #in other words, we say "if the aircraft were directly overhead of station[0], this is the prange to the center of the earth"
     #this is a necessary approximation since we don't know the location of the aircraft yet
     #if the dang earth were actually round this wouldn't be an issue
     prange_obs.append( [numpy.linalg.norm(llh2ecef((me_llh[0], me_llh[1], altitude)))] ) #use ECEF not geoid since alt is MSL not GPS
-    #prange_obs.append( [numpy.linalg.norm(testplane)]) #test for error
     prange_obs = numpy.array(prange_obs)
+
+    #xguess = llh2ecef([37.617175,-122.400843, 8000])-numpy.array(me)
+    xguess = [0,0,0]
+    #xguess = numpy.array(llh2ecef([stations[2][0], stations[2][1], altitude])) - numpy.array(me)
     
-    xyzpos = mlat_iter(rel_stations, prange_obs)
+    xyzpos = mlat_iter(rel_stations, prange_obs, xguess)
     llhpos = ecef2llh(xyzpos+me)
     
     #now, we could return llhpos right now and be done with it.
@@ -227,7 +233,7 @@ def mlat(replies, altitude):
     llhpos = ecef2llh(xyzpos_corr+me)
 
     #and now, what the hell, let's try to get dilution of precision data
-    #avec is the vector of relative ranges to the aircraft from each of the stations
+    #avec is the unit vector of relative ranges to the aircraft from each of the stations
 #    for i in range(len(avec)):
 #        avec[i] = numpy.array(avec[i]) / numpy.linalg.norm(numpy.array(avec[i]))
 #    numpy.append(avec, [[-1],[-1],[-1],[-1]], 1) #must be # of stations

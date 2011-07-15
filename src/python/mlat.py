@@ -147,16 +147,6 @@ def llh2geoid((lat, lon, alt)):
 
 c = 299792458 / 1.0003 #modified for refractive index of air, why not
 
-#here's some test data to validate the algorithm
-teststations = [[37.76225, -122.44254, 100], [37.409044, -122.077748, 100], [37.585085, -121.986395, 100]]
-testalt      = 8000
-testplane    = numpy.array(llh2ecef([37.617175,-122.380843, testalt]))
-testme       = llh2geoid(teststations[0])
-teststamps   = [10, 
-                10 + numpy.linalg.norm(testplane-numpy.array(llh2geoid(teststations[1]))) / c,
-                10 + numpy.linalg.norm(testplane-numpy.array(llh2geoid(teststations[2]))) / c,
-               ]
-
 #this function is the iterative solver core of the mlat function below
 #we use limit as a goal to stop solving when we get "close enough" (error magnitude in meters for that iteration)
 #basically 20 meters is way less than the anticipated error of the system so it doesn't make sense to continue
@@ -174,7 +164,6 @@ def mlat_iter(rel_stations, prange_obs, xguess = [0,0,0], limit = 20, maxrounds 
             H.append((numpy.array(-rel_stations[row,:])-xguess) / prange_est[row])
         H = numpy.array(H)
         #now we have H, the Jacobian, and can solve for residual error
-        #xerr = numpy.dot(numpy.linalg.solve(numpy.dot(H.T,H), H.T), dphat).flatten()
         xerr = numpy.linalg.lstsq(H, dphat)[0].flatten() #let's not get crazy here
         xguess += xerr
         rounds += 1

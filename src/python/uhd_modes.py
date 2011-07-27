@@ -33,6 +33,7 @@ from modes_print import modes_output_print
 from modes_sql import modes_output_sql
 from modes_sbs1 import modes_output_sbs1
 from modes_kml import modes_kml
+from modes_raw_server import modes_raw_server
 import gnuradio.gr.gr_threading as _threading
 import csv
 
@@ -133,6 +134,8 @@ if __name__ == '__main__':
                       help="filename for Google Earth KML output")
   parser.add_option("-P","--sbs1", action="store_true", default=False,
                       help="open an SBS-1-compatible server on port 30003")
+  parser.add_option("-w","--raw", action="store_true", default=False,
+                      help="open a server outputting raw timestamped data on port 9988")
   parser.add_option("-n","--no-print", action="store_true", default=False,
                       help="disable printing decoded packets to stdout")
   parser.add_option("-l","--location", type="string", default=None,
@@ -162,12 +165,17 @@ if __name__ == '__main__':
   if options.no_print is not True:
     outputs.append(modes_output_print(my_position).parse)
 
+  if options.raw is True:
+    rawport = modes_raw_server()
+    outputs.append(rawport.output)
+    updates.append(rawport.add_pending_conns)
+
   fg = adsb_rx_block(options, args, queue)
   runner = top_block_runner(fg)
 
   while 1:
     try:
-      #the update registry is really for the SBS1 plugin -- we're looking for new TCP connections.
+      #the update registry is really for the SBS1 and raw server plugins -- we're looking for new TCP connections.
       #i think we have to do this here rather than in the output handler because otherwise connections will stack up
       #until the next output arrives
       for update in updates:

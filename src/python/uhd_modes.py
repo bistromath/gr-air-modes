@@ -60,9 +60,9 @@ class adsb_rx_block (gr.top_block):
     if options.filename is None:
       self.u = uhd.single_usrp_source("", uhd.io_type_t.COMPLEX_FLOAT32, 1)
 
-      if(options.rx_subdev_spec is None):
-        options.rx_subdev_spec = ""
-      self.u.set_subdev_spec(options.rx_subdev_spec)
+      #if(options.rx_subdev_spec is None):
+      #  options.rx_subdev_spec = ""
+      #self.u.set_subdev_spec(options.rx_subdev_spec)
       if not options.antenna is None:
         self.u.set_antenna(options.antenna)
 

@@ -61,7 +61,7 @@ class modes_output_print(modes_parse.modes_parse):
         refdb = 10.0*math.log10(reference)
         
     if output is not None: 
-        output = "(%.0f %f) " % (refdb, timestamp) + output
+        output = "(%.0f %.10f) " % (refdb, timestamp) + output
         print output
 
   def print0(self, shortdata, parity, ecc):

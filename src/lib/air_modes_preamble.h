@@ -48,6 +48,8 @@ private:
 	float d_threshold_db;
 	float d_threshold;
 	pmt::pmt_t d_me, d_key;
+	pmt::pmt_t d_timestamp;
+	double d_secs_per_sample;
 
 public:
     int general_work (int noutput_items,

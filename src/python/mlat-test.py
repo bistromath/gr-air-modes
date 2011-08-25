@@ -3,7 +3,7 @@ import mlat
 import numpy
 
 #here's some test data to validate the algorithm
-teststations = [[37.76225, -122.44254, 100], [37.409044, -122.077748, 100], [37.63816,-122.378082, 100], [37.701207,-122.309418, 100]]
+teststations = [[37.76225, -122.44254, 100], [37.680016,-121.772461, 100], [37.385844,-122.083082, 100], [37.701207,-122.309418, 100]]
 testalt      = 8000
 testplane    = numpy.array(mlat.llh2ecef([37.617175,-122.400843, testalt]))
 testme       = mlat.llh2geoid(teststations[0])

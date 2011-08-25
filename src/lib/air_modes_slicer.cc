@@ -55,9 +55,8 @@ air_modes_slicer::air_modes_slicer(int channel_rate, gr_msg_queue_sptr queue) :
 	d_samples_per_symbol = d_samples_per_chip * 2;
 	d_check_width = 120 * d_samples_per_symbol; //how far you will have to look ahead
 	d_queue = queue;
-	d_secs_per_sample = 1.0 / d_chip_rate;
 
-	set_output_multiple(1+d_check_width * 2); //how do you specify buffer size for sinks?
+	set_output_multiple(1+d_check_width); //how do you specify buffer size for sinks?
 }
 
 //FIXME i'm sure this exists in gr
@@ -106,35 +105,18 @@ static slice_result_t slicer(const float bit0, const float bit1, const float ref
 	return result;
 }
 
-/*
-static double pmt_to_timestamp(pmt::pmt_t tstamp, uint64_t sample_cnt, double secs_per_sample) {
-	double frac;
-	uint64_t secs, sample, sample_age;
-
-	if(gr_tags::get_name(tstamp) != "time") return 0;
-	
-	secs = pmt_to_uint64(pmt_tuple_ref(gr_tags::get_value(tstamp), 0));
-	frac = pmt_to_double(pmt_tuple_ref(gr_tags::get_value(tstamp), 1));
-	sample = gr_tags::get_nitems(d_timestamp);
-	//now we have to offset the timestamp based on the current sample number
-	sample_age = (sample_cnt + i) - sample;
-	return sample_age * secs_per_sample + frac + secs;
-}
-*/
 int air_modes_slicer::work(int noutput_items,
                           gr_vector_const_void_star &input_items,
 		                  gr_vector_void_star &output_items)
 {
 	const float *in = (const float *) input_items[0];
 	int size = noutput_items - d_check_width; //since it's a sync block, i assume that it runs with ninput_items = noutput_items
-
-	int i;
 	
 	std::vector<pmt::pmt_t> tags;
 	uint64_t abs_sample_cnt = nitems_read(0);
 	get_tags_in_range(tags, 0, abs_sample_cnt, abs_sample_cnt + size, pmt::pmt_string_to_symbol("preamble_found"));
 	std::vector<pmt::pmt_t>::iterator tag_iter;
-	
+
 	for(tag_iter = tags.begin(); tag_iter != tags.end(); tag_iter++) {
 		uint64_t i = gr_tags::get_nitems(*tag_iter) - abs_sample_cnt;
 		modes_packet rx_packet;
@@ -181,23 +163,7 @@ int air_modes_slicer::work(int noutput_items,
 		}
 			
 		/******************** BEGIN TIMESTAMP BS ******************/
-		rx_packet.timestamp = 0;
-		/*
-		uint64_t abs_sample_cnt = nitems_read(0);
-		std::vector<pmt::pmt_t> tags;
-		uint64_t timestamp_secs, timestamp_sample, timestamp_delta;
-		double timestamp_frac;
-		
-		get_tags_in_range(tags, 0, abs_sample_cnt, abs_sample_cnt + i, pmt::pmt_string_to_symbol("time"));
-		//tags.back() is the most recent timestamp, then.
-		if(tags.size() > 0) {
-			d_timestamp = tags.back();
-		}
-
-		if(d_timestamp) {
-			rx_packet.timestamp = pmt_to_timestamp(d_timestamp, abs_sample_cnt + i, d_secs_per_sample);
-		}
-		*/
+		rx_packet.timestamp = pmt_to_double(gr_tags::get_value(*tag_iter));
 		/******************* END TIMESTAMP BS *********************/
 			
 		//increment for the next round

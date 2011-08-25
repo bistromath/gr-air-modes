@@ -28,6 +28,7 @@
 #include <gr_io_signature.h>
 #include <string.h>
 #include <iostream>
+#include <gr_tag_info.h>
 
 air_modes_preamble_sptr air_make_modes_preamble(int channel_rate, float threshold_db)
 {
@@ -45,7 +46,7 @@ air_modes_preamble::air_modes_preamble(int channel_rate, float threshold_db) :
 	d_check_width = 120 * d_samples_per_symbol; //only search to this far from the end of the stream buffer
 	d_threshold_db = threshold_db;
 	d_threshold = powf(10., threshold_db/10.); //the level that the sample must be above the moving average in order to qualify as a pulse
-	
+	d_secs_per_sample = 1.0 / channel_rate;
 	set_output_multiple(1+d_check_width*2);
 	
 	std::stringstream str;
@@ -77,6 +78,18 @@ static double correlate_preamble(const float *in, int samples_per_chip) {
 	return corr;
 }
 
+
+static double pmt_to_timestamp(pmt::pmt_t tstamp, uint64_t abs_sample_cnt, double secs_per_sample) {
+	uint64_t ts_sample, ticks;
+
+	if(pmt::pmt_symbol_to_string(gr_tags::get_key(tstamp)) != "timestamp") return 0;
+
+	ticks = pmt_to_uint64(gr_tags::get_value(tstamp));
+	ts_sample = gr_tags::get_nitems(tstamp);
+	//std::cout << "HEY WE GOT A STAMP AT " << ticks << " TICKS AT SAMPLE " << ts_sample << " ABS SAMPLE CNT IS " << abs_sample_cnt << std::endl;
+	return double(ticks+abs_sample_cnt) * secs_per_sample;
+}
+
 int air_modes_preamble::general_work(int noutput_items,
 						  gr_vector_int &ninput_items,
                           gr_vector_const_void_star &input_items,
@@ -94,7 +107,13 @@ int air_modes_preamble::general_work(int noutput_items,
 	                              int(9 * d_samples_per_chip)
 	                             };
 
-	uint64_t abs_out_sample_cnt = nitems_written(0);
+	uint64_t abs_sample_cnt = nitems_read(0);
+	std::vector<pmt::pmt_t> tstamp_tags;
+	get_tags_in_range(tstamp_tags, 0, abs_sample_cnt, abs_sample_cnt + ninputs, pmt::pmt_string_to_symbol("timestamp"));
+	//tags.back() is the most recent timestamp, then.
+	if(tstamp_tags.size() > 0) {
+		d_timestamp = tstamp_tags.back();
+	}
 
 	for(int i=0; i < ninputs; i++) {
 		float pulse_threshold = inavg[i] * d_threshold;
@@ -148,13 +167,21 @@ int air_modes_preamble::general_work(int noutput_items,
 				integrate_and_dump(out, &in[i], 240, d_samples_per_chip);
 			}
 
+			//get the timestamp of the preamble
+			double tstamp = 0;
+
+			if(d_timestamp) {
+				tstamp = pmt_to_timestamp(d_timestamp, abs_sample_cnt + i, d_secs_per_sample);
+			}
+
 			//now tag the preamble
 			add_item_tag(0, //stream ID
 					 nitems_written(0), //sample
 					 d_key,      //frame_info
-			         pmt::pmt_from_double((double) space_threshold),
+			         pmt::pmt_from_double(tstamp),
 			         d_me        //block src id
 			        );
+					 
 			//std::cout << "PREAMBLE" << std::endl;
 			
 			//produce only one output per work call

@@ -13,62 +13,6 @@ from scipy.ndimage import map_coordinates
 #NB: because of the way this solver works, at least 3 stations and timestamps
 #are required. this function will not return hyperbolae for underconstrained systems.
 #TODO: get HDOP out of this so we can draw circles of likely position and indicate constraint
-
-##########################NOTES#########################################
-#you should test your solver with a reference dataset that you've calculated. let's put one together.
-#let's say we have you here in SF, ER in MV, and some place in Fremont. the plane can be at SFO at 24000'.
-#your pos: 37.76225, -122.44254, 300'
-#ettus: 37.409044, -122.077748, 300'
-#fremont: 37.585085, -121.986395, 300'
-#airplane: 37.617175,-122.380843, 24000'
-
-#calculated using a third-party tool and verified against the algorithms in this file:
-#you: -2708399, -4260759, 3884677
-#ettus: -2693916, -4298177, 3853611
-#fremont: -2680759, -4292379, 3869113
-#airplane: -2712433, -4277271, 3876757
-
-#here's how I did it in Octave...
-#prange_est = ((stations(:, 1) - xguess(1)).^2 + (stations(:, 2) - xguess(2)).^2 + (stations(:,3) - xguess(3)).^2).^0.5;
-#dphat = prange_obs - prange_est;
-#H = [[-(stations(:,1)-xguess(1)) ./ prange_est, -(stations(:,2)-xguess(2)) ./ prange_est, -(stations(:,3)-xguess(3)) ./ prange_est]];
-#xerr = (H'*H\H'*dphat)';
-#xguess = xguess + xerr
-#remember the last line of stations is the 0 vector. remember the last line of prange_obs is the height of the a/c above geoid.
-
-#use one of the station positions as a starting guess. calculate alt-above-geoid once as though it were located directly above the starting guess; 300 miles
-#is like 4 degrees of latitude and i don't think it'll introduce more than a few meters of error.
-
-#well, there are some places where 4 degrees of latitude would count for 20 meters of error. but since our accuracy is really +/- 250m anyway it's probably not
-#a big deal. saves a lot of CPU to only do the lookup once.
-
-#so, the above solver works for pseudorange, but what if you only have time-of-flight info?
-#let's modify the prange eq to deal with time difference of arrival instead of pseudorange
-#knowns: time of arrival at each station, positions of each station, altitude of a/c
-#from this, you can say "it arrived x ns sooner at each of the other stations"
-#thus you can say "it's this much closer/farther to station y than to me"
-
-#the stations vector is RELATIVE TO YOU -- so it's [ettus-me; fremont-me; [0,0,0]-me]
-#prange_obs is a vector of TDOAs; the first value (earliest) is truncated since the difference is zero (just like stations)
-#this implies the TDOAs should arrive sorted, which is probably a good idea, or at the very least the closest station should be first
-
-#prange_est = [norm(stations(1,:)-xguess);
-#              norm(stations(2,:)-xguess);
-#              norm(stations(3,:)-xguess)]; #only valid for the three-station case we're testing Octave with
-#dphat = prange_obs - prange_est;
-#H = [[-(stations(:,1)-xguess(1)) ./ prange_est, -(stations(:,2)-xguess(2)) ./ prange_est, -(stations(:,3)-xguess(3)) ./ prange_est]];
-#xguess += (H'*H\H'*dphat)';
-#err=norm(airplane-(xguess+me)) #just for calculating convergence
-
-#it converges for 500km position error in the initial guess, so it seems pretty good.
-#seems to converge quickly in the terminal phase. 250m timing offset gives 450m position error
-#250m time offset in the local receiver (830ns) gives 325m position error
-
-#the last question is how to use the altitude data in prange_obs; calculate height above geoid for YOUR position at a/c alt and use that to get height above [0,0,0]
-#this will be close enough. you could iterate this along with the rest of it but it won't change more than the variation in geoid height between you and a/c.
-#maybe after convergence you can iterate a few more times with the a/c geoid height if you're worried about it.
-#there's probably a way to use YOU as the alt. station and just use height above YOU instead. but this works.
-
 ########################END NOTES#######################################
 
 
@@ -216,8 +160,8 @@ def mlat(replies, altitude):
     prange_obs = numpy.array(prange_obs)
 
     #xguess = llh2ecef([37.617175,-122.400843, 8000])-numpy.array(me)
-    xguess = [0,0,0]
-    #xguess = numpy.array(llh2ecef([stations[2][0], stations[2][1], altitude])) - numpy.array(me)
+    #xguess = [0,0,0]
+    xguess = numpy.array(llh2ecef([me_llh[0], me_llh[1], altitude])) - numpy.array(me)
     
     xyzpos = mlat_iter(rel_stations, prange_obs, xguess)
     llhpos = ecef2llh(xyzpos+me)
@@ -228,7 +172,6 @@ def mlat(replies, altitude):
     #so now we solve AGAIN, but this time with the corrected pseudorange of the aircraft altitude
     #this might not be really useful in practice but the sim shows >50m errors without it
     prange_obs[-1] = [numpy.linalg.norm(llh2ecef((llhpos[0], llhpos[1], altitude)))]
-    
     xyzpos_corr = mlat_iter(rel_stations, prange_obs, xyzpos) #start off with a really close guess
     llhpos = ecef2llh(xyzpos_corr+me)
 

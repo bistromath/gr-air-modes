@@ -59,6 +59,8 @@ class adsb_rx_block (gr.top_block):
 
     if options.filename is None:
       self.u = uhd.single_usrp_source("", uhd.io_type_t.COMPLEX_FLOAT32, 1)
+      time_spec = uhd.time_spec(0.0)
+      self.u.set_time_now(time_spec)
 
       #if(options.rx_subdev_spec is None):
       #  options.rx_subdev_spec = ""
@@ -94,8 +96,8 @@ class adsb_rx_block (gr.top_block):
     
     #the DBSRX especially tends to be spur-prone; the LPF keeps out the
     #spur multiple that shows up at 2MHz
-    self.lpfiltcoeffs = gr.firdes.low_pass(1, rate, 1.8e6, 200e3)
-    self.lpfilter = gr.fir_filter_ccc(1, self.lpfiltcoeffs)
+    self.lpfiltcoeffs = gr.firdes.low_pass(1, rate, 1.8e6, 100e3)
+    self.lpfilter = gr.fir_filter_ccf(1, self.lpfiltcoeffs)
     
     self.preamble = air.modes_preamble(rate, options.threshold)
     #self.framer = air.modes_framer(rate)
@@ -110,6 +112,9 @@ class adsb_rx_block (gr.top_block):
   def tune(self, freq):
     result = self.u.set_center_freq(freq, 0)
     return result
+
+def printraw(msg):
+    print msg
 
 if __name__ == '__main__':
   usage = "%prog: [options] output filename"
@@ -168,6 +173,7 @@ if __name__ == '__main__':
   if options.raw is True:
     rawport = modes_raw_server()
     outputs.append(rawport.output)
+    outputs.append(printraw)
     updates.append(rawport.add_pending_conns)
 
   fg = adsb_rx_block(options, args, queue)

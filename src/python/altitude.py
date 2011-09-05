@@ -63,7 +63,14 @@ def decode_alt(alt, bit13):
 		B4 = 0x0002
 		D4 = 0x0001
 
-		bigpart =  ((alt & B4) >> 1) + ((alt & B2) >> 2) + ((alt & B1) >> 3) + ((alt & A4) >> 4) + ((alt & A2) >> 5) + ((alt & A1) >> 6) + ((alt & D4) << 6) + ((alt & D2) << 5)
+		bigpart =  ((alt & B4) >> 1) \
+				 + ((alt & B2) >> 2) \
+				 + ((alt & B1) >> 3) \
+				 + ((alt & A4) >> 4) \
+				 + ((alt & A2) >> 5) \
+				 + ((alt & A1) >> 6) \
+				 + ((alt & D4) << 6) \
+				 + ((alt & D2) << 5)
 
 		#bigpart is now the 500-foot-resolution Gray-coded binary part
 		decoded_alt = gray2bin(bigpart)

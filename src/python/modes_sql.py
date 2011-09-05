@@ -68,7 +68,7 @@ class modes_output_sql(modes_parse.modes_parse):
   def make_insert_query(self, message):
     #assembles a SQL query tailored to our database
     #this version ignores anything that isn't Type 17 for now, because we just don't care
-    [msgtype, shortdata, longdata, parity, ecc, reference, time_secs] = message.split()
+    [msgtype, shortdata, longdata, parity, ecc, reference, timestamp] = message.split()
 
     shortdata = long(shortdata, 16)
     longdata = long(longdata, 16)

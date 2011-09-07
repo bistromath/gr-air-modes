@@ -80,14 +80,15 @@ static double correlate_preamble(const float *in, int samples_per_chip) {
 
 
 static double pmt_to_timestamp(pmt::pmt_t tstamp, uint64_t abs_sample_cnt, double secs_per_sample) {
-	uint64_t ts_sample, ticks;
+	uint64_t ts_sample;
+	double last_stamp;
 
 	if(pmt::pmt_symbol_to_string(gr_tags::get_key(tstamp)) != "timestamp") return 0;
 
-	ticks = pmt_to_uint64(gr_tags::get_value(tstamp));
+	last_stamp = pmt_to_double(gr_tags::get_value(tstamp));
 	ts_sample = gr_tags::get_nitems(tstamp);
 	//std::cout << "HEY WE GOT A STAMP AT " << ticks << " TICKS AT SAMPLE " << ts_sample << " ABS SAMPLE CNT IS " << abs_sample_cnt << std::endl;
-	return double(ticks+abs_sample_cnt) * secs_per_sample;
+	return double(abs_sample_cnt * secs_per_sample) + last_stamp;
 }
 
 int air_modes_preamble::general_work(int noutput_items,
@@ -114,7 +115,7 @@ int air_modes_preamble::general_work(int noutput_items,
 	if(tstamp_tags.size() > 0) {
 		d_timestamp = tstamp_tags.back();
 	}
-
+	
 	for(int i=0; i < ninputs; i++) {
 		float pulse_threshold = inavg[i] * d_threshold;
 		if(in[i] > pulse_threshold) { //hey we got a candidate
@@ -125,15 +126,18 @@ int air_modes_preamble::general_work(int noutput_items,
 			if( in[i+pulse_offsets[3]] < pulse_threshold ) continue;
 
 			//get a more accurate bit center by finding the correlation peak across all four preamble bits
-			bool late = false;
+			bool late, early;
 			do {
 				double now_corr = correlate_preamble(in+i, d_samples_per_chip);
 				double late_corr = correlate_preamble(in+i+1, d_samples_per_chip);
+				double early_corr = correlate_preamble(in+i-1, d_samples_per_chip);
 				late = (late_corr > now_corr);
+				//early = (early_corr > now_corr);
 				if(late) i++;
-			} while(late);
+				//if(early && i>0) { std::cout << "EARLY " << i << std::endl; i--; }
+			} while(late);// xor early);
 
-			//now check to see that the rest of the chips in the preamble
+			//now check to see that the non-peak symbols in the preamble
 			//are below the peaks by threshold dB
 			float avgpeak = ( in[i+pulse_offsets[0]]
 			                + in[i+pulse_offsets[1]]

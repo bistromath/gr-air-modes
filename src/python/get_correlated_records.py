@@ -79,16 +79,36 @@ for msg in position_reports:
     offset_list.append({"aircraft": data["shortdata"], "times": rel_times})
 
 #this is a list of unique aircraft, heard by all stations, which transmitted position packets
+#we do drift calcs separately for each aircraft in the set because mixing them seems to screw things up
+#i haven't really sat down and figured out why that is yet
 unique_aircraft = list(set([x["aircraft"] for x in offset_list]))
-#todo: the below can be done cleaner with nested list comprehensions
-for ac in unique_aircraft:
-    for i in range(1,len(stations)):
-        #pull out a list of unique aircraft from the offset list
-        rel_times_for_one_ac = [report["times"][i]-report["times"][0] for report in offset_list if report["aircraft"] == ac]
-        abs_times_for_one_ac = [report["times"][0] for report in offset_list if report["aircraft"] == ac]
 
-        #find drift error
-        drift_error = [(y-x)/(b-a) for x,y,a,b in zip(rel_times_for_one_ac, rel_times_for_one_ac[1:], abs_times_for_one_ac, abs_times_for_one_ac[1:])]
-        drift_error_limited = [x for x in drift_error if abs(x) < 1e-5]
-        print "drift from %d relative to station 0 for ac %x: %.3fppm" % (i, ac & 0xFFFFFF, numpy.mean(drift_error_limited) * 1e6)
-        
+#get a list of reported times gathered by the unique aircraft that transmitted them
+#abs_unique_times = [report["times"] for ac in unique_aircraft for report in offset_list if report["aircraft"] == ac]
+#print abs_unique_times
+#todo: the below can be done cleaner with nested list comprehensions
+clock_rate_corrections = [0]
+for i in range(1,len(stations)):
+    drift_error_limited = []
+    for ac in unique_aircraft:
+        times = [report["times"] for report in offset_list if report["aircraft"] == ac]
+
+        s0_times = [report[0] for report in times]
+        rel_times = [report[i]-report[0] for report in times]
+
+        #find drift error rate
+        drift_error = [(y-x)/(b-a) for x,y,a,b in zip(rel_times, rel_times[1:], s0_times[0:], s0_times[1:])]
+        drift_error_limited.append([x for x in drift_error if abs(x) < 1e-5])
+
+    #flatten the list of lists (tacky, there's a better way)
+    drift_error_limited = [x for sublist in drift_error_limited for x in sublist]
+    clock_rate_corrections.append(0-numpy.mean(drift_error_limited))
+
+for i in range(len(clock_rate_corrections)):
+    print "drift from %d relative to station 0: %.3fppm" % (i, clock_rate_corrections[i] * 1e6)
+
+#ok now we have clock rate corrections for each station, and we can multilaterate like hell
+#we'll need a way to get a clock offset at a particular time, in case the dataset has a discontinuity
+#actually we don't, unless we still have the old "timestamps-are-wrong-in-b100" issue
+#remember to subtract out rel_time before correcting for clock rate error
+#start with all_heard

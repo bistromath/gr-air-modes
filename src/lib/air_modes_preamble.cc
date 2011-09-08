@@ -80,15 +80,16 @@ static double correlate_preamble(const float *in, int samples_per_chip) {
 
 
 static double pmt_to_timestamp(pmt::pmt_t tstamp, uint64_t abs_sample_cnt, double secs_per_sample) {
-	uint64_t ts_sample;
-	double last_stamp;
+	uint64_t ts_sample, last_whole_stamp;
+	double last_frac_stamp;
 
 	if(pmt::pmt_symbol_to_string(gr_tags::get_key(tstamp)) != "timestamp") return 0;
 
-	last_stamp = pmt_to_double(gr_tags::get_value(tstamp));
+	last_whole_stamp = pmt_to_uint64(pmt_tuple_ref(gr_tags::get_value(tstamp), 0));
+	last_frac_stamp = pmt_to_double(pmt_tuple_ref(gr_tags::get_value(tstamp), 1));
 	ts_sample = gr_tags::get_nitems(tstamp);
 	//std::cout << "HEY WE GOT A STAMP AT " << ticks << " TICKS AT SAMPLE " << ts_sample << " ABS SAMPLE CNT IS " << abs_sample_cnt << std::endl;
-	return double(abs_sample_cnt * secs_per_sample) + last_stamp;
+	return double(abs_sample_cnt * secs_per_sample) + last_whole_stamp + last_frac_stamp;
 }
 
 int air_modes_preamble::general_work(int noutput_items,

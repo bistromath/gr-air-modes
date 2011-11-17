@@ -18,7 +18,6 @@ print teststamps
 replies = []
 for i in range(0, len(teststations)):
     replies.append((teststations[i], teststamps[i]))
-
 ans = mlat.mlat(replies, testalt)
 error = numpy.linalg.norm(numpy.array(mlat.llh2ecef(ans))-numpy.array(testplane))
 range = numpy.linalg.norm(mlat.llh2geoid(ans)-numpy.array(testme))

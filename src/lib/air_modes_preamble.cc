@@ -78,7 +78,7 @@ static double correlate_preamble(const float *in, int samples_per_chip) {
 	return corr;
 }
 
-
+//todo: make it return a pair of some kind, otherwise you can lose precision
 static double pmt_to_timestamp(pmt::pmt_t tstamp, uint64_t abs_sample_cnt, double secs_per_sample) {
 	uint64_t ts_sample, last_whole_stamp;
 	double last_frac_stamp;

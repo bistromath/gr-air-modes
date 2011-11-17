@@ -100,18 +100,13 @@ def mlat_iter(rel_stations, prange_obs, xguess = [0,0,0], limit = 20, maxrounds 
     xerr = [1e9, 1e9, 1e9]
     rounds = 0
     while numpy.linalg.norm(xerr) > limit:
-        prange_est = []
-        for station in rel_stations:
-            prange_est.append([numpy.linalg.norm(station - xguess)])
+        prange_est = [[numpy.linalg.norm(station - xguess)] for station in rel_stations]
         dphat = prange_obs - prange_est
-        H = []
-        for row in range(0,len(rel_stations)):
-            H.append((numpy.array(-rel_stations[row,:])+xguess) / prange_est[row])
-        H = numpy.array(H)
+        H = numpy.array([(numpy.array(-rel_stations[row,:])+xguess) / prange_est[row] for row in range(0,len(rel_stations))])
         #now we have H, the Jacobian, and can solve for residual error
         xerr = numpy.linalg.lstsq(H, dphat)[0].flatten()
         xguess += xerr
-        print xguess, xerr
+        #print xguess, xerr
         rounds += 1
         if rounds > maxrounds:
             raise Exception("Failed to converge!")
@@ -127,30 +122,20 @@ def mlat_iter(rel_stations, prange_obs, xguess = [0,0,0], limit = 20, maxrounds 
 def mlat(replies, altitude):
     sorted_replies = sorted(replies, key=lambda time: time[1])
 
-    stations = []
-    timestamps = []
-    #i really couldn't figure out how to unpack this, sorry
-    for sorted_reply in sorted_replies:
-        stations.append(sorted_reply[0])
-        timestamps.append(sorted_reply[1])
+    stations = [sorted_reply[0] for sorted_reply in sorted_replies]
+    timestamps = [sorted_reply[1] for sorted_reply in sorted_replies]
 
     me_llh = stations[0]
     me = llh2geoid(stations[0])
+
     
-    rel_stations = [] #list of stations in XYZ relative to me
-    for station in stations[1:]:
-        rel_stations.append(numpy.array(llh2geoid(station)) - numpy.array(me))
-    rel_stations.append([0,0,0]-numpy.array(me)) #arne saknussemm, reporting in
+    #list of stations in XYZ relative to me
+    rel_stations = [numpy.array(llh2geoid(station)) - numpy.array(me) for station in stations[1:]]
+    rel_stations.append([0,0,0] - numpy.array(me))
     rel_stations = numpy.array(rel_stations) #convert list of arrays to 2d array
 
-    #differentiate the timestamps to get TDOA
-    tdoa = []
-    for stamp in timestamps[1:]:
-        tdoa.append(stamp - timestamps[0])
-    
-    prange_obs = []
-    for stamp in tdoa:
-        prange_obs.append([c * stamp])
+    #differentiate the timestamps to get TDOA, multiply by c to get pseudorange
+    prange_obs = [[c*(stamp-timestamps[0])] for stamp in timestamps[1:]]
 
     #so here we calc the estimated pseudorange to the center of the earth, using station[0] as a reference point for the geoid
     #in other words, we say "if the aircraft were directly overhead of station[0], this is the prange to the center of the earth"
@@ -161,6 +146,7 @@ def mlat(replies, altitude):
 
     #xguess = llh2ecef([37.617175,-122.400843, 8000])-numpy.array(me)
     #xguess = [0,0,0]
+    #start our guess directly overhead, who cares
     xguess = numpy.array(llh2ecef([me_llh[0], me_llh[1], altitude])) - numpy.array(me)
     
     xyzpos = mlat_iter(rel_stations, prange_obs, xguess)
@@ -171,6 +157,7 @@ def mlat(replies, altitude):
     #nearest station, results in significant error due to the oblateness of the Earth's geometry.
     #so now we solve AGAIN, but this time with the corrected pseudorange of the aircraft altitude
     #this might not be really useful in practice but the sim shows >50m errors without it
+    #and <4cm errors with it, not that we'll get that close in reality but hey let's do it right
     prange_obs[-1] = [numpy.linalg.norm(llh2ecef((llhpos[0], llhpos[1], altitude)))]
     xyzpos_corr = mlat_iter(rel_stations, prange_obs, xyzpos) #start off with a really close guess
     llhpos = ecef2llh(xyzpos_corr+me)

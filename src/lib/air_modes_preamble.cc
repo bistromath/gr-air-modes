@@ -79,15 +79,15 @@ static double correlate_preamble(const float *in, int samples_per_chip) {
 }
 
 //todo: make it return a pair of some kind, otherwise you can lose precision
-static double pmt_to_timestamp(pmt::pmt_t tstamp, uint64_t abs_sample_cnt, double secs_per_sample) {
+static double tag_to_timestamp(gr_tag_t tstamp, uint64_t abs_sample_cnt, double secs_per_sample) {
 	uint64_t ts_sample, last_whole_stamp;
 	double last_frac_stamp;
 
-	if(pmt::pmt_symbol_to_string(gr_tags::get_key(tstamp)) != "timestamp") return 0;
+	if(pmt::pmt_symbol_to_string(tstamp.key) != "timestamp") return 0;
 
-	last_whole_stamp = pmt_to_uint64(pmt_tuple_ref(gr_tags::get_value(tstamp), 0));
-	last_frac_stamp = pmt_to_double(pmt_tuple_ref(gr_tags::get_value(tstamp), 1));
-	ts_sample = gr_tags::get_nitems(tstamp);
+	last_whole_stamp = pmt::pmt_to_uint64(pmt::pmt_tuple_ref(tstamp.value, 0));
+	last_frac_stamp = pmt::pmt_to_double(pmt::pmt_tuple_ref(tstamp.value, 1));
+	ts_sample = tstamp.offset;
 	//std::cout << "HEY WE GOT A STAMP AT " << ticks << " TICKS AT SAMPLE " << ts_sample << " ABS SAMPLE CNT IS " << abs_sample_cnt << std::endl;
 	return double(abs_sample_cnt * secs_per_sample) + last_whole_stamp + last_frac_stamp;
 }
@@ -110,7 +110,7 @@ int air_modes_preamble::general_work(int noutput_items,
 	                             };
 
 	uint64_t abs_sample_cnt = nitems_read(0);
-	std::vector<pmt::pmt_t> tstamp_tags;
+	std::vector<gr_tag_t> tstamp_tags;
 	get_tags_in_range(tstamp_tags, 0, abs_sample_cnt, abs_sample_cnt + ninputs, pmt::pmt_string_to_symbol("timestamp"));
 	//tags.back() is the most recent timestamp, then.
 	if(tstamp_tags.size() > 0) {
@@ -175,8 +175,8 @@ int air_modes_preamble::general_work(int noutput_items,
 			//get the timestamp of the preamble
 			double tstamp = 0;
 
-			if(d_timestamp) {
-				tstamp = pmt_to_timestamp(d_timestamp, abs_sample_cnt + i, d_secs_per_sample);
+			if(d_timestamp.offset != 0) {
+				tstamp = tag_to_timestamp(d_timestamp, abs_sample_cnt + i, d_secs_per_sample);
 			}
 
 			//now tag the preamble

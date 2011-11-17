@@ -59,15 +59,6 @@ air_modes_slicer::air_modes_slicer(int channel_rate, gr_msg_queue_sptr queue) :
 	set_output_multiple(1+d_check_width); //how do you specify buffer size for sinks?
 }
 
-//FIXME i'm sure this exists in gr
-static bool pmtcompare(pmt::pmt_t x, pmt::pmt_t y)
-{
-  uint64_t t_x, t_y;
-  t_x = pmt::pmt_to_uint64(pmt::pmt_tuple_ref(x, 0));
-  t_y = pmt::pmt_to_uint64(pmt::pmt_tuple_ref(y, 0));
-  return t_x < t_y;
-}
-
 //this slicer is courtesy of Lincoln Labs. supposedly it is more resistant to mode A/C FRUIT.
 //see http://adsb.tc.faa.gov/WG3_Meetings/Meeting8/Squitter-Lon.pdf
 static slice_result_t slicer(const float bit0, const float bit1, const float ref) {
@@ -112,13 +103,13 @@ int air_modes_slicer::work(int noutput_items,
 	const float *in = (const float *) input_items[0];
 	int size = noutput_items - d_check_width; //since it's a sync block, i assume that it runs with ninput_items = noutput_items
 	
-	std::vector<pmt::pmt_t> tags;
+	std::vector<gr_tag_t> tags;
 	uint64_t abs_sample_cnt = nitems_read(0);
 	get_tags_in_range(tags, 0, abs_sample_cnt, abs_sample_cnt + size, pmt::pmt_string_to_symbol("preamble_found"));
-	std::vector<pmt::pmt_t>::iterator tag_iter;
+	std::vector<gr_tag_t>::iterator tag_iter;
 
 	for(tag_iter = tags.begin(); tag_iter != tags.end(); tag_iter++) {
-		uint64_t i = gr_tags::get_nitems(*tag_iter) - abs_sample_cnt;
+		uint64_t i = tag_iter->offset - abs_sample_cnt;
 		modes_packet rx_packet;
 
 		memset(&rx_packet.data, 0x00, 14 * sizeof(unsigned char));
@@ -163,7 +154,7 @@ int air_modes_slicer::work(int noutput_items,
 		}
 			
 		/******************** BEGIN TIMESTAMP BS ******************/
-		rx_packet.timestamp = pmt_to_double(gr_tags::get_value(*tag_iter));
+		rx_packet.timestamp = pmt_to_double(tag_iter->value);
 		/******************* END TIMESTAMP BS *********************/
 			
 		//increment for the next round

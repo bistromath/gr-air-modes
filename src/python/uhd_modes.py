@@ -148,7 +148,7 @@ if __name__ == '__main__':
   (options, args) = parser.parse_args()
 
   if options.location is not None:
-    reader = csv.reader([options.location])
+    reader = csv.reader([options.location], quoting=csv.QUOTE_NONNUMERIC)
     my_position = reader.next()
 
   queue = gr.msg_queue()

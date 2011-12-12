@@ -28,7 +28,7 @@
 #include <gr_io_signature.h>
 #include <string.h>
 #include <iostream>
-#include <gr_tag_info.h>
+#include <gr_tags.h>
 
 air_modes_preamble_sptr air_make_modes_preamble(int channel_rate, float threshold_db)
 {
@@ -83,7 +83,7 @@ static double tag_to_timestamp(gr_tag_t tstamp, uint64_t abs_sample_cnt, double 
 	uint64_t ts_sample, last_whole_stamp;
 	double last_frac_stamp;
 
-	if(pmt::pmt_symbol_to_string(tstamp.key) != "timestamp") return 0;
+	if(tstamp.key == NULL || pmt::pmt_symbol_to_string(tstamp.key) != "timestamp") return 0;
 
 	last_whole_stamp = pmt::pmt_to_uint64(pmt::pmt_tuple_ref(tstamp.value, 0));
 	last_frac_stamp = pmt::pmt_to_double(pmt::pmt_tuple_ref(tstamp.value, 1));

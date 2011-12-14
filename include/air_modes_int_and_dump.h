@@ -1,0 +1,54 @@
+/*
+# Copyright 2010 Nick Foster
+# 
+# This file is part of gr-air-modes
+# 
+# gr-air-modes is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3, or (at your option)
+# any later version.
+# 
+# gr-air-modes is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with gr-air-modes; see the file COPYING.  If not, write to
+# the Free Software Foundation, Inc., 51 Franklin Street,
+# Boston, MA 02110-1301, USA.
+# 
+*/
+
+#ifndef INCLUDED_AIR_MODES_int_and_dump_H
+#define INCLUDED_AIR_MODES_int_and_dump_H
+
+#include <gr_block.h>
+
+class air_modes_int_and_dump;
+typedef boost::shared_ptr<air_modes_int_and_dump> air_modes_int_and_dump_sptr;
+
+air_modes_int_and_dump_sptr air_make_modes_int_and_dump(int samples_per_chip);
+
+/*!
+ * \brief mode select int_and_dump filter
+ * \ingroup block
+ */
+class air_modes_int_and_dump : public gr_block
+{
+private:
+    friend air_modes_int_and_dump_sptr air_make_modes_int_and_dump(int samples_per_chip);
+    air_modes_int_and_dump(int samples_per_chip);
+
+	int d_samples_per_chip;
+    float d_acc;
+    float d_pos;
+
+public:
+    int general_work (int noutput_items,
+              gr_vector_int &ninput_items,
+              gr_vector_const_void_star &input_items,
+              gr_vector_void_star &output_items);
+};
+
+#endif /* INCLUDED_AIR_MODES_int_and_dump_H */

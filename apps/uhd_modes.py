@@ -156,7 +156,7 @@ if __name__ == '__main__':
     sqlport = air_modes.modes_output_sql(my_position, 'adsb.db') #create a SQL parser to push stuff into SQLite
     outputs.append(sqlport.insert)
     #also we spawn a thread to run every 30 seconds (or whatever) to generate KML
-    kmlgen = modes_kml('adsb.db', options.kml, my_position) #create a KML generating thread which reads the database
+    kmlgen = air_modes.modes_kml('adsb.db', options.kml, my_position) #create a KML generating thread which reads the database
 
   if options.sbs1 is True:
     sbs1port = air_modes.modes_output_sbs1(my_position)

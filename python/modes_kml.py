@@ -21,14 +21,17 @@
 
 import sqlite3
 import string, math, threading, time
+from air_modes.modes_sql import modes_output_sql
 
 class modes_kml(threading.Thread):
-    def __init__(self, dbfile, filename, localpos, timeout=5):
+    def __init__(self, filename, localpos, timeout=5):
         threading.Thread.__init__(self)
         self._filename = filename
-        self._dbfile = dbfile
         self.my_coords = localpos
         self._timeout = timeout
+        self._dbname = 'adsb.db'
+        self._sqlobj = modes_output_sql(self.my_coords, self._dbname)
+        
         self.done = False
         self.setDaemon(1)
         self.start()
@@ -41,7 +44,7 @@ class modes_kml(threading.Thread):
         self.done = True
     
     def output(self):
-        self._db = sqlite3.connect(self._dbfile)
+        self._db = sqlite3.connect(self._dbname)
         kmlstr = self.genkml()
         if kmlstr is not None:
             f = open(self._filename, 'w')

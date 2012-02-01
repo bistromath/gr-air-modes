@@ -29,6 +29,7 @@ import math
 class modes_parse:
   def __init__(self, mypos):
       self.my_location = mypos
+      self.cpr_decoder = cpr_decoder(self.my_location)
     
   def parse0(self, shortdata, parity, ecc):
 #	shortdata = long(shortdata, 16)
@@ -148,16 +149,6 @@ class modes_parse:
 
     return retval
 
-#lkplist is the last known position, for emitter-centered decoding. evenlist and oddlist are the last 
-#received encoded position data for each reporting type. all dictionaries indexed by ICAO number.
-  _lkplist = {}
-  _evenlist = {}
-  _oddlist = {}
-  _evenlist_ground = {}
-  _oddlist_ground = {}
-
-#the above dictionaries are all in the format [lat, lon, time].
-
   def parseBDS05(self, shortdata, longdata, parity, ecc):
     icao24 = shortdata & 0xFFFFFF
 
@@ -169,7 +160,7 @@ class modes_parse:
 
     altitude = decode_alt(enc_alt, False)
 
-    [decoded_lat, decoded_lon, rnge, bearing] = cpr_decode(self.my_location, icao24, encoded_lat, encoded_lon, cpr_format, self._evenlist, self._oddlist, self._lkplist, 0, longdata)
+    [decoded_lat, decoded_lon, rnge, bearing] = cpr_decoder.decode(icao24, encoded_lat, encoded_lon, cpr_format, 0)
 
     return [altitude, decoded_lat, decoded_lon, rnge, bearing]
 
@@ -186,7 +177,7 @@ class modes_parse:
 
     altitude = 0
 
-    [decoded_lat, decoded_lon, rnge, bearing] = cpr_decode(self.my_location, icao24, encoded_lat, encoded_lon, cpr_format, self._evenlist_ground, self._oddlist_ground, self._lkplist, 1, longdata)
+    [decoded_lat, decoded_lon, rnge, bearing] = cpr_decoder.decode(icao24, encoded_lat, encoded_lon, cpr_format, 1)
 
     return [altitude, decoded_lat, decoded_lon, rnge, bearing]
 

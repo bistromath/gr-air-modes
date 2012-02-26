@@ -189,9 +189,9 @@ def range_bearing(loc_a, loc_b):
 class cpr_decoder:
 	def __init__(self, my_location):
 		self.my_location = my_location
-		self.lkplist = []
-		self.evenlist = []
-		self.oddlist = []
+		self.lkplist = {}
+		self.evenlist = {}
+		self.oddlist = {}
 
 	def set_location(new_location):
 		self.my_location = new_location
@@ -202,13 +202,13 @@ class cpr_decoder:
 				if time.time() - item[2] > 900:
 					del poslist[key]
 
-	def decode(icao24, encoded_lat, encoded_lon, cpr_format, surface):
+	def decode(self, icao24, encoded_lat, encoded_lon, cpr_format, surface):
 #def cpr_decode(my_location, icao24, encoded_lat, encoded_lon, cpr_format, evenlist, oddlist, lkplist, surface):
 		#add the info to the position reports list for global decoding
 		if cpr_format==1:
-			oddlist[icao24] = [encoded_lat, encoded_lon, time.time()]
+			self.oddlist[icao24] = [encoded_lat, encoded_lon, time.time()]
 		else:
-			evenlist[icao24] = [encoded_lat, encoded_lon, time.time()]
+			self.evenlist[icao24] = [encoded_lat, encoded_lon, time.time()]
 
 		[decoded_lat, decoded_lon] = [None, None]
 

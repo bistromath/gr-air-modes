@@ -38,12 +38,15 @@ class modes_kml(threading.Thread):
     
     def run(self):
         while self.done is False:
-            self.output()
+            self.write()
             time.sleep(self._timeout) 
                 
         self.done = True
-    
-    def output(self):
+
+    def output(self, string):
+        self._sqlobj.insert(string)
+        
+    def write(self):
         self._db = sqlite3.connect(self._dbname)
         kmlstr = self.genkml()
         if kmlstr is not None:

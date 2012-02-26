@@ -23,13 +23,13 @@
 import time, os, sys
 from string import split, join
 from altitude import decode_alt
-from cpr import cpr_decode
+from cpr import cpr_decoder
 import math
 
 class modes_parse:
   def __init__(self, mypos):
       self.my_location = mypos
-      self.cpr_decoder = cpr_decoder(self.my_location)
+      self.cpr = cpr_decoder(self.my_location)
     
   def parse0(self, shortdata, parity, ecc):
 #	shortdata = long(shortdata, 16)
@@ -160,12 +160,12 @@ class modes_parse:
 
     altitude = decode_alt(enc_alt, False)
 
-    [decoded_lat, decoded_lon, rnge, bearing] = cpr_decoder.decode(icao24, encoded_lat, encoded_lon, cpr_format, 0)
+    [decoded_lat, decoded_lon, rnge, bearing] = self.cpr.decode(icao24, encoded_lat, encoded_lon, cpr_format, 0)
 
     return [altitude, decoded_lat, decoded_lon, rnge, bearing]
 
 
-#welp turns out it looks like there's only 17 bits in the BDS0,6 ground packet after all. fuck.
+  #welp turns out it looks like there's only 17 bits in the BDS0,6 ground packet after all.
   def parseBDS06(self, shortdata, longdata, parity, ecc):
     icao24 = shortdata & 0xFFFFFF
 
@@ -177,7 +177,7 @@ class modes_parse:
 
     altitude = 0
 
-    [decoded_lat, decoded_lon, rnge, bearing] = cpr_decoder.decode(icao24, encoded_lat, encoded_lon, cpr_format, 1)
+    [decoded_lat, decoded_lon, rnge, bearing] = self.cpr.decode(icao24, encoded_lat, encoded_lon, cpr_format, 1)
 
     return [altitude, decoded_lat, decoded_lon, rnge, bearing]
 

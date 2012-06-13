@@ -90,7 +90,9 @@ class adsb_rx_block (gr.top_block):
         self.u.set_gain_mode(0) #manual gain mode
         self.u.set_gain(options.gain)
         print "Gain is %i" % self.u.get_gain()
-        
+
+        use_lpfilt = True
+                
     else:
       if options.filename is not None:
         self.u = gr.file_source(gr.sizeof_gr_complex, options.filename)
@@ -109,16 +111,17 @@ class adsb_rx_block (gr.top_block):
     self.demod = gr.complex_to_mag()
     self.avg = gr.moving_average_ff(100, 1.0/100, 400)
     
-    #the DBSRX especially tends to be spur-prone; the LPF keeps out the
-    #spur multiple that shows up at 2MHz
-    #self.lpfiltcoeffs = gr.firdes.low_pass(1, rate, 1.8e6, 100e3)
-    #self.lpfilter = gr.fir_filter_ccf(1, self.lpfiltcoeffs)
-    
     self.preamble = air_modes.modes_preamble(rate, options.threshold)
     #self.framer = air_modes.modes_framer(rate)
     self.slicer = air_modes.modes_slicer(rate, queue)
-    
-    self.connect(self.u, self.demod)
+
+    if use_lpfilt:
+        self.lpfiltcoeffs = gr.firdes.low_pass(1, 5*rate, 1.2e6, 300e3)
+        self.lpfilter = gr.fir_filter_ccf(1, self.lpfiltcoeffs)
+        self.connect(self.u, self.lpfilter, self.demod)
+    else:
+        self.connect(self.u, self.demod)
+
     self.connect(self.demod, self.avg)
     self.connect(self.demod, (self.preamble, 0))
     self.connect(self.avg, (self.preamble, 1))

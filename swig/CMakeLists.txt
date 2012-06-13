@@ -52,9 +52,9 @@ GR_SWIG_INSTALL(TARGETS air_modes_swig DESTINATION ${GR_PYTHON_DIR}/air_modes)
 ########################################################################
 # Install swig .i files for development
 ########################################################################
-install(
-    FILES
-    air_modes.i
+#install(
+#    FILES
+#    air_modes.i
 #${CMAKE_CURRENT_BINARY_DIR}/air_modes_swig_doc.i
-    DESTINATION $(GR_INCLUDE_DIR)/air_modes/swig
-)
+#    DESTINATION $(GR_INCLUDE_DIR)/air_modes/swig
+#)

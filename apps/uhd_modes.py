@@ -25,7 +25,6 @@ my_position = [30.2, -97.6]
 #my_position = None
 
 from gnuradio import gr, gru, optfir, eng_notation, blks2
-from gnuradio import uhd
 from gnuradio.eng_option import eng_option
 from optparse import OptionParser
 import time, os, sys, threading
@@ -54,7 +53,9 @@ class adsb_rx_block (gr.top_block):
     self.args = args
     rate = int(options.rate)
 
-    if options.filename is None and options.udp is None:
+    if options.filename is None and options.udp is None and not options.rtlsdr:
+      #UHD source by default
+      from gnuradio import uhd
       self.u = uhd.single_usrp_source("", uhd.io_type_t.COMPLEX_FLOAT32, 1)
       time_spec = uhd.time_spec(0.0)
       self.u.set_time_now(time_spec)
@@ -75,15 +76,29 @@ class adsb_rx_block (gr.top_block):
       if not(self.tune(options.freq)):
         print "Failed to set initial frequency"
 
-      print "Setting gain to %i" % (options.gain,)
+      print "Setting gain to %i" % options.gain
       self.u.set_gain(options.gain)
-      print "Gain is %i" % (self.u.get_gain(),)
+      print "Gain is %i" % self.u.get_gain()
+      
+    elif options.rtlsdr: #RTLSDR dongle
+        import osmosdr
+        self.u = osmosdr.source_c()
+        self.u.set_sample_rate(2.4e6) #fixed for RTL dongles
+        if not self.u.set_center_freq(options.freq):
+            print "Failed to set initial frequency"
 
+        self.u.set_gain_mode(0) #manual gain mode
+        self.u.set_gain(options.gain)
+        print "Gain is %i" % self.u.get_gain()
+        
     else:
       if options.filename is not None:
         self.u = gr.file_source(gr.sizeof_gr_complex, options.filename)
-      else:
+      elif options.udp is not None:
         self.u = gr.udp_source(gr.sizeof_gr_complex, "localhost", options.udp)
+      else:
+        raise Exception("No valid source selected")
+        
 
     print "Rate is %i" % (rate,)
 
@@ -149,6 +164,9 @@ if __name__ == '__main__':
                       help="Use UDP source on specified port")
   parser.add_option("-m","--multiplayer", type="string", default=None,
                       help="FlightGear server to send aircraft data, in format host:port")
+  parser.add_option("-d","--rtlsdr", action="store_true", default=False,
+                      help="Use RTLSDR dongle instead of UHD source")
+                      
   (options, args) = parser.parse_args()
 
   if options.location is not None:

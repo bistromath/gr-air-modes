@@ -43,15 +43,15 @@ class modes_output_print(modes_parse.modes_parse):
     output = None;
 
     if msgtype == 0:
-      output = self.print0(shortdata, parity, ecc)
+      output = self.print0(shortdata, ecc)
     elif msgtype == 4:
-      output = self.print4(shortdata, parity, ecc)
+      output = self.print4(shortdata, ecc)
     elif msgtype == 5:
-      output = self.print5(shortdata, parity, ecc)
+      output = self.print5(shortdata, ecc)
     elif msgtype == 11:
-      output = self.print11(shortdata, parity, ecc)
+      output = self.print11(shortdata, ecc)
     elif msgtype == 17:
-      output = self.print17(shortdata, longdata, parity, ecc)
+      output = self.print17(shortdata, longdata)
     else:
       output = "No handler for message type " + str(msgtype) + " from %x" % ecc
 
@@ -64,8 +64,8 @@ class modes_output_print(modes_parse.modes_parse):
         output = "(%.0f %.10f) " % (refdb, timestamp) + output
         print output
 
-  def print0(self, shortdata, parity, ecc):
-    [vs, cc, sl, ri, altitude] = self.parse0(shortdata, parity, ecc)
+  def print0(self, shortdata, ecc):
+    [vs, cc, sl, ri, altitude] = self.parse0(shortdata)
 	
     retstr = "Type 0 (short A-A surveillance) from " + "%x" % ecc + " at " + str(altitude) + "ft"
     # the ri values below 9 are used for other things. might want to print those someday.
@@ -79,9 +79,9 @@ class modes_output_print(modes_parse.modes_parse):
 
     return retstr
 
-  def print4(self, shortdata, parity, ecc):
+  def print4(self, shortdata, ecc):
 
-    [fs, dr, um, altitude] = self.parse4(shortdata, parity, ecc)
+    [fs, dr, um, altitude] = self.parse4(shortdata)
 
     retstr = "Type 4 (short surveillance altitude reply) from " + "%x" % ecc + " at " + str(altitude) + "ft"
 
@@ -98,8 +98,8 @@ class modes_output_print(modes_parse.modes_parse):
 
     return retstr
 
-  def print5(self, shortdata, parity, ecc):
-    [fs, dr, um] = self.parse5(shortdata, parity, ecc)
+  def print5(self, shortdata, ecc):
+    [fs, dr, um] = self.parse5(shortdata)
 
     retstr = "Type 5 (short surveillance ident reply) from " + "%x" % ecc + " with ident " + str(shortdata & 0x1FFF)
 
@@ -116,44 +116,45 @@ class modes_output_print(modes_parse.modes_parse):
 
     return retstr
 
-  def print11(self, shortdata, parity, ecc):
-    [icao24, interrogator, ca] = self.parse11(shortdata, parity, ecc)
+  def print11(self, shortdata, ecc):
+    [icao24, interrogator, ca] = self.parse11(shortdata, ecc)
 
     retstr = "Type 11 (all call reply) from " + "%x" % icao24 + " in reply to interrogator " + str(interrogator)
     return retstr
 
-  def print17(self, shortdata, longdata, parity, ecc):
+  def print17(self, shortdata, longdata):
     icao24 = shortdata & 0xFFFFFF
     subtype = (longdata >> 51) & 0x1F;
 
     retstr = None
 
-    if subtype == 4:
-      msg = self.parseBDS08(shortdata, longdata, parity, ecc)
-      retstr = "Type 17 subtype 04 (ident) from " + "%x" % icao24 + " with data " + msg
+    if 1 <= subtype <= 4:
+      (msg, typestring) = self.parseBDS08(shortdata, longdata)
+      retstr = "Type 17 subtype 04 (ident) from " + "%x" % icao24 + " of type " + typestring + " with ident " + msg
 
     elif subtype >= 5 and subtype <= 8:
-      [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(shortdata, longdata, parity, ecc)
+      [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(shortdata, longdata)
       if decoded_lat is not None:
-        retstr = "Type 17 subtype 06 (surface report) from " + "%x" % icao24 + " at (" + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ") (" + "%.2f" % rnge + " @ " + "%.0f" % bearing + ")"
+        retstr = "Type 17 subtype 06 (surface report) from " + "%x" % icao24 + " at (" + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
+        if rnge is not None and bearing is not None:
+            retstr += " (" + "%.2f" % rnge + " @ " + "%.0f" % bearing + ")"
 
     elif subtype >= 9 and subtype <= 18:
-      [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(shortdata, longdata, parity, ecc)
+      [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(shortdata, longdata)
       if decoded_lat is not None:
-        retstr = "Type 17 subtype 05 (position report) from " + "%x" % icao24 + " at (" + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ") (" + "%.2f" % rnge + " @ " + "%.0f" % bearing + ") at " + str(altitude) + "ft"
-
-#   this is a trigger to capture the bizarre BDS0,5 squitters you keep seeing on the map with latitudes all over the place
-#     if icao24 == 0xa1ede9:
-#       print "Buggy squitter with shortdata %s longdata %s parity %s ecc %s" % (str(shortdata), str(longdata), str(parity), str(ecc),)
+        retstr = "Type 17 subtype 05 (position report) from " + "%x" % icao24 + " at (" + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
+        if rnge is not None and bearing is not None:
+            retstr += " (" + "%.2f" % rnge + " @ " + "%.0f" % bearing + ")"
+        retstr += " at " + str(altitude) + "ft"
 
     elif subtype == 19:
       subsubtype = (longdata >> 48) & 0x07
       if subsubtype == 0:
-        [velocity, heading, vert_spd] = self.parseBDS09_0(shortdata, longdata, parity, ecc)
+        [velocity, heading, vert_spd] = self.parseBDS09_0(shortdata, longdata)
         retstr = "Type 17 subtype 09-0 (track report) from " + "%x" % icao24 + " with velocity " + "%.0f" % velocity + "kt heading " + "%.0f" % heading + " VS " + "%.0f" % vert_spd
 
       elif subsubtype == 1:
-        [velocity, heading, vert_spd] = self.parseBDS09_1(shortdata, longdata, parity, ecc)
+        [velocity, heading, vert_spd] = self.parseBDS09_1(shortdata, longdata)
         retstr = "Type 17 subtype 09-1 (track report) from " + "%x" % icao24 + " with velocity " + "%.0f" % velocity + "kt heading " + "%.0f" % heading + " VS " + "%.0f" % vert_spd
 
       else:

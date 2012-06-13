@@ -84,13 +84,15 @@ static double tag_to_timestamp(gr_tag_t tstamp, uint64_t abs_sample_cnt, double 
 	uint64_t ts_sample, last_whole_stamp;
 	double last_frac_stamp;
 
-	if(tstamp.key == NULL || pmt::pmt_symbol_to_string(tstamp.key) != "timestamp") return 0;
+	if(tstamp.key == NULL || pmt::pmt_symbol_to_string(tstamp.key) != "rx_time") return 0;
 
 	last_whole_stamp = pmt::pmt_to_uint64(pmt::pmt_tuple_ref(tstamp.value, 0));
 	last_frac_stamp = pmt::pmt_to_double(pmt::pmt_tuple_ref(tstamp.value, 1));
 	ts_sample = tstamp.offset;
-	//std::cout << "HEY WE GOT A STAMP AT " << ticks << " TICKS AT SAMPLE " << ts_sample << " ABS SAMPLE CNT IS " << abs_sample_cnt << std::endl;
-	return double(abs_sample_cnt * secs_per_sample) + last_whole_stamp + last_frac_stamp;
+	
+	double tstime = double(abs_sample_cnt * secs_per_sample) + last_whole_stamp + last_frac_stamp;
+	//std::cout << "HEY WE GOT A STAMP AT " << tstime << " TICKS AT SAMPLE " << ts_sample << " ABS SAMPLE CNT IS " << abs_sample_cnt << std::endl;
+	return tstime;
 }
 
 int air_modes_preamble::general_work(int noutput_items,
@@ -112,7 +114,7 @@ int air_modes_preamble::general_work(int noutput_items,
 
 	uint64_t abs_sample_cnt = nitems_read(0);
 	std::vector<gr_tag_t> tstamp_tags;
-	get_tags_in_range(tstamp_tags, 0, abs_sample_cnt, abs_sample_cnt + ninputs, pmt::pmt_string_to_symbol("timestamp"));
+	get_tags_in_range(tstamp_tags, 0, abs_sample_cnt, abs_sample_cnt + ninputs, pmt::pmt_string_to_symbol("rx_time"));
 	//tags.back() is the most recent timestamp, then.
 	if(tstamp_tags.size() > 0) {
 		d_timestamp = tstamp_tags.back();
@@ -174,11 +176,7 @@ int air_modes_preamble::general_work(int noutput_items,
 			}
 
 			//get the timestamp of the preamble
-			double tstamp = 0;
-
-			if(d_timestamp.offset != 0) {
-				tstamp = tag_to_timestamp(d_timestamp, abs_sample_cnt + i, d_secs_per_sample);
-			}
+			double tstamp = tag_to_timestamp(d_timestamp, abs_sample_cnt + i, d_secs_per_sample);
 
 			//now tag the preamble
 			add_item_tag(0, //stream ID

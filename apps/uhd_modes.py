@@ -19,8 +19,9 @@
 # Boston, MA 02110-1301, USA.
 # 
 
-my_position = [37.76225, -122.44254]
+#my_position = [37.76225, -122.44254]
 #my_position = [37.409066,-122.077836]
+my_position = [30.2, -97.6]
 #my_position = None
 
 from gnuradio import gr, gru, optfir, eng_notation, blks2
@@ -53,7 +54,7 @@ class adsb_rx_block (gr.top_block):
     self.args = args
     rate = int(options.rate)
 
-    if options.filename is None:
+    if options.filename is None and options.udp is None:
       self.u = uhd.single_usrp_source("", uhd.io_type_t.COMPLEX_FLOAT32, 1)
       time_spec = uhd.time_spec(0.0)
       self.u.set_time_now(time_spec)
@@ -79,7 +80,10 @@ class adsb_rx_block (gr.top_block):
       print "Gain is %i" % (self.u.get_gain(),)
 
     else:
-      self.u = gr.file_source(gr.sizeof_gr_complex, options.filename)
+      if options.filename is not None:
+        self.u = gr.file_source(gr.sizeof_gr_complex, options.filename)
+      else:
+        self.u = gr.udp_source(gr.sizeof_gr_complex, "localhost", options.udp)
 
     print "Rate is %i" % (rate,)
 
@@ -92,14 +96,14 @@ class adsb_rx_block (gr.top_block):
     
     #the DBSRX especially tends to be spur-prone; the LPF keeps out the
     #spur multiple that shows up at 2MHz
-    self.lpfiltcoeffs = gr.firdes.low_pass(1, rate, 1.8e6, 100e3)
-    self.lpfilter = gr.fir_filter_ccf(1, self.lpfiltcoeffs)
+    #self.lpfiltcoeffs = gr.firdes.low_pass(1, rate, 1.8e6, 100e3)
+    #self.lpfilter = gr.fir_filter_ccf(1, self.lpfiltcoeffs)
     
     self.preamble = air_modes.modes_preamble(rate, options.threshold)
     #self.framer = air_modes.modes_framer(rate)
     self.slicer = air_modes.modes_slicer(rate, queue)
     
-    self.connect(self.u, self.lpfilter, self.demod)
+    self.connect(self.u, self.demod)
     self.connect(self.demod, self.avg)
     self.connect(self.demod, (self.preamble, 0))
     self.connect(self.avg, (self.preamble, 1))
@@ -141,6 +145,10 @@ if __name__ == '__main__':
                       help="disable printing decoded packets to stdout")
   parser.add_option("-l","--location", type="string", default=None,
                       help="GPS coordinates of receiving station in format xx.xxxxx,xx.xxxxx")
+  parser.add_option("-u","--udp", type="int", default=None,
+                      help="Use UDP source on specified port")
+  parser.add_option("-m","--multiplayer", type="string", default=None,
+                      help="FlightGear server to send aircraft data, in format host:port")
   (options, args) = parser.parse_args()
 
   if options.location is not None:
@@ -171,6 +179,11 @@ if __name__ == '__main__':
     outputs.append(printraw)
     updates.append(rawport.add_pending_conns)
 
+  if options.multiplayer is not None:
+    [fghost, fgport] = options.multiplayer.split(':')
+    fgout = air_modes.modes_flightgear(my_position, fghost, int(fgport))
+    outputs.append(fgout.output)
+
   fg = adsb_rx_block(options, args, queue)
   runner = top_block_runner(fg)
 
@@ -183,8 +196,8 @@ if __name__ == '__main__':
         update()
       
       #main message handler
-      if queue.empty_p() == 0 :
-        while queue.empty_p() == 0 :
+      if not queue.empty_p() :
+        while not queue.empty_p() :
           msg = queue.delete_head() #blocking read
 
           for out in outputs:

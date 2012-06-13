@@ -24,7 +24,9 @@
 #from string import split, join
 #from math import pi, floor, cos, acos
 import math, time
-#this implements CPR position decoding.
+#this implements CPR position decoding and encoding.
+#the decoder is implemented as a class, cpr_decoder, which keeps state for local decoding.
+#the encoder is cpr_encode([lat, lon], type (even=0, odd=1), and surface (0 for surface, 1 for airborne))
 
 latz = 15
 
@@ -103,9 +105,6 @@ def cpr_resolve_global(evenpos, oddpos, mostrecent, surface): #ok this is consid
 	dlateven = dlat(0, surface);
 	dlatodd  = dlat(1, surface);
 
-#	print dlateven;
-#	print dlatodd;
-
 	evenpos = [float(evenpos[0]), float(evenpos[1])]
 	oddpos = [float(oddpos[0]), float(oddpos[1])]
 
@@ -113,12 +112,8 @@ def cpr_resolve_global(evenpos, oddpos, mostrecent, surface): #ok this is consid
 
 	j = math.floor(((59*evenpos[0] - 60*oddpos[0])/2**nbits(surface)) + 0.5) #latitude index
 
-	#print "Latitude index: %i" % j #should be 6, getting 5?
-
 	rlateven = dlateven * (mod(j, 60)+evenpos[0]/2**nbits(surface))
 	rlatodd  = dlatodd  * (mod(j, 59)+ oddpos[0]/2**nbits(surface))
-
-	#print "Rlateven: %f\nRlatodd: %f" % (rlateven, rlatodd,)
 
 	if nl(rlateven) != nl(rlatodd):
 		#print "Boundary straddle!"
@@ -136,11 +131,7 @@ def cpr_resolve_global(evenpos, oddpos, mostrecent, surface): #ok this is consid
 	nlthing = nl(rlat)
 	ni = nlthing - mostrecent
 
-	#print "ni is %i" % ni
-
 	m =  math.floor(((evenpos[1]*(nlthing-1)-oddpos[1]*(nlthing))/2**nbits(surface))+0.5) #longitude index, THIS LINE IS CORRECT
-	#print "m is %f" % m #should be -16
-
 
 	if mostrecent == 0:
 		enclon = evenpos[1]
@@ -203,7 +194,6 @@ class cpr_decoder:
 					del poslist[key]
 
 	def decode(self, icao24, encoded_lat, encoded_lon, cpr_format, surface):
-#def cpr_decode(my_location, icao24, encoded_lat, encoded_lon, cpr_format, evenlist, oddlist, lkplist, surface):
 		#add the info to the position reports list for global decoding
 		if cpr_format==1:
 			self.oddlist[icao24] = [encoded_lat, encoded_lon, time.time()]
@@ -226,7 +216,6 @@ class cpr_decoder:
 			self.lkplist[icao24] = [decoded_lat, decoded_lon, time.time()] #update the local position for next time
 
 		elif ((icao24 in self.evenlist) and (icao24 in self.oddlist) and abs(self.evenlist[icao24][2] - self.oddlist[icao24][2]) < 10):
-	#		print "debug: valid even/odd positions, performing global decode."
 			newer = (self.oddlist[icao24][2] - self.evenlist[icao24][2]) > 0 #figure out which report is newer
 			[decoded_lat, decoded_lon] = cpr_resolve_global(self.evenlist[icao24][0:2], self.oddlist[icao24][0:2], newer, surface) #do a global decode
 			if decoded_lat is not None:
@@ -241,7 +230,7 @@ class cpr_decoder:
 
 
 		#print "settled on position: %.6f, %.6f" % (decoded_lat, decoded_lon,)
-		if decoded_lat is not None:
+		if decoded_lat is not None and self.my_location is not None:
 			[rnge, bearing] = range_bearing(self.my_location, [decoded_lat, decoded_lon])
 		else:
 			rnge = None
@@ -249,3 +238,21 @@ class cpr_decoder:
 
 		return [decoded_lat, decoded_lon, rnge, bearing]
 
+#encode CPR position
+def cpr_encode(lat, lon, ctype, surface):
+	if surface is True:
+		scalar = float(2**19)
+	else:
+		scalar = float(2**17)
+
+	dlati = float(dlat(ctype, False))
+	yz = math.floor(scalar * (mod(lat, dlati)/dlati) + 0.5)
+	rlat = dlati * ((yz / scalar) + math.floor(lat / dlati))
+
+	dloni = 360.0 / nl_eo(rlat, ctype)
+	xz = math.floor(scalar * (mod(lon, dloni)/dloni) + 0.5)
+
+	yz = int(mod(yz, scalar))
+	xz = int(mod(xz, scalar))
+
+	return (yz, xz) #lat, lon

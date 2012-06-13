@@ -27,7 +27,7 @@
 
 #include <stdio.h>
 #include <air_modes_types.h>
-#include <modes_parity.h>
+#include <modes_crc.h>
 #include <math.h>
 #include <stdlib.h>
 
@@ -35,7 +35,7 @@
  *   Index is bit position with bit 0 being the first bit after preamble
  *   On short frames an offset of 56 is used.
 */
-const unsigned int modes_parity_table[112] =
+const unsigned int modes_crc_table[112] =
 {
     0x3935ea,  // Start of Long Frame CRC
     0x1c9af5,
@@ -150,29 +150,16 @@ const unsigned int modes_parity_table[112] =
     0x000002,
     0x000001,
 };
-int modes_check_parity(unsigned char data[], int length)
+
+int modes_check_crc(unsigned char data[], int length)
 {
-	int short_crc, long_crc, i;
-	// Check both long and short
-	short_crc = 0;
-	long_crc = 0;
-	for(i = 0; i < 56; i++)
+	int crc, i;
+	for(i = 0; i < length; i++)
 	{
 		if(data[i/8] & (1 << (7-(i%8))))
 		{
-			short_crc ^= modes_parity_table[i+56];
-			long_crc ^= modes_parity_table[i];
-
+			crc ^= modes_crc_table[i+(112-length)];
 		}
 	}
-	for( ; i < length; i++)
-	{
-		if(data[i/8] & (1 << (7-(i%8))))
-		{
-			long_crc ^= modes_parity_table[i];
-		}
-	}
-	if(length == 112) return long_crc;
-	else return short_crc;
+    return crc;
 }
-

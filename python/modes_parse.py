@@ -1,5 +1,5 @@
 #
-# Copyright 2010 Nick Foster
+# Copyright 2010, 2012 Nick Foster
 # 
 # This file is part of gr-air-modes
 # 
@@ -23,15 +23,15 @@
 import time, os, sys
 from string import split, join
 from altitude import decode_alt
-from cpr import cpr_decoder
+import cpr
 import math
 
 class modes_parse:
   def __init__(self, mypos):
       self.my_location = mypos
-      self.cpr = cpr_decoder(self.my_location)
+      self.cpr = cpr.cpr_decoder(self.my_location)
     
-  def parse0(self, shortdata, parity, ecc):
+  def parse0(self, shortdata):
 #	shortdata = long(shortdata, 16)
     #parity = long(parity)
 
@@ -45,7 +45,7 @@ class modes_parse:
 
     return [vs, cc, sl, ri, altitude]
 
-  def parse4(self, shortdata, parity, ecc):
+  def parse4(self, shortdata):
 #	shortdata = long(shortdata, 16)
     fs = shortdata >> 24 & 0x07 #flight status: 0 is airborne normal, 1 is ground normal, 2 is airborne alert, 3 is ground alert, 4 is alert SPI, 5 is normal SPI
     dr = shortdata >> 19 & 0x1F #downlink request: 0 means no req, bit 0 is Comm-B msg rdy bit, bit 1 is TCAS info msg rdy, bit 2 is Comm-B bcast #1 msg rdy, bit2+bit0 is Comm-B bcast #2 msg rdy,
@@ -58,7 +58,7 @@ class modes_parse:
 
 
 
-  def parse5(self, shortdata, parity, ecc):
+  def parse5(self, shortdata):
 #	shortdata = long(shortdata, 16)
     fs = shortdata >> 24 & 0x07 #flight status: 0 is airborne normal, 1 is ground normal, 2 is airborne alert, 3 is ground alert, 4 is alert SPI, 5 is normal SPI
     dr = shortdata >> 19 & 0x1F #downlink request: 0 means no req, bit 0 is Comm-B msg rdy bit, bit 1 is TCAS info msg rdy, bit 2 is Comm-B bcast #1 msg rdy, bit2+bit0 is Comm-B bcast #2 msg rdy,
@@ -67,7 +67,7 @@ class modes_parse:
 
     return [fs, dr, um]
 
-  def parse11(self, shortdata, parity, ecc):
+  def parse11(self, shortdata, ecc):
 #	shortdata = long(shortdata, 16)
     interrogator = ecc & 0x0F
 	
@@ -76,15 +76,7 @@ class modes_parse:
     
     return [icao24, interrogator, ca]
 
-#def parse17(self, shortdata, longdata, parity, ecc):
-#	shortdata = long(shortdata, 16)
-#	longdata = long(longdata, 16)
-#	parity = long(parity, 16)
-#	ecc = long(ecc, 16)
-
-#	subtype = (longdata >> 51) & 0x1F;
-
-	#the subtypes are:
+	#the Type 17 subtypes are:
 	#0: No position information
 	#1: Identification (Category set D)
 	#2: Identification (Category set C)
@@ -108,26 +100,16 @@ class modes_parse:
 	#30: Aircraft operational coordination
 	#31: Aircraft operational status
 
+  categories = [["NO INFO", "RESERVED", "RESERVED", "RESERVED", "RESERVED", "RESERVED", "RESERVED", "RESERVED"],\
+                ["NO INFO", "SURFACE EMERGENCY VEHICLE", "SURFACE SERVICE VEHICLE", "FIXED OBSTRUCTION", "RESERVED", "RESERVED", "RESERVED"],\
+                ["NO INFO", "GLIDER", "BALLOON/BLIMP", "PARACHUTE", "ULTRALIGHT", "RESERVED", "UAV", "SPACECRAFT"],\
+                ["NO INFO", "LIGHT", "SMALL", "LARGE", "LARGE HIGH VORTEX", "HEAVY", "HIGH PERFORMANCE", "ROTORCRAFT"]]
 
-#	if subtype == 4:
-#		retstr = parseBDS08(shortdata, longdata, parity, ecc)
-#	elif subtype >= 9 and subtype <= 18:
-#		retstr = parseBDS05(shortdata, longdata, parity, ecc)
-#	elif subtype == 19:
-#		subsubtype = (longdata >> 48) & 0x07
-#		if subsubtype == 0:
-#			retstr = parseBDS09_0(shortdata, longdata, parity, ecc)
-#		elif subsubtype == 1:
-#			retstr = parseBDS09_1(shortdata, longdata, parity, ecc)
-#		else:
-#			retstr = "BDS09 subtype " + str(subsubtype) + " not implemented"
-#	else:
-#		retstr = "Type 17, subtype " + str(subtype) + " not implemented"
-
-#	return retstr
-
-  def parseBDS08(self, shortdata, longdata, parity, ecc):
+  def parseBDS08(self, shortdata, longdata):
     icao24 = shortdata & 0xFFFFFF
+    subtype = (longdata >> 51) & 0x1F
+    category = (longdata >> 48) & 0x07
+    catstring = self.categories[subtype-1][category]
 
     msg = ""
     for i in range(0, 8):
@@ -135,7 +117,7 @@ class modes_parse:
 
 	#retstr = "Type 17 subtype 04 (ident) from " + "%x" % icao24 + " with data " + msg
 
-    return msg
+    return (msg, catstring)
 
   def charmap(self, d):
     if d > 0 and d < 27:
@@ -149,7 +131,7 @@ class modes_parse:
 
     return retval
 
-  def parseBDS05(self, shortdata, longdata, parity, ecc):
+  def parseBDS05(self, shortdata, longdata):
     icao24 = shortdata & 0xFFFFFF
 
     encoded_lon = longdata & 0x1FFFF
@@ -166,7 +148,7 @@ class modes_parse:
 
 
   #welp turns out it looks like there's only 17 bits in the BDS0,6 ground packet after all.
-  def parseBDS06(self, shortdata, longdata, parity, ecc):
+  def parseBDS06(self, shortdata, longdata):
     icao24 = shortdata & 0xFFFFFF
 
     encoded_lon = longdata & 0x1FFFF
@@ -181,7 +163,7 @@ class modes_parse:
 
     return [altitude, decoded_lat, decoded_lon, rnge, bearing]
 
-  def parseBDS09_0(self, shortdata, longdata, parity, ecc):
+  def parseBDS09_0(self, shortdata, longdata):
     icao24 = shortdata & 0xFFFFFF
     vert_spd = ((longdata >> 6) & 0x1FF) * 32
     ud = bool((longdata >> 15) & 1)
@@ -209,9 +191,9 @@ class modes_parse:
 
 	#retstr = "Type 17 subtype 09-0 (track report) from " + "%x" % icao24 + " with velocity " + "%.0f" % velocity + "kt heading " + "%.0f" % heading + " VS " + "%.0f" % vert_spd
 
-    return [velocity, heading, vert_spd]
+    return [velocity, heading, vert_spd, turn_rate]
 
-  def parseBDS09_1(self, shortdata, longdata, parity, ecc):
+  def parseBDS09_1(self, shortdata, longdata):
     icao24 = shortdata & 0xFFFFFF
     alt_geo_diff = longdata & 0x7F - 1
     above_below = bool((longdata >> 7) & 1)
@@ -253,3 +235,4 @@ class modes_parse:
     #retstr = "Type 17 subtype 09-1 (track report) from " + "%x" % icao24 + " with velocity " + "%.0f" % velocity + "kt heading " + "%.0f" % heading + " VS " + "%.0f" % vert_spd
 
     return [velocity, heading, vert_spd]
+

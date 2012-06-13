@@ -29,7 +29,7 @@
 #include <air_modes_types.h>
 #include <sstream>
 #include <iomanip>
-#include <modes_parity.h>
+#include <modes_crc.h>
 #include <iostream>
 #include <gr_tags.h>
 #include <air_modes_api.h>
@@ -172,18 +172,18 @@ int air_modes_slicer::work(int noutput_items,
 		if(rx_packet.type == Short_Packet && rx_packet.message_type != 11 && rx_packet.numlowconf > 0) {continue;}
 		if(rx_packet.message_type == 11 && rx_packet.numlowconf >= 10) {continue;}
 			
-		rx_packet.parity = modes_check_parity(rx_packet.data, packet_length);
+		rx_packet.crc = modes_check_crc(rx_packet.data, packet_length);
 
-		//parity for packets that aren't type 11 or type 17 is encoded with the transponder ID, which we don't know
+		//crc for packets that aren't type 11 or type 17 is encoded with the transponder ID, which we don't know
 		//therefore we toss 'em if there's syndrome
-		//parity for the other short packets is usually nonzero, so they can't really be trusted that far
-		if(rx_packet.parity && (rx_packet.message_type == 11 || rx_packet.message_type == 17)) {continue;}
+		//crc for the other short packets is usually nonzero, so they can't really be trusted that far
+		if(rx_packet.crc && (rx_packet.message_type == 11 || rx_packet.message_type == 17)) {continue;}
 
 		//we no longer attempt to brute force error correct via syndrome. it really only gets you 1% additional returns,
 		//at the expense of a lot of CPU time and complexity
 
 		//we'll replicate some data by sending the message type as the first field, followed by the first 8+24=32 bits of the packet, followed by
-		//56 long packet data bits if applicable (zero-padded if not), followed by parity
+		//56 long packet data bits if applicable (zero-padded if not), followed by crc
 
 		d_payload.str("");
 		d_payload << std::dec << std::setw(2) << std::setfill('0') << rx_packet.message_type << std::hex << " ";
@@ -209,7 +209,7 @@ int air_modes_slicer::work(int noutput_items,
 			}
 		}
 			
-		d_payload << " " << std::setw(6) << rx_packet.parity << " " << std::dec << rx_packet.reference_level
+		d_payload << " " << std::setw(6) << rx_packet.crc << " " << std::dec << rx_packet.reference_level
 		          << " " << std::setprecision(10) << std::setw(10) << rx_packet.timestamp;
 			gr_message_sptr msg = gr_make_message_from_string(std::string(d_payload.str()));
 		d_queue->handle(msg);

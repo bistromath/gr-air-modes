@@ -31,7 +31,7 @@ struct modes_packet {
 //	unsigned char confidence[14]; //112 bits of boolean high/low confidence data for each bit
 	unsigned char lowconfbits[24]; //positions of low confidence bits within the packet
 
-	unsigned long parity;
+	unsigned long crc;
 	unsigned int numlowconf;
 	framer_packet_type type; //what length packet are we
 	unsigned int message_type;

@@ -81,29 +81,29 @@ class modes_output_sql(modes_parse.modes_parse):
     query = None
 
     if msgtype == 17:
-      query = self.sql17(shortdata, longdata, parity, ecc)
+      query = self.sql17(shortdata, longdata)
 
     return query
 
-  def sql17(self, shortdata, longdata, parity, ecc):
+  def sql17(self, shortdata, longdata):
     icao24 = shortdata & 0xFFFFFF	
     subtype = (longdata >> 51) & 0x1F
 
     retstr = None
 
     if subtype == 4:
-      msg = self.parseBDS08(shortdata, longdata, parity, ecc)
+      msg = self.parseBDS08(shortdata, longdata)
       retstr = "INSERT OR REPLACE INTO ident (icao, ident) VALUES (" + "%i" % icao24 + ", '" + msg + "')"
 
     elif subtype >= 5 and subtype <= 8:
-      [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(shortdata, longdata, parity, ecc)
+      [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(shortdata, longdata)
       if decoded_lat is None: #no unambiguously valid position available
         retstr = None
       else:
         retstr = "INSERT INTO positions (icao, seen, alt, lat, lon) VALUES (" + "%i" % icao24 + ", datetime('now'), " + str(altitude) + ", " + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
 
     elif subtype >= 9 and subtype <= 18 and subtype != 15: #i'm eliminating type 15 records because they don't appear to be valid position reports.
-      [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(shortdata, longdata, parity, ecc)
+      [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(shortdata, longdata)
       if decoded_lat is None: #no unambiguously valid position available
         retstr = None
       else:
@@ -112,11 +112,11 @@ class modes_output_sql(modes_parse.modes_parse):
     elif subtype == 19:
       subsubtype = (longdata >> 48) & 0x07
       if subsubtype == 0:
-        [velocity, heading, vert_spd] = self.parseBDS09_0(shortdata, longdata, parity, ecc)
+        [velocity, heading, vert_spd] = self.parseBDS09_0(shortdata, longdata)
         retstr = "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")";
 
       elif subsubtype == 1:
-        [velocity, heading, vert_spd] = self.parseBDS09_1(shortdata, longdata, parity, ecc)
+        [velocity, heading, vert_spd] = self.parseBDS09_1(shortdata, longdata)
         retstr = "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")";
 
     return retstr

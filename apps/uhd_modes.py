@@ -52,6 +52,7 @@ class adsb_rx_block (gr.top_block):
     self.options = options
     self.args = args
     rate = int(options.rate)
+    use_resampler = False
 
     if options.filename is None and options.udp is None and not options.rtlsdr:
       #UHD source by default

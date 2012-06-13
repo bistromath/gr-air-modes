@@ -91,7 +91,7 @@ class adsb_rx_block (gr.top_block):
         self.u.set_gain(options.gain)
         print "Gain is %i" % self.u.get_gain()
 
-        use_lpfilt = True
+        use_resampler = True
                 
     else:
       if options.filename is not None:
@@ -115,10 +115,10 @@ class adsb_rx_block (gr.top_block):
     #self.framer = air_modes.modes_framer(rate)
     self.slicer = air_modes.modes_slicer(rate, queue)
 
-    if use_lpfilt:
+    if use_resampler:
         self.lpfiltcoeffs = gr.firdes.low_pass(1, 5*rate, 1.2e6, 300e3)
-        self.lpfilter = gr.fir_filter_ccf(1, self.lpfiltcoeffs)
-        self.connect(self.u, self.lpfilter, self.demod)
+        self.resample = blks2.rational_resampler_ccf(interpolation=5, decimation=3, taps=self.lpfiltcoeffs)
+        self.connect(self.u, self.resample, self.demod)
     else:
         self.connect(self.u, self.demod)
 

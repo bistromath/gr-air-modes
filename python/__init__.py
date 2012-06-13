@@ -56,8 +56,13 @@ from modes_sql import modes_output_sql
 from modes_sbs1 import modes_output_sbs1
 from modes_kml import modes_kml
 from modes_raw_server import modes_raw_server
-from modes_flightgear import modes_flightgear
-from Quaternion import *
+#this is try/excepted in case the user doesn't have numpy installed
+try:
+    from modes_flightgear import modes_flightgear
+    from Quaternion import *
+except ImportError:
+    print "gr-air-modes warning: numpy not installed, FlightGear interface not supported"
+    pass
 
 # ----------------------------------------------------------------
 # Tail of workaround

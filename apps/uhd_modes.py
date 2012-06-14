@@ -89,6 +89,9 @@ class adsb_rx_block (gr.top_block):
             print "Failed to set initial frequency"
 
         self.u.set_gain_mode(0) #manual gain mode
+        if options.gain is None:
+            options.gain = 49
+            
         self.u.set_gain(options.gain)
         print "Gain is %i" % self.u.get_gain()
 
@@ -117,7 +120,7 @@ class adsb_rx_block (gr.top_block):
     self.slicer = air_modes.modes_slicer(rate, queue)
 
     if use_resampler:
-        self.lpfiltcoeffs = gr.firdes.low_pass(1, 5*rate, 1.2e6, 300e3)
+        self.lpfiltcoeffs = gr.firdes.low_pass(1, 5*2.4e6, 1.2e6, 300e3)
         self.resample = blks2.rational_resampler_ccf(interpolation=5, decimation=3, taps=self.lpfiltcoeffs)
         self.connect(self.u, self.resample, self.demod)
     else:

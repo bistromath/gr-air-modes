@@ -180,6 +180,8 @@ def range_bearing(loc_a, loc_b):
 class cpr_decoder:
 	def __init__(self, my_location):
 		self.my_location = my_location
+		if my_location is None:
+			print "Notice: Set your coordinates with --location to get faster position reports."
 		self.lkplist = {}
 		self.evenlist = {}
 		self.oddlist = {}

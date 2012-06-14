@@ -166,7 +166,7 @@ class modes_output_sbs1(modes_parse.modes_parse):
 
     if subtype >= 1 and subtype <= 4:
       # Aircraft Identification
-      msg = self.parseBDS08(shortdata, longdata)
+      (msg, typestring) = self.parseBDS08(shortdata, longdata)
       retstr = "MSG,1,0,%i,%X,%i,%s,%s,%s,%s,%s,,,,,,,,,,,\n" % (aircraft_id, icao24, aircraft_id+100, datestr, timestr, datestr, timestr, msg)
 
     elif subtype >= 5 and subtype <= 8:

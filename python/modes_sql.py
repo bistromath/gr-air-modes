@@ -92,7 +92,7 @@ class modes_output_sql(modes_parse.modes_parse):
     retstr = None
 
     if subtype == 4:
-      msg = self.parseBDS08(shortdata, longdata)
+      (msg, typename) = self.parseBDS08(shortdata, longdata)
       retstr = "INSERT OR REPLACE INTO ident (icao, ident) VALUES (" + "%i" % icao24 + ", '" + msg + "')"
 
     elif subtype >= 5 and subtype <= 8:

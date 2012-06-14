@@ -85,9 +85,10 @@ class modes_kml(threading.Thread):
     def genkml(self):
         #first let's draw the static content
         retstr="""<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n\t<Style id="airplane">\n\t\t<IconStyle>\n\t\t\t<Icon><href>airports.png</href></Icon>\n\t\t</IconStyle>\n\t</Style>\n\t<Style id="rangering">\n\t<LineStyle>\n\t\t<color>9f4f4faf</color>\n\t\t<width>2</width>\n\t</LineStyle>\n\t</Style>\n\t<Style id="track">\n\t<LineStyle>\n\t\t<color>5fff8f8f</color>\n\t\t<width>4</width>\n\t</LineStyle>\n\t</Style>"""
-        retstr += """\t<Folder>\n\t\t<name>Range rings</name>\n\t\t<open>0</open>"""
-        
-        for rng in [100, 200, 300]:     
+
+        if self.my_coords is not None:
+            retstr += """\t<Folder>\n\t\t<name>Range rings</name>\n\t\t<open>0</open>"""
+            for rng in [100, 200, 300]:     
                 retstr += """\n\t\t<Placemark>\n\t\t\t<name>%inm</name>\n\t\t\t<styleUrl>#rangering</styleUrl>\n\t\t\t<LinearRing>\n\t\t\t\t<coordinates>%s</coordinates>\n\t\t\t</LinearRing>\n\t\t</Placemark>""" % (rng, self.draw_circle(self.my_coords, rng),)
         
         retstr += """\t</Folder>\n\t<Folder>\n\t\t<name>Aircraft locations</name>\n\t\t<open>0</open>"""

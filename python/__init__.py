@@ -61,7 +61,7 @@ try:
     from modes_flightgear import modes_flightgear
     from Quaternion import *
 except ImportError:
-    print "gr-air-modes warning: numpy not installed, FlightGear interface not supported"
+    print "gr-air-modes warning: numpy+scipy not installed, FlightGear interface not supported"
     pass
 
 # ----------------------------------------------------------------

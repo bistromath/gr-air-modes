@@ -181,7 +181,7 @@ class cpr_decoder:
 	def __init__(self, my_location):
 		self.my_location = my_location
 		if my_location is None:
-			print "Notice: Set your coordinates with --location to get faster position reports."
+			print "Notice: Set your coordinates with --location to get faster position reports and range-bearing calculations."
 		self.lkplist = {}
 		self.evenlist = {}
 		self.oddlist = {}

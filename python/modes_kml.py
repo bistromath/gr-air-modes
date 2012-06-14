@@ -23,37 +23,33 @@ import sqlite3
 import string, math, threading, time
 from air_modes.modes_sql import modes_output_sql
 
-class modes_kml(threading.Thread):
+class modes_kml(threading.Thread, modes_output_sql):
     def __init__(self, filename, localpos, timeout=5):
         threading.Thread.__init__(self)
+        self._dbname = 'adsb.db'
+        modes_output_sql.__init__(localpos, self._dbname) #write to the db
+        self._db = sqlite3.connect(self._dbname) #read from the db
         self._filename = filename
         self.my_coords = localpos
         self._timeout = timeout
-        self._dbname = 'adsb.db'
-        self._sqlobj = modes_output_sql(self.my_coords, self._dbname)
         
         self.done = False
         self.setDaemon(1)
         self.start()
-    
+
     def run(self):
         while self.done is False:
-            self.write()
+            self.writekml()
             time.sleep(self._timeout) 
                 
         self.done = True
-
-    def output(self, string):
-        self._sqlobj.insert(string)
         
-    def write(self):
-        self._db = sqlite3.connect(self._dbname)
+    def writekml(self):
         kmlstr = self.genkml()
         if kmlstr is not None:
             f = open(self._filename, 'w')
             f.write(kmlstr)
             f.close()
-        self._db.close()
     
     def draw_circle(self, center, rng):
         retstr = ""
@@ -119,7 +115,7 @@ class modes_kml(threading.Thread):
                 trackstr = ""
                 
                 for pos in track:
-                    trackstr += " %f, %f, %f" % (pos[4], pos[3], pos[2]*0.3048)
+                    trackstr += " %f,%f,%f" % (pos[4], pos[3], pos[2]*0.3048)
 
                 trackstr = string.lstrip(trackstr)
             else:

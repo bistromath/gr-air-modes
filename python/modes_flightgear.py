@@ -112,6 +112,23 @@ class fg_chatmsg(fg_header):
         self.data = struct.pack(self.chatfmt, self.chatmsg)
         return fg_header.pack(self) + self.data
 
+modelmap = { None:                       'Aircraft/777-200/Models/777-200ER.xml',
+            "LIGHT":                     'Aircraft/c172p/Models/c172p.xml',
+            "SMALL":                     'Aircraft/CitationX/Models/Citation-X.xml',
+            "LARGE":                     'Aircraft/CRJ700-family/Models/CRJ700.xml',
+            "LARGE HIGH VORTEX":         'Aircraft/757-200/Models/757-200.xml',
+            "HEAVY":                     'Aircraft/747-200/Models/boeing747-200.xml',
+            "HIGH PERFORMANCE":          'Aircraft/SR71-BlackBird/Models/Blackbird-SR71B.xml', #yeah i know
+            "ROTORCRAFT":                'Aircraft/ec130/Models/ec130b4.xml',
+            "GLIDER":                    'Aircraft/ASK21-MI/Models/ask21mi.xml',
+            "BALLOON/BLIMP":             'Aircraft/ZLT-NT/Models/ZLT-NT.xml',
+            "ULTRALIGHT":                'Aircraft/cri-cri/Models/MC-15.xml',
+            "UAV":                       'Aircraft/YardStik/Models/yardstik.xml', #hahahaha
+            "SPACECRAFT":                'Aircraft/shuttle/shuttle.xml', #not sure if this one works
+            "SURFACE EMERGENCY VEHICLE": 'Aircraft/followme/Models/follow_me.xml', #not the best
+            "SURFACE SERVICE VEHICLE":   'Aircraft/pushback/Models/Pushback.xml'
+}
+
 class fg_posmsg(fg_header):
     def __init__(self, callsign, model, lat, lon, alt, hdg, vel, vs, turnrate):
         #from the above, calculate valid FGFS mp vals
@@ -120,9 +137,13 @@ class fg_posmsg(fg_header):
         self.callsign = callsign
         if self.callsign is None:
             self.callsign = "UNKNOWN"
-        self.model = model
-        if self.model is None:
-            self.model = 'Aircraft/777-200/Models/777-200ER.xml'
+        self.modelname = model
+        if self.modelname not in modelmap:
+            #this should keep people on their toes when strange aircraft types are seen
+            self.model = 'Aircraft/santa/Models/santa.xml'
+        else:
+            self.model = modelmap[self.modelname]
+            
         self.lat = lat
         self.lon = lon
         self.alt = alt

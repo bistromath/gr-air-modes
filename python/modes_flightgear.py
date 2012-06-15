@@ -155,18 +155,6 @@ class fg_posmsg(fg_header):
         self.time = time.time()
         self.lag = 0
 
-    def latlon2quat(self, lat, lon):
-        lon *= (math.pi/180.)
-        lat *= (math.pi/180.)
-        zd2 = 0.5*lon
-        yd2 = -0.25*math.pi - 0.5*lat
-        Szd2 = math.sin(zd2)
-        Syd2 = math.sin(yd2)
-        Czd2 = math.cos(zd2)
-        Cyd2 = math.cos(yd2)
-        q = Quat([-Szd2*Syd2, Czd2*Syd2, Szd2*Cyd2, Czd2*Cyd2]) #in x,y,z,w
-        return q
-
     def pack(self):
         #this is, in order:
         #model, time (time.time() is fine), lag, position, orientation, linear vel, angular vel, linear accel, angular accel (accels unused), 0

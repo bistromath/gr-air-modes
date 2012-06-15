@@ -124,7 +124,7 @@ modelmap = { None:                       'Aircraft/777-200/Models/777-200ER.xml'
             "BALLOON/BLIMP":             'Aircraft/ZLT-NT/Models/ZLT-NT.xml',
             "ULTRALIGHT":                'Aircraft/cri-cri/Models/MC-15.xml',
             "UAV":                       'Aircraft/YardStik/Models/yardstik.xml', #hahahaha
-            "SPACECRAFT":                'Aircraft/shuttle/shuttle.xml', #not sure if this one works
+            "SPACECRAFT":                'Aircraft/SpaceShip-One/Models/spaceshipone.xml',
             "SURFACE EMERGENCY VEHICLE": 'Aircraft/followme/Models/follow_me.xml', #not the best
             "SURFACE SERVICE VEHICLE":   'Aircraft/pushback/Models/Pushback.xml'
 }

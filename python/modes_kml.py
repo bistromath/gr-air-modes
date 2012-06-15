@@ -116,7 +116,7 @@ class modes_kml(threading.Thread, modes_output_sql):
                 trackstr = ""
                 
                 for pos in track:
-                    trackstr += " %f, %f, %f" % (pos[4], pos[3], pos[2]*0.3048)
+                    trackstr += " %f,%f,%f" % (pos[4], pos[3], pos[2]*0.3048)
 
                 trackstr = string.lstrip(trackstr)
             else:

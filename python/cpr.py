@@ -56,6 +56,8 @@ def nl_eo(declat_in, ctype):
 	return nl(declat_in) - ctype
 
 def nl(declat_in):
+	if declat_in == 0:
+		declat_in = 0.01
 	return math.floor( (2.0*math.pi) * pow(math.acos(1.0- (1.0-math.cos(math.pi/(2.0*latz))) / pow( math.cos( (math.pi/180.0)*abs(declat_in) ) ,2.0) ),-1.0))
 
 def dlon(declat_in, ctype, surface):
@@ -102,8 +104,8 @@ def cpr_resolve_local(my_location, encoded_location, ctype, surface):
 	return [decoded_lat, decoded_lon]
 
 def cpr_resolve_global(evenpos, oddpos, mostrecent, surface): #ok this is considered working, tentatively
-	dlateven = dlat(0, surface);
-	dlatodd  = dlat(1, surface);
+	dlateven = dlat(0, surface)
+	dlatodd  = dlat(1, surface)
 
 	evenpos = [float(evenpos[0]), float(evenpos[1])]
 	oddpos = [float(oddpos[0]), float(oddpos[1])]

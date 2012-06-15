@@ -27,8 +27,7 @@ class modes_kml(threading.Thread, modes_output_sql):
     def __init__(self, filename, localpos, timeout=5):
         threading.Thread.__init__(self)
         self._dbname = 'adsb.db'
-        modes_output_sql.__init__(localpos, self._dbname) #write to the db
-        self._db = sqlite3.connect(self._dbname) #read from the db
+        modes_output_sql.__init__(self, localpos, self._dbname) #write to the db
         self._filename = filename
         self.my_coords = localpos
         self._timeout = timeout
@@ -38,6 +37,7 @@ class modes_kml(threading.Thread, modes_output_sql):
         self.start()
 
     def run(self):
+        self._db = sqlite3.connect(self._dbname) #read from the db
         while self.done is False:
             self.writekml()
             time.sleep(self._timeout) 
@@ -83,11 +83,12 @@ class modes_kml(threading.Thread, modes_output_sql):
         retstr="""<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n\t<Style id="airplane">\n\t\t<IconStyle>\n\t\t\t<Icon><href>airports.png</href></Icon>\n\t\t</IconStyle>\n\t</Style>\n\t<Style id="rangering">\n\t<LineStyle>\n\t\t<color>9f4f4faf</color>\n\t\t<width>2</width>\n\t</LineStyle>\n\t</Style>\n\t<Style id="track">\n\t<LineStyle>\n\t\t<color>5fff8f8f</color>\n\t\t<width>4</width>\n\t</LineStyle>\n\t</Style>"""
 
         if self.my_coords is not None:
-            retstr += """\t<Folder>\n\t\t<name>Range rings</name>\n\t\t<open>0</open>"""
+            retstr += """\n\t<Folder>\n\t\t<name>Range rings</name>\n\t\t<open>0</open>"""
             for rng in [100, 200, 300]:     
                 retstr += """\n\t\t<Placemark>\n\t\t\t<name>%inm</name>\n\t\t\t<styleUrl>#rangering</styleUrl>\n\t\t\t<LinearRing>\n\t\t\t\t<coordinates>%s</coordinates>\n\t\t\t</LinearRing>\n\t\t</Placemark>""" % (rng, self.draw_circle(self.my_coords, rng),)
+            retstr += """\t</Folder>\n"""
         
-        retstr += """\t</Folder>\n\t<Folder>\n\t\t<name>Aircraft locations</name>\n\t\t<open>0</open>"""
+        retstr +=  """\t<Folder>\n\t\t<name>Aircraft locations</name>\n\t\t<open>0</open>"""
 
         #read the database and add KML
         q = "select distinct icao from positions where seen > datetime('now', '-5 minute')"
@@ -115,7 +116,7 @@ class modes_kml(threading.Thread, modes_output_sql):
                 trackstr = ""
                 
                 for pos in track:
-                    trackstr += " %f,%f,%f" % (pos[4], pos[3], pos[2]*0.3048)
+                    trackstr += " %f, %f, %f" % (pos[4], pos[3], pos[2]*0.3048)
 
                 trackstr = string.lstrip(trackstr)
             else:

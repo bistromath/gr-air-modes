@@ -57,7 +57,7 @@ class modes_output_sql(modes_parse.modes_parse):
   def __del__(self):
     self.db.close()
 
-  def insert(self, message):
+  def output(self, message):
     query = self.make_insert_query(message)
     if query is not None:
       c = self.db.cursor()

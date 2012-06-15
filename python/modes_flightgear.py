@@ -113,6 +113,7 @@ class fg_chatmsg(fg_header):
         return fg_header.pack(self) + self.data
 
 modelmap = { None:                       'Aircraft/777-200/Models/777-200ER.xml',
+            "NO INFO":                   'Aircraft/777-200/Models/777-200ER.xml',
             "LIGHT":                     'Aircraft/c172p/Models/c172p.xml',
             "SMALL":                     'Aircraft/CitationX/Models/Citation-X.xml',
             "LARGE":                     'Aircraft/CRJ700-family/Models/CRJ700.xml',

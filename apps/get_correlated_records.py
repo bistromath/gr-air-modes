@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-from modes_parse import modes_parse
-import mlat
+from air_modes import modes_parse, mlat
 import numpy
 import sys
 
@@ -10,7 +9,7 @@ import sys
 #sfoutfile = open("sfout.txt", "w")
 #rudioutfile = open("rudiout.txt", "w")
 
-sfparse = modes_parse([37.762236,-122.442525])
+sfparse = modes_parse.modes_parse([37.762236,-122.442525])
 
 sf_station = [37.762236,-122.442525, 100]
 mv_station = [37.409348,-122.07732, 100]

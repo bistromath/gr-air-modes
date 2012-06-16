@@ -1,5 +1,6 @@
+#!/usr/bin/env python
 #
-# Copyright 2010 Nick Foster
+# Copyright 2010, 2012 Nick Foster
 # 
 # This file is part of gr-air-modes
 # 
@@ -19,8 +20,6 @@
 # Boston, MA 02110-1301, USA.
 # 
 
-
-#!/usr/bin/env python
 #from string import split, join
 #from math import pi, floor, cos, acos
 import math, time
@@ -56,8 +55,10 @@ def nl_eo(declat_in, ctype):
 	return nl(declat_in) - ctype
 
 def nl(declat_in):
-	if declat_in == 0:
-		declat_in = 0.01
+	if declat_in >= 87.0:
+		declat_in = 86.999999999
+	if declat_in <= -87.0:
+		declat_in = -86.999999999
 	return math.floor( (2.0*math.pi) * pow(math.acos(1.0- (1.0-math.cos(math.pi/(2.0*latz))) / pow( math.cos( (math.pi/180.0)*abs(declat_in) ) ,2.0) ),-1.0))
 
 def dlon(declat_in, ctype, surface):
@@ -264,34 +265,41 @@ def cpr_encode(lat, lon, ctype, surface):
 	return (yz, xz) #lat, lon
 
 if __name__ == '__main__':
-	from modes_parse import *
-	import sys
+	import sys, random
 
-	my_location = [37.76225, -122.44254]
+	rounds = 100
+	threshold = 1e-3 #0.001 deg lat/lon
+	#this accuracy is highly dependent on latitude, since at high
+	#latitudes the corresponding error in longitude is greater
+	
+	decoder = cpr_decoder(None)
 
-	shortdata = long(sys.argv[1], 16)
-	longdata = long(sys.argv[2], 16)
-	parity = long(sys.argv[3], 16)
-	ecc = long(sys.argv[4], 16)
+	for i in range(0, rounds):
+		ac_lat = random.uniform(-87,87)
+		ac_lon = random.uniform(-180,180)
 
-	parser = modes_parse(my_location)
+		#encode that position
+		(evenenclat, evenenclon) = cpr_encode(ac_lat, ac_lon, False, False)
+		(oddenclat, oddenclon)   = cpr_encode(ac_lat, ac_lon, True, False)
 
-	[altitude, decoded_lat, decoded_lon, rnge, bearing] = parser.parseBDS06(shortdata, longdata, parity, ecc)
+		#perform a global decode
+		icao = random.randint(0, 0xffffff)
+		evenpos = decoder.decode(icao, evenenclat, evenenclon, False, False)
+		if evenpos != [None, None, None, None]:
+			raise Exception("CPR test failure: global decode with only one report")
+		(odddeclat, odddeclon, rng, brg) = decoder.decode(icao, oddenclat, oddenclon, True, False)
 
-	if decoded_lat is not None:
-		print "Altitude: %i\nLatitude: %.6f\nLongitude: %.6f\nRange: %.2f\nBearing: %i\n" % (altitude, decoded_lat, decoded_lon, rnge, bearing,)
+		if odddeclat is None: #boundary straddle, just move on
+			continue
 
-	print "Decomposing...\n"
+		if abs(odddeclat - ac_lat) > threshold or abs(odddeclon - ac_lon) > threshold:
+			print "Global decode error: Lat: %f Lon: %f Decoded lat: %f lon: %f" % (ac_lat, ac_lon, odddeclat, odddeclon)
+			#raise Exception("CPR test failure: global decode error greater than threshold")
 
-	subtype = (longdata >> 51) & 0x1F;
+		(evendeclat, evendeclon) = cpr_resolve_local([ac_lat, ac_lon], [evenenclat, evenenclon], False, False)
+		
+		if abs(evendeclat - ac_lat) > threshold or abs(evendeclon - ac_lon) > threshold:
+			print "Local decode error: Lat: %f Lon: %f Decoded lat: %f lon: %f" % (ac_lat, ac_lon, evendeclat, evendeclon)
+			#raise Exception("CPR test failure: local decode error greater than threshold")
 
-	encoded_lon = longdata & 0x1FFFF
-	encoded_lat = (longdata >> 17) & 0x1FFFF
-	cpr_format = (longdata >> 34) & 1
-
-	enc_alt = (longdata >> 36) & 0x0FFF
-
-	[cpr_lat, cpr_lon] = cpr_resolve_local(my_location, [encoded_lat, encoded_lon], cpr_format, 1)
-
-	print "Subtype: %i\nEncoded longitude: %x\nEncoded latitude: %x\nCPR format: %i\nEncoded altitude: %x\n" % (subtype, encoded_lon, encoded_lat, cpr_format, enc_alt,)
-	print "Pos: %.6f %.6f" % (cpr_lat, cpr_lon)
+	print "CPR test successful."

@@ -117,6 +117,8 @@ def cpr_resolve_global(evenpos, oddpos, mostrecent, surface): #ok this is consid
 	rlateven = dlateven * (mod(j, 60)+evenpos[0]/2**nbits(surface))
 	rlatodd  = dlatodd  * (mod(j, 59)+ oddpos[0]/2**nbits(surface))
 
+	#This checks to see if the latitudes of the reports straddle a transition boundary
+	#If so, you can't get a globally-resolvable location.
 	if nl(rlateven) != nl(rlatodd):
 		#print "Boundary straddle!"
 		return (None, None,)
@@ -260,3 +262,36 @@ def cpr_encode(lat, lon, ctype, surface):
 	xz = int(mod(xz, scalar))
 
 	return (yz, xz) #lat, lon
+
+if __name__ == '__main__':
+	from modes_parse import *
+	import sys
+
+	my_location = [37.76225, -122.44254]
+
+	shortdata = long(sys.argv[1], 16)
+	longdata = long(sys.argv[2], 16)
+	parity = long(sys.argv[3], 16)
+	ecc = long(sys.argv[4], 16)
+
+	parser = modes_parse(my_location)
+
+	[altitude, decoded_lat, decoded_lon, rnge, bearing] = parser.parseBDS06(shortdata, longdata, parity, ecc)
+
+	if decoded_lat is not None:
+		print "Altitude: %i\nLatitude: %.6f\nLongitude: %.6f\nRange: %.2f\nBearing: %i\n" % (altitude, decoded_lat, decoded_lon, rnge, bearing,)
+
+	print "Decomposing...\n"
+
+	subtype = (longdata >> 51) & 0x1F;
+
+	encoded_lon = longdata & 0x1FFFF
+	encoded_lat = (longdata >> 17) & 0x1FFFF
+	cpr_format = (longdata >> 34) & 1
+
+	enc_alt = (longdata >> 36) & 0x0FFF
+
+	[cpr_lat, cpr_lon] = cpr_resolve_local(my_location, [encoded_lat, encoded_lon], cpr_format, 1)
+
+	print "Subtype: %i\nEncoded longitude: %x\nEncoded latitude: %x\nCPR format: %i\nEncoded altitude: %x\n" % (subtype, encoded_lon, encoded_lat, cpr_format, enc_alt,)
+	print "Pos: %.6f %.6f" % (cpr_lat, cpr_lon)

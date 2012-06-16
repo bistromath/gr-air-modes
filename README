@@ -98,8 +98,25 @@ gr-air-modes requires:
 * Python >= 2.5 (written for Python 2.7, Python 3.0 might work)
 ** NumPy and SciPy are required for the FlightGear output plugin.
 * Gnuradio >= 3.5.0
-* Ettus UHD >= 3.4.0
+* Ettus UHD >= 3.4.0 for use with USRPs
+* osmosdr (any version) for use with RTLSDR dongles
 * SQLite 3.7 or later
+* CMake 2.6 or later
+
+========================================================================
+BUILDING
+
+gr-air-modes uses CMake as its build system. To build, from the top
+level directory, type:
+
+$ mkdir build
+$ cd build
+$ cmake ../
+$ make
+$ sudo make install
+
+This will build gr-air-modes out of the source tree in build/ and
+install it on your system, generally in /usr/local/bin.
 
 ========================================================================
 USAGE
@@ -110,7 +127,8 @@ options, run:
 $ apps/uhd_modes.py --help
 
 For use with Ettus UHD-compatible devices, the defaults should suffice
-to receive reports and print to the screen.
+to receive reports and print to the screen. Use the -d option to look
+for an RTLSDR-type dongle using the osmosdr driver.
 
 In particular, the --location option should be used to set the receiving
 location's GPS coordinates. This provides better decoding of position

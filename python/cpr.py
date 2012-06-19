@@ -73,7 +73,7 @@ def dlon(declat_in, ctype, surface):
 def decode_lat(enclat, ctype, my_lat, surface):
 	tmp1 = dlat(ctype, surface)
 	tmp2 = float(enclat) / (2**nbits(surface))
-	j = math.floor(my_lat/tmp1) + math.floor(0.5 + (mod(my_lat, tmp1) / tmp1) - tmp2)
+	j = math.floor(my_lat/tmp1) + math.floor(0.5 + ((my_lat % tmp1) / tmp1) - tmp2)
 #	print "dlat gives " + "%.6f " % tmp1 + "with j = " + "%.6f " % j + " and tmp2 = " + "%.6f" % tmp2 + " given enclat " + "%x" % enclat
 
 	return tmp1 * (j + tmp2)
@@ -81,16 +81,10 @@ def decode_lat(enclat, ctype, my_lat, surface):
 def decode_lon(declat, enclon, ctype, my_lon, surface):
 	tmp1 = dlon(declat, ctype, surface)
 	tmp2 = float(enclon) / (2.0**nbits(surface))
-	m = math.floor(my_lon / tmp1) + math.floor(0.5 + (mod(my_lon, tmp1) / tmp1) - tmp2)
+	m = math.floor(my_lon / tmp1) + math.floor(0.5 + ((my_lon % tmp1) / tmp1) - tmp2)
 #	print "dlon gives " + "%.6f " % tmp1 + "with m = " + "%.6f " % m + " and tmp2 = " + "%.6f" % tmp2 + " given enclon " + "%x" % enclon
 
 	return tmp1 * (m + tmp2)
-
-
-def mod(a, b):
-	if a < 0:
-		return (a+360.0) % b
-	return a%b
 
 def cpr_resolve_local(my_location, encoded_location, ctype, surface):
 	[my_lat, my_lon] = my_location
@@ -101,7 +95,7 @@ def cpr_resolve_local(my_location, encoded_location, ctype, surface):
 
 	return [decoded_lat, decoded_lon]
 
-def cpr_resolve_global(evenpos, oddpos, mostrecent, surface): #ok this is considered working, tentatively
+def cpr_resolve_global(evenpos, oddpos, mostrecent, surface):
 	dlateven = dlat(0, surface)
 	dlatodd  = dlat(1, surface)
 	if surface is True:
@@ -111,18 +105,17 @@ def cpr_resolve_global(evenpos, oddpos, mostrecent, surface): #ok this is consid
 
 	evenpos = [float(evenpos[0]), float(evenpos[1])]
 	oddpos = [float(oddpos[0]), float(oddpos[1])]
-
-	#print "Even position: %x, %x\nOdd position: %x, %x" % (evenpos[0], evenpos[1], oddpos[0], oddpos[1],)
 	
-	j = math.floor(((59.*evenpos[0] - 60.*oddpos[0])/scalar) + 0.5) #latitude index
-	if j < 0:
-	#	print "ERROR J IS %f" % j
-		j += 59 #i don't know why this works
+	j = math.floor(((nz(1)*evenpos[0] - nz(0)*oddpos[0])/scalar) + 0.5) #latitude index
 
-	rlateven = dlateven * (mod(j, 60)+evenpos[0]/scalar)
-	rlatodd  = dlatodd  * (mod(j, 59)+ oddpos[0]/scalar)
+	rlateven = dlateven * ((j % nz(0))+evenpos[0]/scalar)
+	rlatodd  = dlatodd  * ((j % nz(1))+ oddpos[0]/scalar)
 
-	#print "Rlateven: %f Rlatodd: %f" % (rlateven, rlatodd)
+	#limit to -90, 90
+	if rlateven > 270.0:
+		rlateven -= 360.0
+	if rlatodd > 270.0:
+		rlatodd -= 360.0
 
 	#This checks to see if the latitudes of the reports straddle a transition boundary
 	#If so, you can't get a globally-resolvable location.
@@ -134,23 +127,19 @@ def cpr_resolve_global(evenpos, oddpos, mostrecent, surface): #ok this is consid
 		rlat = rlateven
 	else:
 		rlat = rlatodd
-	#print rlat
-
-	if rlat > 270.0:
-		rlat = rlat - 360.0
 
 	dl = dlon(rlat, mostrecent, surface)
 	nlthing = nl(rlat)
 	ni = max(nlthing - mostrecent, 1)
 
-	m =  math.floor(((evenpos[1]*(nlthing-1)-oddpos[1]*(nlthing))/scalar)+0.5) #longitude index, THIS LINE IS CORRECT
+	m =  math.floor(((evenpos[1]*(nlthing-1)-oddpos[1]*(nlthing))/scalar)+0.5) #longitude index
 
 	if mostrecent == 0:
 		enclon = evenpos[1]
 	else:
 		enclon = oddpos[1]
 
-	rlon = dl * (mod(ni+m, ni)+enclon/2**nbits(surface))
+	rlon = dl * (((ni+m) % ni)+enclon/2**nbits(surface))
 
 	if rlon > 180:
 		rlon = rlon - 360.0
@@ -257,9 +246,8 @@ def cpr_encode(lat, lon, ctype, surface):
 		scalar = float(2**17)
 
 	dlati = float(dlat(ctype, False))
-	yz = math.floor(scalar * (mod(lat, dlati)/dlati) + 0.5)
+	yz = math.floor(scalar * ((lat % dlati)/dlati) + 0.5)
 	rlat = dlati * ((yz / scalar) + math.floor(lat / dlati))
-	#print "lat: %f dlati: %f yz: %f rlat: %f" % (lat, dlati, yz, rlat)
 
 	nleo = nl_eo(rlat, ctype)
 	if nleo == 0:
@@ -267,10 +255,10 @@ def cpr_encode(lat, lon, ctype, surface):
 	else:
 		dloni = 360.0 / nl_eo(rlat, ctype)
 
-	xz = math.floor(scalar * (mod(lon, dloni)/dloni) + 0.5)
+	xz = math.floor(scalar * ((lon % dloni)/dloni) + 0.5)
 
-	yz = int(mod(yz, scalar))
-	xz = int(mod(xz, scalar))
+	yz = int(yz % scalar)
+	xz = int(xz % scalar)
 
 	return (yz, xz) #lat, lon
 
@@ -307,6 +295,8 @@ if __name__ == '__main__':
 		#print "Lat: %f Lon: %f" % (ac_lat, ac_lon)
 
 		if abs(odddeclat - ac_lat) > threshold or abs(odddeclon - ac_lon) > threshold:
+			#print "odddeclat: %f ac_lat: %f" % (odddeclat, ac_lat)
+			#print "odddeclon: %f ac_lon: %f" % (odddeclon, ac_lon)
 			raise Exception("CPR test failure: global decode error greater than threshold")
 
 		(evendeclat, evendeclon) = cpr_resolve_local([ac_lat, ac_lon], [evenenclat, evenenclon], False, False)

@@ -171,3 +171,29 @@ def mlat(replies, altitude):
 #the diagonal elements of doparray will be the x, y, z DOPs.
     
     return llhpos
+
+
+if __name__ == '__main__':
+    #here's some test data to validate the algorithm
+    teststations = [[37.76225, -122.44254, 100], [37.680016,-121.772461, 100], [37.385844,-122.083082, 100], [37.701207,-122.309418, 100]]
+    testalt      = 8000
+    testplane    = numpy.array(llh2ecef([37.617175,-122.400843, testalt]))
+    testme       = llh2geoid(teststations[0])
+    teststamps   = [10, 
+                    10 + numpy.linalg.norm(testplane-numpy.array(llh2geoid(teststations[1]))) / c,
+                    10 + numpy.linalg.norm(testplane-numpy.array(llh2geoid(teststations[2]))) / c,
+                    10 + numpy.linalg.norm(testplane-numpy.array(llh2geoid(teststations[3]))) / c,
+                ]
+
+    print teststamps
+
+    replies = []
+    for i in range(0, len(teststations)):
+        replies.append((teststations[i], teststamps[i]))
+    ans = mlat(replies, testalt)
+    error = numpy.linalg.norm(numpy.array(llh2ecef(ans))-numpy.array(testplane))
+    range = numpy.linalg.norm(llh2geoid(ans)-numpy.array(testme))
+    print testplane-testme
+    print ans
+    print "Error: %.2fm" % (error)
+    print "Range: %.2fkm (from first station in list)" % (range/1000)

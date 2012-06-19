@@ -44,9 +44,10 @@ This receiver listens to the 1090MHz downlink channel; interrogation
 requests at 1030MHz are not received or decoded by this program.
 
 Automatic Dependent Surveillance-Broadcast (ADS-B) is a communication
-protocol using the Extended Mode S transport layer. There are other
-implementations (VDL Mode 2 and UAT, for instance) but Mode S remains
-the primary ADS-B transport for commercial use. The protocol is:
+protocol using the Extended Squitter capability of the Mode S transport
+layer. There are other implementations (VDL Mode 2 and UAT, for
+instance) but Mode S remains the primary ADS-B transport for commercial
+use. The protocol is:
 
 * Automatic: it requires no pilot input
 * Dependent: it is dependent on altimeter, GPS, and other aircraft
@@ -66,10 +67,9 @@ a mandate arriving in 2020 via the FAA's "NextGen" program.
 
 The receiver uhd_modes.py is written for use with Ettus Research USRP
 devices, although the "RTLSDR" receivers are also supported via the
-Osmocom driver. In addition, any receiver which outputs complex
-samples at at least 2Msps should work via the file input or UDP input
-options, or by means of a Gnuradio interface. Multiple output formats
-are supported:
+Osmocom driver. In theory, any receiver which outputs complex samples at
+at least 2Msps should work via the file input or UDP input options, or
+by means of a Gnuradio interface. Multiple output formats are supported:
 
 * Raw (or minimally processed) output of packet data
 * Parsed text
@@ -83,9 +83,9 @@ are supported:
 Most of the common ADS-B reports are fully decoded per specification.
 Those that are not are generally ones which are not commonly used.
 
-In particular, should you receive a large number of reports which result
-in "not implemented" or "No handler" messages, please use the -w option
-to save raw data and forward it to the author. To save time, note that
+Should you receive a large number of reports which result in
+"not implemented" or "No handler" messages, please use the -w option to
+save raw data and forward it to the author. To save time, note that
 receiving a small number of spurious reports is expected; false reports
 can be excluded by looking for multiple reports from the same aircraft
 (i.e., the same ICAO 6-digit hexadecimal number).
@@ -121,18 +121,19 @@ install it on your system, generally in /usr/local/bin.
 ========================================================================
 USAGE
 
-The main application is apps/uhd_modes.py. For a complete list of
-options, run:
+The main application is uhd_modes.py. For a complete list of options,
+run:
 
-$ apps/uhd_modes.py --help
+$ uhd_modes.py --help
 
 For use with Ettus UHD-compatible devices, the defaults should suffice
 to receive reports and print to the screen. Use the -d option to look
 for an RTLSDR-type dongle using the osmosdr driver.
 
-In particular, the --location option should be used to set the receiving
-location's GPS coordinates. This provides better decoding of position
-reports and enables range and bearing calculations.
+In particular, the --location option can be used to set the receiving
+location's GPS coordinates. This enables range and bearing calculations
+in the printed display as well as range rings in the Google Earth
+interface.
 
 ========================================================================
 FILES

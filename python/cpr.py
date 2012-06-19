@@ -221,15 +221,15 @@ class cpr_decoder:
 			if decoded_lat is not None:
 				self.lkplist[icao24] = [decoded_lat, decoded_lon, time.time()]
 
-		elif self.my_location is not None: #if we have a location, use it
-			[local_lat, local_lon] = cpr_resolve_local(self.my_location, [encoded_lat, encoded_lon], cpr_format, surface) #try local decoding
-			[rnge, bearing] = range_bearing(self.my_location, [local_lat, local_lon])
-			if rnge < validrange: #if the local decoding can be guaranteed valid
-				self.lkplist[icao24] = [local_lat, local_lon, time.time()] #update the local position for next time
-				[decoded_lat, decoded_lon] = [local_lat, local_lon]
+		#so we really can't guarantee that local decoding will work unless you are POSITIVE that you can't hear more than 180nm out.
+		#this will USUALLY work, but you can't guarantee it!
+#		elif self.my_location is not None: #if we have a location, use it
+#			[local_lat, local_lon] = cpr_resolve_local(self.my_location, [encoded_lat, encoded_lon], cpr_format, surface) #try local decoding
+#			[rnge, bearing] = range_bearing(self.my_location, [local_lat, local_lon])
+#			if rnge < validrange: #if the local decoding can be guaranteed valid
+#				self.lkplist[icao24] = [local_lat, local_lon, time.time()] #update the local position for next time
+#				[decoded_lat, decoded_lon] = [local_lat, local_lon]
 
-
-		#print "settled on position: %.6f, %.6f" % (decoded_lat, decoded_lon,)
 		if decoded_lat is not None and self.my_location is not None:
 			[rnge, bearing] = range_bearing(self.my_location, [decoded_lat, decoded_lon])
 		else:

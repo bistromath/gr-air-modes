@@ -1,5 +1,5 @@
 #
-# Copyright 2010 Nick Foster
+# Copyright 2010, 2012 Nick Foster
 # 
 # This file is part of gr-air-modes
 # 
@@ -19,10 +19,10 @@
 # Boston, MA 02110-1301, USA.
 # 
 
-
 import time, os, sys
 from string import split, join
 import modes_parse
+from modes_exceptions import *
 import math
 
 class modes_output_print(modes_parse.modes_parse):
@@ -39,30 +39,33 @@ class modes_output_print(modes_parse.modes_parse):
     timestamp = float(timestamp)
 
     msgtype = int(msgtype)
-    
-    output = None;
 
-    if msgtype == 0:
-      output = self.print0(shortdata, ecc)
-    elif msgtype == 4:
-      output = self.print4(shortdata, ecc)
-    elif msgtype == 5:
-      output = self.print5(shortdata, ecc)
-    elif msgtype == 11:
-      output = self.print11(shortdata, ecc)
-    elif msgtype == 17:
-      output = self.print17(shortdata, longdata)
-    else:
-      output = "No handler for message type " + str(msgtype) + " from %x" % ecc
-
+    #TODO this is suspect
     if reference == 0.0:
-        refdb = -150.0
+      refdb = -150.0
     else:
-        refdb = 10.0*math.log10(reference)
-        
-    if output is not None: 
-        output = "(%.0f %.10f) " % (refdb, timestamp) + output
-        print output
+      refdb = 10.0*math.log10(reference)
+    output = "(%.0f %.10f) " % (refdb, timestamp);
+
+    try:
+      if msgtype == 0:
+        output += self.print0(shortdata, ecc)
+      elif msgtype == 4:
+        output += self.print4(shortdata, ecc)
+      elif msgtype == 5:
+        output += self.print5(shortdata, ecc)
+      elif msgtype == 11:
+        output += self.print11(shortdata, ecc)
+      elif msgtype == 17:
+        output += self.print17(shortdata, longdata)
+      print output
+    except NoHandlerError as e:
+      output += "No handler for message type " + str(e.msgtype) + " from %x" % ecc
+      print output
+    except MetricAltError:
+      pass
+    except CPRNoPositionError:
+      pass
 
   def print0(self, shortdata, ecc):
     [vs, cc, sl, ri, altitude] = self.parse0(shortdata)

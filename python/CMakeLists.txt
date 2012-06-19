@@ -34,6 +34,7 @@ GR_PYTHON_INSTALL(
     altitude.py
     cpr.py
     mlat.py
+    modes_exceptions.py
     modes_flightgear.py
     modes_kml.py
     modes_parse.py

@@ -23,6 +23,7 @@ import time, os, sys
 from string import split, join
 import modes_parse
 import sqlite3
+from modes_exceptions import *
 
 class modes_output_sql(modes_parse.modes_parse):
   def __init__(self, mypos, filename):
@@ -58,13 +59,15 @@ class modes_output_sql(modes_parse.modes_parse):
     self.db.close()
 
   def output(self, message):
-    query = self.make_insert_query(message)
-    if query is not None:
+    try:
+      query = self.make_insert_query(message)
       c = self.db.cursor()
       c.execute(query)
       c.close()
-      self.db.commit() #not sure if i have to do this
-  
+      self.db.commit()
+    except ADSBError:
+      pass
+
   def make_insert_query(self, message):
     #assembles a SQL query tailored to our database
     #this version ignores anything that isn't Type 17 for now, because we just don't care

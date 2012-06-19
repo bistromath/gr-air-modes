@@ -11,6 +11,7 @@ import string, threading, math, time
 from air_modes.modes_sql import modes_output_sql
 from Quaternion import Quat
 import numpy
+from modes_exceptions import *
 
 class modes_flightgear(modes_parse.modes_parse):
     def __init__(self, localpos, hostname, port):
@@ -31,36 +32,38 @@ class modes_flightgear(modes_parse.modes_parse):
         longdata = long(longdata, 16)
         msgtype = int(msgtype)
         
-        if msgtype == 17: #ADS-B report
-            icao24 = shortdata & 0xFFFFFF	
-            subtype = (longdata >> 51) & 0x1F
-            if subtype == 4: #ident packet
-                (ident, actype) = self.parseBDS08(shortdata, longdata)
-                #select model based on actype
-                self.callsigns[icao24] = [ident, actype]
-                
-            elif 5 <= subtype <= 8: #BDS0,6 pos
-                [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(shortdata, longdata)
-                if(decoded_lat is not None):
+        try:
+            if msgtype == 17: #ADS-B report
+                icao24 = shortdata & 0xFFFFFF	
+                subtype = (longdata >> 51) & 0x1F
+                if subtype == 4: #ident packet
+                    (ident, actype) = self.parseBDS08(shortdata, longdata)
+                    #select model based on actype
+                    self.callsigns[icao24] = [ident, actype]
+                    
+                elif 5 <= subtype <= 8: #BDS0,6 pos
+                    [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(shortdata, longdata)
                     self.positions[icao24] = [decoded_lat, decoded_lon, altitude]
                     self.update(icao24)
 
-            elif 9 <= subtype <= 18: #BDS0,5 pos
-                [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(shortdata, longdata)
-                if(decoded_lat is not None):
+                elif 9 <= subtype <= 18: #BDS0,5 pos
+                    [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(shortdata, longdata)
                     self.positions[icao24] = [decoded_lat, decoded_lon, altitude]
                     self.update(icao24)
 
-            elif subtype == 19: #velocity
-                subsubtype = (longdata >> 48) & 0x07
-                if subsubtype == 0:
-                    [velocity, heading, vert_spd, turnrate] = self.parseBDS09_0(shortdata, longdata)
-                elif subsubtype == 1:
-                    [velocity, heading, vert_spd] = self.parseBDS09_1(shortdata, longdata)
-                    turnrate = 0
-                else:
-                    return
-                self.velocities[icao24] = [velocity, heading, vert_spd, turnrate]
+                elif subtype == 19: #velocity
+                    subsubtype = (longdata >> 48) & 0x07
+                    if subsubtype == 0:
+                        [velocity, heading, vert_spd, turnrate] = self.parseBDS09_0(shortdata, longdata)
+                    elif subsubtype == 1:
+                        [velocity, heading, vert_spd] = self.parseBDS09_1(shortdata, longdata)
+                        turnrate = 0
+                    else:
+                        return
+                    self.velocities[icao24] = [velocity, heading, vert_spd, turnrate]
+                    
+        except ADSBError:
+            pass
 
     def update(self, icao24):
         #check to see that ICAO24 appears in all three records and that the data looks valid

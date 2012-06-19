@@ -23,6 +23,8 @@
 # For reference into the methodology used to decode altitude,
 # see RTCA DO-181D p.42
 
+from modes_exceptions import *
+
 def decode_alt(alt, bit13):
 	mbit = alt & 0x0040
 	qbit = alt & 0x0010
@@ -30,7 +32,7 @@ def decode_alt(alt, bit13):
 	if mbit and bit13:
 		#TBD: bits 20-25, 27-31 encode alt in meters
 		#remember that bits are left justified (bit 20 is MSB)
-		return "METRIC ERROR"
+		raise MetricAltError
 
 	if qbit: #a mode S-style reply
 		#bit13 is false for BDS0,5 ADS-B squitters, and is true otherwise
@@ -122,12 +124,14 @@ def encode_alt_modes(alt, bit13):
 	return (encalt & 0x0F) | tmp1 | tmp2 | (mbit << 6) | (qbit << 4)
 
 if __name__ == "__main__":
-	for alt in range(-1000, 101400, 25):
-		dec = decode_alt(encode_alt_modes(alt, False), False)
-		if dec != alt:
-			print "Failure at %i with bit13 clear (got %s)" % (alt, dec)
-	for alt in range(-1000, 101400, 25):
-		dec = decode_alt(encode_alt_modes(alt, True), True)
-		if dec != alt:
-			print "Failure at %i with bit13 set (got %s)" % (alt, dec)
-
+	try:
+		for alt in range(-1000, 101400, 25):
+			dec = decode_alt(encode_alt_modes(alt, False), False)
+			if dec != alt:
+				print "Failure at %i with bit13 clear (got %s)" % (alt, dec)
+		for alt in range(-1000, 101400, 25):
+			dec = decode_alt(encode_alt_modes(alt, True), True)
+			if dec != alt:
+				print "Failure at %i with bit13 set (got %s)" % (alt, dec)
+	except MetricAltError:
+		print "Failure at %i due to metric alt bit" % alt

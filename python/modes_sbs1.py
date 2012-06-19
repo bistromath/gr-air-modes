@@ -24,6 +24,7 @@ import time, os, sys, socket
 from string import split, join
 import modes_parse
 from datetime import *
+from modes_exceptions import *
 
 class modes_output_sbs1(modes_parse.modes_parse):
   def __init__(self, mypos):
@@ -61,14 +62,15 @@ class modes_output_sbs1(modes_parse.modes_parse):
     return self._aircraft_id_count
 
   def output(self, msg):
-    sbs1_msg = self.parse(msg)
-    if sbs1_msg is not None:
+    try:
+      sbs1_msg = self.parse(msg)
       for conn in self._conns[:]: #iterate over a copy of the list
-        try:
-          conn.send(sbs1_msg)
-        except socket.error:
-          self._conns.remove(conn)
-          print "Connections: ", len(self._conns)
+        conn.send(sbs1_msg)
+    except socket.error:
+      self._conns.remove(conn)
+      print "Connections: ", len(self._conns)
+    except ADSBError:
+      pass
 
   def add_pending_conns(self):
     try:

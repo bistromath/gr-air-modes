@@ -25,6 +25,7 @@ from string import split, join
 from altitude import decode_alt
 import cpr
 import math
+from modes_exceptions import *
 
 class modes_parse:
   def __init__(self, mypos):
@@ -32,9 +33,6 @@ class modes_parse:
       self.cpr = cpr.cpr_decoder(self.my_location)
     
   def parse0(self, shortdata):
-#	shortdata = long(shortdata, 16)
-    #parity = long(parity)
-
     vs = bool(shortdata >> 26 & 0x1)    #ground sensor -- airborne when 0
     cc = bool(shortdata >> 25 & 0x1)    #crosslink capability, binary
     sl = shortdata >> 21 & 0x07  #operating sensitivity of onboard TCAS system. 0 means no TCAS sensitivity reported, 1-7 give TCAS sensitivity
@@ -46,7 +44,6 @@ class modes_parse:
     return [vs, cc, sl, ri, altitude]
 
   def parse4(self, shortdata):
-#	shortdata = long(shortdata, 16)
     fs = shortdata >> 24 & 0x07 #flight status: 0 is airborne normal, 1 is ground normal, 2 is airborne alert, 3 is ground alert, 4 is alert SPI, 5 is normal SPI
     dr = shortdata >> 19 & 0x1F #downlink request: 0 means no req, bit 0 is Comm-B msg rdy bit, bit 1 is TCAS info msg rdy, bit 2 is Comm-B bcast #1 msg rdy, bit2+bit0 is Comm-B bcast #2 msg rdy,
 								#bit2+bit1 is TCAS info and Comm-B bcast #1 msg rdy, bit2+bit1+bit0 is TCAS info and Comm-B bcast #2 msg rdy, 8-15 N/A, 16-31 req to send N-15 segments
@@ -59,7 +56,6 @@ class modes_parse:
 
 
   def parse5(self, shortdata):
-#	shortdata = long(shortdata, 16)
     fs = shortdata >> 24 & 0x07 #flight status: 0 is airborne normal, 1 is ground normal, 2 is airborne alert, 3 is ground alert, 4 is alert SPI, 5 is normal SPI
     dr = shortdata >> 19 & 0x1F #downlink request: 0 means no req, bit 0 is Comm-B msg rdy bit, bit 1 is TCAS info msg rdy, bit 2 is Comm-B bcast #1 msg rdy, bit2+bit0 is Comm-B bcast #2 msg rdy,
 								#bit2+bit1 is TCAS info and Comm-B bcast #1 msg rdy, bit2+bit1+bit0 is TCAS info and Comm-B bcast #2 msg rdy, 8-15 N/A, 16-31 req to send N-15 segments
@@ -68,7 +64,6 @@ class modes_parse:
     return [fs, dr, um]
 
   def parse11(self, shortdata, ecc):
-#	shortdata = long(shortdata, 16)
     interrogator = ecc & 0x0F
 	
     ca = shortdata >> 13 & 0x3F #capability
@@ -114,9 +109,6 @@ class modes_parse:
     msg = ""
     for i in range(0, 8):
       msg += self.charmap( longdata >> (42-6*i) & 0x3F)
-
-	#retstr = "Type 17 subtype 04 (ident) from " + "%x" % icao24 + " with data " + msg
-
     return (msg, catstring)
 
   def charmap(self, d):
@@ -155,8 +147,6 @@ class modes_parse:
     encoded_lat = (longdata >> 17) & 0x1FFFF
     cpr_format = (longdata >> 34) & 1
 
-#	enc_alt = (longdata >> 36) & 0x0FFF
-
     altitude = 0
 
     [decoded_lat, decoded_lon, rnge, bearing] = self.cpr.decode(icao24, encoded_lat, encoded_lon, cpr_format, 1)
@@ -188,8 +178,6 @@ class modes_parse:
     heading = math.atan2(ew_vel, ns_vel) * (180.0 / math.pi)
     if heading < 0:
       heading += 360
-
-	#retstr = "Type 17 subtype 09-0 (track report) from " + "%x" % icao24 + " with velocity " + "%.0f" % velocity + "kt heading " + "%.0f" % heading + " VS " + "%.0f" % vert_spd
 
     return [velocity, heading, vert_spd, turn_rate]
 
@@ -231,8 +219,6 @@ class modes_parse:
       heading = 180 - heading
     if heading < 0:
       heading += 360
-
-    #retstr = "Type 17 subtype 09-1 (track report) from " + "%x" % icao24 + " with velocity " + "%.0f" % velocity + "kt heading " + "%.0f" % heading + " VS " + "%.0f" % vert_spd
 
     return [velocity, heading, vert_spd]
 

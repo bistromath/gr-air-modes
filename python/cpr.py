@@ -20,9 +20,8 @@
 # Boston, MA 02110-1301, USA.
 # 
 
-#from string import split, join
-#from math import pi, floor, cos, acos
 import math, time
+from modes_exceptions import *
 #this implements CPR position decoding and encoding.
 #the decoder is implemented as a class, cpr_decoder, which keeps state for local decoding.
 #the encoder is cpr_encode([lat, lon], type (even=0, odd=1), and surface (0 for surface, 1 for airborne))
@@ -121,7 +120,7 @@ def cpr_resolve_global(evenpos, oddpos, mostrecent, surface):
 	#If so, you can't get a globally-resolvable location.
 	if nl(rlateven) != nl(rlatodd):
 		#print "Boundary straddle!"
-		return (None, None,)
+		raise CPRBoundaryStraddleError
 
 	if mostrecent == 0:
 		rlat = rlateven
@@ -218,8 +217,9 @@ class cpr_decoder:
 		elif ((icao24 in self.evenlist) and (icao24 in self.oddlist) and abs(self.evenlist[icao24][2] - self.oddlist[icao24][2]) < 10):
 			newer = (self.oddlist[icao24][2] - self.evenlist[icao24][2]) > 0 #figure out which report is newer
 			[decoded_lat, decoded_lon] = cpr_resolve_global(self.evenlist[icao24][0:2], self.oddlist[icao24][0:2], newer, surface) #do a global decode
-			if decoded_lat is not None:
-				self.lkplist[icao24] = [decoded_lat, decoded_lon, time.time()]
+			self.lkplist[icao24] = [decoded_lat, decoded_lon, time.time()]
+		else:
+			raise CPRNoPositionError
 
 		#so we really can't guarantee that local decoding will work unless you are POSITIVE that you can't hear more than 180nm out.
 		#this will USUALLY work, but you can't guarantee it!
@@ -230,7 +230,7 @@ class cpr_decoder:
 #				self.lkplist[icao24] = [local_lat, local_lon, time.time()] #update the local position for next time
 #				[decoded_lat, decoded_lon] = [local_lat, local_lon]
 
-		if decoded_lat is not None and self.my_location is not None:
+		if self.my_location is not None:
 			[rnge, bearing] = range_bearing(self.my_location, [decoded_lat, decoded_lon])
 		else:
 			rnge = None
@@ -283,15 +283,21 @@ if __name__ == '__main__':
 
 		#perform a global decode
 		icao = random.randint(0, 0xffffff)
-		evenpos = decoder.decode(icao, evenenclat, evenenclon, False, False)
-		if evenpos != [None, None, None, None]:
+		try:
+			evenpos = decoder.decode(icao, evenenclat, evenenclon, False, False)
 			#print "CPR global decode with only one report: %f %f" % (evenpos[0], evenpos[1])
 			raise Exception("CPR test failure: global decode with only one report")
-		(odddeclat, odddeclon, rng, brg) = decoder.decode(icao, oddenclat, oddenclon, True, False)
+		except CPRNoPositionError:
+			pass
 
-		if odddeclat is None: #boundary straddle, just move on, it's normal
+		try:
+			(odddeclat, odddeclon, rng, brg) = decoder.decode(icao, oddenclat, oddenclon, True, False)
+		except CPRBoundaryStraddleError:
 			bs += 1
 			continue
+		except CPRNoPositionError:
+			raise Exception("CPR test failure: no decode after even/odd inputs")
+
 		#print "Lat: %f Lon: %f" % (ac_lat, ac_lon)
 
 		if abs(odddeclat - ac_lat) > threshold or abs(odddeclon - ac_lon) > threshold:
@@ -299,7 +305,10 @@ if __name__ == '__main__':
 			#print "odddeclon: %f ac_lon: %f" % (odddeclon, ac_lon)
 			raise Exception("CPR test failure: global decode error greater than threshold")
 
-		(evendeclat, evendeclon) = cpr_resolve_local([ac_lat, ac_lon], [evenenclat, evenenclon], False, False)
+		try:
+			(evendeclat, evendeclon) = cpr_resolve_local([ac_lat, ac_lon], [evenenclat, evenenclon], False, False)
+		except CPRNoPositionError:
+			raise Exception("CPR test failure: local decode failure to resolve")
 		
 		if abs(evendeclat - ac_lat) > threshold or abs(evendeclon - ac_lon) > threshold:
 			raise Exception("CPR test failure: local decode error greater than threshold")

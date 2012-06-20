@@ -30,8 +30,16 @@ def decode_alt(alt, bit13):
 	qbit = alt & 0x0010
 	
 	if mbit and bit13:
-		#TBD: bits 20-25, 27-31 encode alt in meters
-		#remember that bits are left justified (bit 20 is MSB)
+		#nobody uses metric altitude: AFAIK, it's an orphaned part of
+		#the spec. haven't seen it in three years. as a result, replies
+		#with mbit set can be considered spurious, and so we discard them here.
+		
+		#bits 20-25, 27-31 encode alt in meters
+		#remember that bits are LSB (bit 20 is MSB)
+		#meters_alt = 0
+		#for (shift, bit) in enumerate(range(31,26,-1)+range(25,19,-1)):
+		#	meters_alt += ((alt & (1<<bit)) != 0) << shift
+		#decoded_alt = meters_alt / 0.3048
 		raise MetricAltError
 
 	if qbit: #a mode S-style reply

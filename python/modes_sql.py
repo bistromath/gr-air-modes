@@ -61,10 +61,11 @@ class modes_output_sql(modes_parse.modes_parse):
   def output(self, message):
     try:
       query = self.make_insert_query(message)
-      c = self.db.cursor()
-      c.execute(query)
-      c.close()
-      self.db.commit()
+      if query is not None:
+        c = self.db.cursor()
+        c.execute(query)
+        c.close()
+        self.db.commit()
     except ADSBError:
       pass
 

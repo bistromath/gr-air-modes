@@ -122,6 +122,8 @@ class modes_output_sbs1(modes_parse.modes_parse):
       outmsg = self.pp11(shortdata, ecc)
     elif msgtype == 17:
       outmsg = self.pp17(shortdata, longdata)
+    else:
+      raise NoHandlerError
     return outmsg
 
   def pp0(self, shortdata, ecc):
@@ -145,7 +147,7 @@ class modes_output_sbs1(modes_parse.modes_parse):
   def pp5(self, shortdata, ecc):
     # I'm not sure what to do with the identiifcation shortdata & 0x1FFF
     [datestr, timestr] = self.current_time()
-    [fs, dr, um] = self.parse5(shortdata)
+    [fs, dr, um, ident] = self.parse5(shortdata)
     aircraft_id = self.get_aircraft_id(ecc)
     retstr = "MSG,6,0,%i,%06X,%i,%s,%s,%s,%s,,,,,,,,," % (aircraft_id, ecc, aircraft_id+100, datestr, timestr, datestr, timestr)
     return retstr + self.decode_fs(fs) + "\n"

@@ -274,12 +274,14 @@ if __name__ == '__main__':
 
 	for i in range(0, rounds):
 		decoder = cpr_decoder(None)
-		ac_lat = random.uniform(-85, 85)
-		ac_lon = random.uniform(-180,180)
+		even_lat = random.uniform(-85, 85)
+		even_lon = random.uniform(-180,180)
+		odd_lat = even_lat + 1e-2
+		odd_lon = min(even_lon + 1e-2, 180)
 
 		#encode that position
-		(evenenclat, evenenclon) = cpr_encode(ac_lat, ac_lon, False, False)
-		(oddenclat, oddenclon)   = cpr_encode(ac_lat, ac_lon, True, False)
+		(evenenclat, evenenclon) = cpr_encode(even_lat, even_lon, False, False)
+		(oddenclat, oddenclon)   = cpr_encode(odd_lat, odd_lon, True, False)
 
 		#perform a global decode
 		icao = random.randint(0, 0xffffff)
@@ -300,17 +302,22 @@ if __name__ == '__main__':
 
 		#print "Lat: %f Lon: %f" % (ac_lat, ac_lon)
 
-		if abs(odddeclat - ac_lat) > threshold or abs(odddeclon - ac_lon) > threshold:
-			#print "odddeclat: %f ac_lat: %f" % (odddeclat, ac_lat)
-			#print "odddeclon: %f ac_lon: %f" % (odddeclon, ac_lon)
+		if abs(odddeclat - odd_lat) > threshold or abs(odddeclon - odd_lon) > threshold:
+			print "odddeclat: %f odd_lat: %f" % (odddeclat, odd_lat)
+			print "odddeclon: %f odd_lon: %f" % (odddeclon, odd_lon)
 			raise Exception("CPR test failure: global decode error greater than threshold")
 
+		nexteven_lat = odd_lat + 1e-2
+		nexteven_lon = min(odd_lon + 1e-2, 180)
+
+		(nexteven_enclat, nexteven_enclon) = cpr_encode(nexteven_lat, nexteven_lon, False, False)
+
 		try:
-			(evendeclat, evendeclon) = cpr_resolve_local([ac_lat, ac_lon], [evenenclat, evenenclon], False, False)
+			(evendeclat, evendeclon) = cpr_resolve_local([even_lat, even_lon], [nexteven_enclat, nexteven_enclon], False, False)
 		except CPRNoPositionError:
 			raise Exception("CPR test failure: local decode failure to resolve")
 		
-		if abs(evendeclat - ac_lat) > threshold or abs(evendeclon - ac_lon) > threshold:
+		if abs(evendeclat - nexteven_lat) > threshold or abs(evendeclon - nexteven_lon) > threshold:
 			raise Exception("CPR test failure: local decode error greater than threshold")
 
 	print "CPR test successful. There were %i boundary straddles over %i rounds." % (bs, rounds)

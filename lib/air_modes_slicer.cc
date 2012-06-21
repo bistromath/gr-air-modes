@@ -167,7 +167,7 @@ int air_modes_slicer::work(int noutput_items,
 		}
 		if(zeroes) {continue;} //toss it
 
-		rx_packet.message_type = (rx_packet.data[0] >> 3) & 0x1F; //get the message type for the parser to conveniently use, and to make decisions on ECC methods
+		rx_packet.message_type = (rx_packet.data[0] >> 3) & 0x1F; //get the message type to make decisions on ECC methods
 
 		if(rx_packet.type == Short_Packet && rx_packet.message_type != 11 && rx_packet.numlowconf > 0) {continue;}
 		if(rx_packet.message_type == 11 && rx_packet.numlowconf >= 10) {continue;}
@@ -179,36 +179,11 @@ int air_modes_slicer::work(int noutput_items,
 		//crc for the other short packets is usually nonzero, so they can't really be trusted that far
 		if(rx_packet.crc && (rx_packet.message_type == 11 || rx_packet.message_type == 17)) {continue;}
 
-		//we no longer attempt to brute force error correct via syndrome. it really only gets you 1% additional returns,
-		//at the expense of a lot of CPU time and complexity
-
-		//we'll replicate some data by sending the message type as the first field, followed by the first 8+24=32 bits of the packet, followed by
-		//56 long packet data bits if applicable (zero-padded if not), followed by crc
-
 		d_payload.str("");
-		d_payload << std::dec << std::setw(2) << std::setfill('0') << rx_packet.message_type << std::hex << " ";
-		for(int m = 0; m < 4; m++) {
+		for(int m = 0; m < 14; m++) {
 			d_payload << std::setw(2) << std::setfill('0') << unsigned(rx_packet.data[m]);
 		}
-		d_payload << " ";
-		if(packet_length == 112) {
-			for(int m = 4; m < 11; m++) {
-				d_payload << std::setw(2) << std::setfill('0') << unsigned(rx_packet.data[m]);
-			}
-			d_payload << " ";
-			for(int m = 11; m < 14; m++) {
-				d_payload << std::setw(2) << std::setfill('0') << unsigned(rx_packet.data[m]);
-			}
-		} else {
-			for(int m = 4; m < 11; m++) {
-				d_payload << std::setw(2) << std::setfill('0') << unsigned(0);
-			}
-			d_payload << " ";
-			for(int m = 4; m < 7; m++) {
-				d_payload << std::setw(2) << std::setfill('0') << unsigned(rx_packet.data[m]);
-			}
-		}
-			
+
 		d_payload << " " << std::setw(6) << rx_packet.crc << " " << std::dec << rx_packet.reference_level
 		          << " " << std::setprecision(10) << std::setw(10) << rx_packet.timestamp;
 			gr_message_sptr msg = gr_make_message_from_string(std::string(d_payload.str()));

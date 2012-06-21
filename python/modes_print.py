@@ -30,15 +30,15 @@ class modes_output_print(modes_parse.modes_parse):
       modes_parse.modes_parse.__init__(self, mypos)
       
   def parse(self, message):
-    [msgtype, shortdata, longdata, parity, ecc, reference, timestamp] = message.split()
-    shortdata = long(shortdata, 16)
-    longdata = long(longdata, 16)
-    parity = long(parity, 16)
+    [data, ecc, reference, timestamp] = message.split()
+
+    #TODO FIXME HALP
+    data = modes_data(long(data, 16))
     ecc = long(ecc, 16)
     reference = float(reference)
     timestamp = float(timestamp)
 
-    msgtype = int(msgtype)
+    msgtype = data["df"]
 
     #TODO this is suspect
     if reference == 0.0:
@@ -49,15 +49,15 @@ class modes_output_print(modes_parse.modes_parse):
 
     try:
       if msgtype == 0:
-        output += self.print0(shortdata, ecc)
+        output += self.print0(data, ecc)
       elif msgtype == 4:
-        output += self.print4(shortdata, ecc)
+        output += self.print4(data, ecc)
       elif msgtype == 5:
-        output += self.print5(shortdata, ecc)
+        output += self.print5(data, ecc)
       elif msgtype == 11:
-        output += self.print11(shortdata, ecc)
+        output += self.print11(data, ecc)
       elif msgtype == 17:
-        output += self.print17(shortdata, longdata)
+        output += self.print17(data)
       print output
     except NoHandlerError as e:
       output += "No handler for message type " + str(e.msgtype) + " from %x" % ecc
@@ -102,9 +102,9 @@ class modes_output_print(modes_parse.modes_parse):
     return retstr
 
   def print5(self, shortdata, ecc):
-    [fs, dr, um] = self.parse5(shortdata)
+    [fs, dr, um, ident] = self.parse5(shortdata)
 
-    retstr = "Type 5 (short surveillance ident reply) from " + "%x" % ecc + " with ident " + str(shortdata & 0x1FFF)
+    retstr = "Type 5 (short surveillance ident reply) from " + "%x" % ecc + " with ident " + str(ident)
 
     if fs == 1:
       retstr = retstr + " (aircraft is on the ground)"

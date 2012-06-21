@@ -40,3 +40,8 @@ class CPRNoPositionError(ADSBError):
 
 class CPRBoundaryStraddleError(CPRNoPositionError):
     pass
+
+class FieldNotInPacket(ParserError):
+    def __init__(self, item):
+        self.item = item
+

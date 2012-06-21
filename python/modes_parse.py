@@ -17,8 +17,7 @@
 # along with gr-air-modes; see the file COPYING.  If not, write to
 # the Free Software Foundation, Inc., 51 Franklin Street,
 # Boston, MA 02110-1301, USA.
-# 
-
+#
 
 import time, os, sys
 from string import split, join
@@ -26,6 +25,73 @@ from altitude import decode_alt
 import cpr
 import math
 from modes_exceptions import *
+
+#this implements a packet class which can retrieve its own fields.
+class modes_data:
+  def __init__(self, data):
+    self.data = data
+    #this depends on packet type so we initialize it here
+    #there's probably a cleaner way to do it.
+    self.parity_fields = {
+        "ap": (33+(self.get_numbits()-56),24),
+        "pi": (33+(self.get_numbits()-56),24)
+        }
+
+  #bitfield definitions according to Mode S spec
+  #(start bit, num bits)
+  fields = { "df": (1,5),   "vs": (6,1),   "fs": (6,3),   "cc": (7,1),
+             "sl": (9,3),   "ri": (14,4),  "ac": (20,13), "dr": (9,5),
+             "um": (14,6),  "id": (20,13), "ca": (6,3),   "aa": (9,24),
+             "mv": (33,56), "me": (33,56), "mb": (33,56), "ke": (6,1),
+             "nd": (7,4),   "md": (11,80)
+           }
+
+  #fields in each packet type (DF value)
+  types = { 0: ["df", "vs", "cc", "sl", "ri", "ac", "ap"],
+            4: ["df", "fs", "dr", "um", "ac", "ap"],
+            5: ["df", "fs", "dr", "um", "id", "ap"],
+           11: ["df", "ca", "aa", "pi"],
+           16: ["df", "vs", "sl", "ri", "ac", "mv", "ap"],
+           17: ["df", "ca", "aa", "me", "pi"],
+           20: ["df", "fs", "dr", "um", "ac", "mb", "ap"],
+           21: ["df", "fs", "dr", "um", "id", "mb", "ap"],
+           24: ["df", "ke", "nd", "md", "ap"]
+          }
+
+  #packets which are 112 bits long
+  long_types = [16, 17, 20, 21, 24]
+
+  #get a particular field from the data
+  def __getitem__(self, fieldname):
+    if fieldname in modes_data.types[self.get_bits(modes_data.fields["df"])]: #verify it exists in this packet type
+      if fieldname in self.parity_fields:
+        return self.get_bits(self.parity_fields[fieldname])
+      else:
+        return self.get_bits(modes_data.fields[fieldname])
+    else:
+      raise FieldNotInPacket(fieldname)
+
+  #grab all the fields in the packet as a dict
+  def get_fields(self):
+    return {field: self[field] for field in modes_data.types[self["df"]]}
+
+  #tell me if i'm an extended squitter or a normal Mode S reply
+  def is_long(self):
+    #can't use packet type because we use is_long() to get items, and
+    #this causes endless recursion
+    #return self["df"] in modes_data.long_types
+    return self.data > (1 << 56)
+
+  #how many bits are in the packet?
+  def get_numbits(self):
+    return 112 if self.is_long() else 56
+
+  #retrieve bits from data given the offset and number of bits.
+  #the offset is both left-justified (LSB) and starts at 1, to
+  #correspond to the Mode S spec. Blame them.
+  def get_bits(self, arg):
+    (offset, num) = arg
+    return (self.data >> (self.get_numbits() - offset - num + 1)) & ((1 << num) - 1)
 
 class modes_parse:
   def __init__(self, mypos):
@@ -54,14 +120,14 @@ class modes_parse:
     return [fs, dr, um, altitude]
 
 
-
   def parse5(self, shortdata):
     fs = shortdata >> 24 & 0x07 #flight status: 0 is airborne normal, 1 is ground normal, 2 is airborne alert, 3 is ground alert, 4 is alert SPI, 5 is normal SPI
     dr = shortdata >> 19 & 0x1F #downlink request: 0 means no req, bit 0 is Comm-B msg rdy bit, bit 1 is TCAS info msg rdy, bit 2 is Comm-B bcast #1 msg rdy, bit2+bit0 is Comm-B bcast #2 msg rdy,
 								#bit2+bit1 is TCAS info and Comm-B bcast #1 msg rdy, bit2+bit1+bit0 is TCAS info and Comm-B bcast #2 msg rdy, 8-15 N/A, 16-31 req to send N-15 segments
     um = shortdata >> 13 & 0x3F #transponder status readouts, no decoding information available
+    ident = shortdata & 0x1FFF
 
-    return [fs, dr, um]
+    return [fs, dr, um, ident]
 
   def parse11(self, shortdata, ecc):
     interrogator = ecc & 0x0F
@@ -222,3 +288,28 @@ class modes_parse:
 
     return [velocity, heading, vert_spd]
 
+  def parse20(self, shortdata, longdata):
+    [fs, dr, um, alt] = self.parse4(shortdata)
+    #BDS defines TCAS reply type and is the first 8 bits
+    #BDS1 is first four, BDS2 is bits 5-8
+    bds1 = longdata_bits(longdata, 33, 4)
+    bds2 = longdata_bits(longdata, 37, 4)
+    #bds2 != 0 defines extended TCAS capabilities, not in spec
+    return [fs, dr, um, alt, bds1, bds2]
+
+  def parseMB_commB(self, longdata): #bds1, bds2 == 0
+    raise NoHandlerError
+
+  def parseMB_caps(self, longdata): #bds1 == 1, bds2 == 0
+    #cfs, acs, bcs
+    raise NoHandlerError
+
+  def parseMB_id(self, longdata): #bds1 == 2, bds2 == 0
+    msg = ""
+    for i in range(0, 8):
+      msg += self.charmap( longdata >> (42-6*i) & 0x3F)
+    return (msg)
+
+  def parseMB_TCASRA(self, longdata): #bds1 == 3, bds2 == 0
+    #ara[41-54],rac[55-58],rat[59],mte[60],tti[61-62],tida[63-75],tidr[76-82],tidb[83-88]
+    raise NoHandlerError

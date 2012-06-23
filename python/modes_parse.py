@@ -110,10 +110,34 @@ class me_reply(data_field):
              #TODO: TCP, TCP+1/BDS 6,2
              }
   startbit = 0
-  types = { }
+  #types in this format are listed by BDS register
+  types = { 0x05: ["ftc", "ss", "saf", "alt", "time", "cpr", "lat", "lon"], #airborne position
+            0x06: ["ftc", "mvt", "gts", "gtk", "time", "cpr", "lat", "lon"], #surface position
+            0x07: ["ftc",], #TODO extended squitter status
+            0x08: ["ftc", "cat", "ident"], #extended squitter identification and type
+
+            #TODO: bds0,9 has 3 subtypes, needs to be subclassed
+            0x09: ["ftc", "sub", "dew", "vew", "dns", "vns", "str", "tr", "svr", "vr"], #velocity type 0
+            
+            #0x0A: data link capability report
+            #0x17: common usage capability report
+            #0x18-0x1F: Mode S specific services capability report
+            #0x20: aircraft identification
+            0x61: ["ftc", "eps"]
+          }
 
   def get_type(self):
-    pass
+    ftc = self.get_bits(self.fields["ftc"])
+    if 1 <= ftc <= 4:
+      return 0x08
+    elif 5 <= ftc <= 8:
+      return 0x06
+    elif 9 <= ftc <= 18:
+      return 0x05
+    elif ftc == 19:
+      return 0x09
+    else:
+      return NoHandlerError
     
   def get_numbits(self):
     return 56
@@ -149,7 +173,7 @@ class modes_reply(data_field):
             24: ["df", "ke", "nd", "md", "ap"]
           }
 
-  subfields = { "mb": mb_reply, "me": me_reply } #TODO MV, ME
+  subfields = { "mb": mb_reply, "me": me_reply } #TODO MV
 
   def is_long(self):
     return self.data > (1 << 56)

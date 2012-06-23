@@ -27,11 +27,102 @@ import math
 from modes_exceptions import *
 
 #this implements a packet class which can retrieve its own fields.
-class modes_data:
+class data_field:
   def __init__(self, data):
     self.data = data
-    #this depends on packet type so we initialize it here
-    #there's probably a cleaner way to do it.
+
+  fields = { }
+  types = { }
+  subfields = { } #fields to return objects instead of just returning bits
+  startbit = 0 #field offset applied to all fields. used for offsetting subtypes to reconcile with spec.
+
+  #get a particular field from the data
+  def __getitem__(self, fieldname):
+    if fieldname in self.types[self.get_type()]: #verify it exists in this packet type
+      if fieldname in self.subfields:
+        #create a new subfield object and return it
+        return self.subfields[fieldname](self.get_bits(self.fields[fieldname]))
+      return self.get_bits(self.fields[fieldname])
+    else:
+      raise FieldNotInPacket(fieldname)
+
+  #grab all the fields in the packet as a dict
+  def get_fields(self):
+    return {field: self[field] for field in self.types[self.get_type()]}
+
+  def get_type(self):
+    raise NotImplementedError
+
+  def get_numbits(self):
+    raise NotImplementedError
+
+  #retrieve bits from data given the offset and number of bits.
+  #the offset is both left-justified (LSB) and starts at 1, to
+  #correspond to the Mode S spec. Blame them.
+  def get_bits(self, arg):
+    (offset, num) = arg
+    return (self.data \
+        >> (self.get_numbits() - offset - num + self.startbit + 1)) \
+         & ((1 << num) - 1)
+
+#type MB (extended squitter types 20,21) subfields
+class mb_reply(data_field):
+  fields = { "acs": (45,20), "ais": (41,48),  "ara": (41,14), "bcs": (65,16),
+             "bds": (33,8),  "bds1": (33,4),  "bds2": (37,4), "cfs": (41,4),
+             "ecs": (81,8),  "mte": (60,1),   "rac": (55,4),  "rat": (59,1),
+             "tid": (33,26), "tida": (63,13), "tidb": (83,6), "tidr": (76,7),
+             "tti": (61,2)
+           }
+  startbit = 32 #fields offset by 32 to match documentation
+
+  #types are based on bds1 subfield
+  types = { 0: ["bds", "bds1", "bds2"], #TODO
+            1: ["bds", "bds1", "bds2", "cfs", "acs", "bcs"],
+            2: ["bds", "bds1", "bds2", "ais"],
+            3: ["bds", "bds1", "bds2", "ara",  "rac", "rat",
+                "mte", "tti",  "tida", "tidr", "tidb"]
+               }
+
+  def get_type(self):
+    bds1 = self.get_bits(self.fields["bds1"])
+    bds2 = self.get_bits(self.fields["bds2"])
+    if bds1 not in (0,1,2,3) or bds2 not in (0,):
+      raise NoHandlerError
+    return bds1
+
+  def get_numbits(self):
+    return 56
+
+#type 17 extended squitter data
+class me_reply(data_field):
+  #TODO: add comments explaining these fields
+  fields = { "ftc":  (1,5),   "ss":   (6,2),   "saf":   (8,1),    "alt":  (9, 12),
+             "time": (21,1),  "cpr":  (22,1),  "lat":   (23, 17), "lon":  (40, 17),
+             "mvt":  (6,7),   "gts":  (13,1),  "gtk":   (14,7),   "trs":  (1,2),
+             "ats":  (3,1),   "cat":  (6,3),   "ident": (9,48),   "sub":  (6,3),
+             "dew":  (10,1),  "vew":  (11,11), "dns":   (22,1),   "vns":  (23,11),
+             "str":  (34,1),  "tr":   (35,6),  "svr":   (41,1),   "vr":   (42,9),
+             "icf":  (9,1),   "ifr":  (10,1),  "nuc":   (11,3),   "gdew": (14,1),
+             "gvew": (15,10), "gdns": (25,1),  "gvns":  (26,10),  "vrs":  (36,1),
+             "gsvr": (37,1),  "gvr":  (38,9),  "ghds":  (49,1),   "ghd":  (50,6),
+             "mhs":  (14,1),  "hdg":  (15,10), "ast":   (25,1),   "spd":  (26,10),
+             "eps":  (9,3)
+             #TODO: TCP, TCP+1/BDS 6,2
+             }
+  startbit = 0
+  types = { }
+
+  def get_type(self):
+    pass
+    
+  def get_numbits(self):
+    return 56
+
+
+class modes_reply(data_field):
+  def __init__(self, data):
+    data_field.__init__(self, data)
+#TODO FIX PARITY FIELDS
     self.parity_fields = {
         "ap": (33+(self.get_numbits()-56),24),
         "pi": (33+(self.get_numbits()-56),24)
@@ -50,48 +141,31 @@ class modes_data:
   types = { 0: ["df", "vs", "cc", "sl", "ri", "ac", "ap"],
             4: ["df", "fs", "dr", "um", "ac", "ap"],
             5: ["df", "fs", "dr", "um", "id", "ap"],
-           11: ["df", "ca", "aa", "pi"],
-           16: ["df", "vs", "sl", "ri", "ac", "mv", "ap"],
-           17: ["df", "ca", "aa", "me", "pi"],
-           20: ["df", "fs", "dr", "um", "ac", "mb", "ap"],
-           21: ["df", "fs", "dr", "um", "id", "mb", "ap"],
-           24: ["df", "ke", "nd", "md", "ap"]
+            11: ["df", "ca", "aa", "pi"],
+            16: ["df", "vs", "sl", "ri", "ac", "mv", "ap"],
+            17: ["df", "ca", "aa", "me", "pi"],
+            20: ["df", "fs", "dr", "um", "ac", "mb", "ap"],
+            21: ["df", "fs", "dr", "um", "id", "mb", "ap"],
+            24: ["df", "ke", "nd", "md", "ap"]
           }
 
-  #packets which are 112 bits long
-  long_types = [16, 17, 20, 21, 24]
+  subfields = { "mb": mb_reply, "me": me_reply } #TODO MV, ME
 
-  #get a particular field from the data
-  def __getitem__(self, fieldname):
-    if fieldname in modes_data.types[self.get_bits(modes_data.fields["df"])]: #verify it exists in this packet type
-      if fieldname in self.parity_fields:
-        return self.get_bits(self.parity_fields[fieldname])
-      else:
-        return self.get_bits(modes_data.fields[fieldname])
-    else:
-      raise FieldNotInPacket(fieldname)
-
-  #grab all the fields in the packet as a dict
-  def get_fields(self):
-    return {field: self[field] for field in modes_data.types[self["df"]]}
-
-  #tell me if i'm an extended squitter or a normal Mode S reply
   def is_long(self):
-    #can't use packet type because we use is_long() to get items, and
-    #this causes endless recursion
-    #return self["df"] in modes_data.long_types
     return self.data > (1 << 56)
 
-  #how many bits are in the packet?
   def get_numbits(self):
     return 112 if self.is_long() else 56
 
-  #retrieve bits from data given the offset and number of bits.
-  #the offset is both left-justified (LSB) and starts at 1, to
-  #correspond to the Mode S spec. Blame them.
-  def get_bits(self, arg):
-    (offset, num) = arg
-    return (self.data >> (self.get_numbits() - offset - num + 1)) & ((1 << num) - 1)
+  def get_type(self):
+    return self.get_bits(self.fields["df"])
+
+#TODO overload getitem to handle special parity fields
+
+#  #type MV (extended squitter type 16) subfields
+#  mv_fields = { "ara": (41,14), "mte": (60,1),  "rac": (55,4), "rat": (59,1),
+#                "vds": (33,8),  "vds1": (33,4), "vds2": (37,4)
+#              }
 
 class modes_parse:
   def __init__(self, mypos):

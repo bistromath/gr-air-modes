@@ -46,12 +46,6 @@ class modes_output_print(modes_parse.modes_parse):
 
     try:
       msgtype = data["df"]
-    except NoHandlerError as err:
-      output += "No handler for msgtype %s" % err.msgtype
-      print output
-      return
-
-    try:
       if msgtype == 0:
         output += self.print0(data, ecc)
       elif msgtype == 4:
@@ -63,7 +57,7 @@ class modes_output_print(modes_parse.modes_parse):
       elif msgtype == 17:
         output += self.print17(data)
       else:
-        output += "No handler for message type " + str(msgtype) + " (but it's in modes_parse)"
+        output += "No handler for message type " + str(msgtype) + (" from %x" % ecc) + " (but it's in modes_parse)"
       print output
     except NoHandlerError as e:
       output += "No handler for message type " + str(e.msgtype) + " from %x" % ecc

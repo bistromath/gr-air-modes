@@ -27,40 +27,40 @@ class modes_flightgear(modes_parse.modes_parse):
         self.sock.connect((self.hostname, self.port))
 
     def output(self, message):
-        [msgtype, shortdata, longdata, parity, ecc, reference, timestamp] = message.split()
-        shortdata = long(shortdata, 16)
-        longdata = long(longdata, 16)
-        msgtype = int(msgtype)
+        [data, ecc, reference, timestamp] = message.split()
+        data = modes_parse.modes_reply(long(data, 16))
         
         try:
+            msgtype = data["df"]
             if msgtype == 17: #ADS-B report
-                icao24 = shortdata & 0xFFFFFF	
-                subtype = (longdata >> 51) & 0x1F
+                icao24 = data["aa"]
+                subtype = data["me"]["sub"]
                 if subtype == 4: #ident packet
-                    (ident, actype) = self.parseBDS08(shortdata, longdata)
+                    (ident, actype) = self.parseBDS08(data)
                     #select model based on actype
                     self.callsigns[icao24] = [ident, actype]
                     
                 elif 5 <= subtype <= 8: #BDS0,6 pos
-                    [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(shortdata, longdata)
+                    [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(data)
                     self.positions[icao24] = [decoded_lat, decoded_lon, altitude]
                     self.update(icao24)
 
                 elif 9 <= subtype <= 18: #BDS0,5 pos
-                    [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(shortdata, longdata)
+                    [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(data)
                     self.positions[icao24] = [decoded_lat, decoded_lon, altitude]
                     self.update(icao24)
 
                 elif subtype == 19: #velocity
-                    subsubtype = (longdata >> 48) & 0x07
-                    if subsubtype == 0:
-                        [velocity, heading, vert_spd, turnrate] = self.parseBDS09_0(shortdata, longdata)
-                    elif subsubtype == 1:
-                        [velocity, heading, vert_spd] = self.parseBDS09_1(shortdata, longdata)
-                        turnrate = 0
-                    else:
-                        return
-                    self.velocities[icao24] = [velocity, heading, vert_spd, turnrate]
+                  pass #FIXME TODO BDS0,9
+                #    subsubtype = (longdata >> 48) & 0x07
+                #    if subsubtype == 0:
+                #        [velocity, heading, vert_spd, turnrate] = self.parseBDS09_0(data)
+                #    elif subsubtype == 1:
+                #        [velocity, heading, vert_spd] = self.parseBDS09_1(data)
+                #        turnrate = 0
+                #    else:
+                #        return
+                #    self.velocities[icao24] = [velocity, heading, vert_spd, turnrate]
                     
         except ADSBError:
             pass

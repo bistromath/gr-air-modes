@@ -180,8 +180,8 @@ int air_modes_slicer::work(int noutput_items,
 		if(rx_packet.crc && (rx_packet.message_type == 11 || rx_packet.message_type == 17)) {continue;}
 
 		d_payload.str("");
-		for(int m = 0; m < 14; m++) {
-			d_payload << std::setw(2) << std::setfill('0') << unsigned(rx_packet.data[m]);
+		for(int m = 0; m < packet_length/8; m++) {
+			d_payload << std::hex << std::setw(2) << std::setfill('0') << unsigned(rx_packet.data[m]);
 		}
 
 		d_payload << " " << std::setw(6) << rx_packet.crc << " " << std::dec << rx_packet.reference_level

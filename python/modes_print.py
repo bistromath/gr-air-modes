@@ -33,12 +33,16 @@ class modes_output_print(modes_parse.modes_parse):
     [data, ecc, reference, timestamp] = message.split()
 
     #TODO FIXME HALP
-    data = modes_data(long(data, 16))
+    data = modes_parse.modes_reply(long(data, 16))
     ecc = long(ecc, 16)
     reference = float(reference)
     timestamp = float(timestamp)
 
-    msgtype = data["df"]
+    try:
+      msgtype = data["df"]
+    except NoHandlerError as err:
+      print "No handler for msgtype %s" % err.msgtype
+      return
 
     #TODO this is suspect
     if reference == 0.0:
@@ -119,31 +123,31 @@ class modes_output_print(modes_parse.modes_parse):
 
     return retstr
 
-  def print11(self, shortdata, ecc):
-    [icao24, interrogator, ca] = self.parse11(shortdata, ecc)
+  def print11(self, data, ecc):
+    [icao24, interrogator, ca] = self.parse11(data, ecc)
 
     retstr = "Type 11 (all call reply) from " + "%x" % icao24 + " in reply to interrogator " + str(interrogator)
     return retstr
 
-  def print17(self, shortdata, longdata):
-    icao24 = shortdata & 0xFFFFFF
-    subtype = (longdata >> 51) & 0x1F;
+  def print17(self, data):
+    icao24 = data["aa"]
+    subtype = data["me"]["ftc"]
 
-    retstr = None
+    retstr = ""
 
     if 1 <= subtype <= 4:
-      (msg, typestring) = self.parseBDS08(shortdata, longdata)
+      (msg, typestring) = self.parseBDS08(data)
       retstr = "Type 17 subtype 04 (ident) from " + "%x" % icao24 + " of type " + typestring + " with ident " + msg
 
     elif subtype >= 5 and subtype <= 8:
-      [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(shortdata, longdata)
+      [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(data)
       if decoded_lat is not None:
         retstr = "Type 17 subtype 06 (surface report) from " + "%x" % icao24 + " at (" + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
         if rnge is not None and bearing is not None:
             retstr += " (" + "%.2f" % rnge + " @ " + "%.0f" % bearing + ")"
 
     elif subtype >= 9 and subtype <= 18:
-      [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(shortdata, longdata)
+      [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(data)
       if decoded_lat is not None:
         retstr = "Type 17 subtype 05 (position report) from " + "%x" % icao24 + " at (" + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
         if rnge is not None and bearing is not None:
@@ -151,17 +155,18 @@ class modes_output_print(modes_parse.modes_parse):
         retstr += " at " + str(altitude) + "ft"
 
     elif subtype == 19:
-      subsubtype = (longdata >> 48) & 0x07
-      if subsubtype == 0:
-        [velocity, heading, vert_spd] = self.parseBDS09_0(shortdata, longdata)
-        retstr = "Type 17 subtype 09-0 (track report) from " + "%x" % icao24 + " with velocity " + "%.0f" % velocity + "kt heading " + "%.0f" % heading + " VS " + "%.0f" % vert_spd
+      pass
+#      subsubtype = (longdata >> 48) & 0x07
+#      if subsubtype == 0:
+#        [velocity, heading, vert_spd] = self.parseBDS09_0(shortdata, longdata)
+#        retstr = "Type 17 subtype 09-0 (track report) from " + "%x" % icao24 + " with velocity " + "%.0f" % velocity + "kt heading " + "%.0f" % heading + " VS " + "%.0f" % vert_spd
 
-      elif subsubtype == 1:
-        [velocity, heading, vert_spd] = self.parseBDS09_1(shortdata, longdata)
-        retstr = "Type 17 subtype 09-1 (track report) from " + "%x" % icao24 + " with velocity " + "%.0f" % velocity + "kt heading " + "%.0f" % heading + " VS " + "%.0f" % vert_spd
+#      elif subsubtype == 1:
+#        [velocity, heading, vert_spd] = self.parseBDS09_1(shortdata, longdata)
+#        retstr = "Type 17 subtype 09-1 (track report) from " + "%x" % icao24 + " with velocity " + "%.0f" % velocity + "kt heading " + "%.0f" % heading + " VS " + "%.0f" % vert_spd
 
-      else:
-        retstr = "Type 17 subtype 09-%i" % (subsubtype) + " not implemented"
+#      else:
+#        retstr = "Type 17 subtype 09-%i" % (subsubtype) + " not implemented"
     else:
       retstr = "Type 17 subtype " + str(subtype) + " not implemented"
 

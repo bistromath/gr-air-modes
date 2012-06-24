@@ -38,13 +38,17 @@ class data_field:
 
   #get a particular field from the data
   def __getitem__(self, fieldname):
-    if fieldname in self.types[self.get_type()]: #verify it exists in this packet type
-      if fieldname in self.subfields:
-        #create a new subfield object and return it
-        return self.subfields[fieldname](self.get_bits(self.fields[fieldname]))
-      return self.get_bits(self.fields[fieldname])
+    if self.get_type() in self.types:
+      if fieldname in self.types[self.get_type()]: #verify it exists in this packet type
+        if fieldname in self.subfields:
+          #create a new subfield object and return it
+          return self.subfields[fieldname](self.get_bits(self.fields[fieldname]))
+        else:
+          return self.get_bits(self.fields[fieldname])
+      else:
+        raise FieldNotInPacket(fieldname)
     else:
-      raise FieldNotInPacket(fieldname)
+      raise NoHandlerError(self.get_type())
 
   #grab all the fields in the packet as a dict
   def get_fields(self):
@@ -88,7 +92,7 @@ class mb_reply(data_field):
     bds2 = self.get_bits(self.fields["bds2"])
     if bds1 not in (0,1,2,3) or bds2 not in (0,):
       raise NoHandlerError
-    return bds1
+    return int(bds1)
 
   def get_numbits(self):
     return 56
@@ -146,11 +150,6 @@ class me_reply(data_field):
 class modes_reply(data_field):
   def __init__(self, data):
     data_field.__init__(self, data)
-#TODO FIX PARITY FIELDS
-    self.parity_fields = {
-        "ap": (33+(self.get_numbits()-56),24),
-        "pi": (33+(self.get_numbits()-56),24)
-        }
 
   #bitfield definitions according to Mode S spec
   #(start bit, num bits)
@@ -158,7 +157,8 @@ class modes_reply(data_field):
              "sl": (9,3),   "ri": (14,4),  "ac": (20,13), "dr": (9,5),
              "um": (14,6),  "id": (20,13), "ca": (6,3),   "aa": (9,24),
              "mv": (33,56), "me": (33,56), "mb": (33,56), "ke": (6,1),
-             "nd": (7,4),   "md": (11,80)
+             "nd": (7,4),   "md": (11,80), "ap": (33,24), "pi": (33,24),
+             "lap": (88,24), "lpi": (88,24)
            }
 
   #fields in each packet type (DF value)
@@ -166,11 +166,11 @@ class modes_reply(data_field):
             4: ["df", "fs", "dr", "um", "ac", "ap"],
             5: ["df", "fs", "dr", "um", "id", "ap"],
             11: ["df", "ca", "aa", "pi"],
-            16: ["df", "vs", "sl", "ri", "ac", "mv", "ap"],
-            17: ["df", "ca", "aa", "me", "pi"],
-            20: ["df", "fs", "dr", "um", "ac", "mb", "ap"],
-            21: ["df", "fs", "dr", "um", "id", "mb", "ap"],
-            24: ["df", "ke", "nd", "md", "ap"]
+            16: ["df", "vs", "sl", "ri", "ac", "mv", "lap"],
+            17: ["df", "ca", "aa", "me", "lpi"],
+            20: ["df", "fs", "dr", "um", "ac", "mb", "lap"],
+            21: ["df", "fs", "dr", "um", "id", "mb", "lap"],
+            24: ["df", "ke", "nd", "md", "lap"]
           }
 
   subfields = { "mb": mb_reply, "me": me_reply } #TODO MV
@@ -196,83 +196,34 @@ class modes_parse:
       self.my_location = mypos
       self.cpr = cpr.cpr_decoder(self.my_location)
     
-  def parse0(self, shortdata):
-    vs = bool(shortdata >> 26 & 0x1)    #ground sensor -- airborne when 0
-    cc = bool(shortdata >> 25 & 0x1)    #crosslink capability, binary
-    sl = shortdata >> 21 & 0x07  #operating sensitivity of onboard TCAS system. 0 means no TCAS sensitivity reported, 1-7 give TCAS sensitivity
-    ri = shortdata >> 15 & 0x0F #speed coding: 0 = no onboard TCAS, 1 = NA, 2 = TCAS w/inhib res, 3 = TCAS w/vert only, 4 = TCAS w/vert+horiz, 5-7 = NA, 8 = no max A/S avail,
-								  #9 = A/S <= 75kt, 10 = A/S (75-150]kt, 11 = (150-300]kt, 12 = (300-600]kt, 13 = (600-1200]kt, 14 = >1200kt, 15 = NA
+  def parse0(self, data):
+    fields = data.get_fields()
+    altitude = decode_alt(data["ac"], True)
+    return [fields["vs"], fields["cc"], fields["sl"], fields["ri"], altitude]
 
-    altitude = decode_alt(shortdata & 0x1FFF, True) #bit 13 is set for type 0
+  def parse4(self, data):
+    fields = data.get_fields()
+    altitude = decode_alt(data["ac"], True)
+    return [data["fs"], data["dr"], data["um"], altitude]
 
-    return [vs, cc, sl, ri, altitude]
+  def parse5(self, data):
+    return [data["fs"], data["dr"], data["um"], data["id"]]
 
-  def parse4(self, shortdata):
-    fs = shortdata >> 24 & 0x07 #flight status: 0 is airborne normal, 1 is ground normal, 2 is airborne alert, 3 is ground alert, 4 is alert SPI, 5 is normal SPI
-    dr = shortdata >> 19 & 0x1F #downlink request: 0 means no req, bit 0 is Comm-B msg rdy bit, bit 1 is TCAS info msg rdy, bit 2 is Comm-B bcast #1 msg rdy, bit2+bit0 is Comm-B bcast #2 msg rdy,
-								#bit2+bit1 is TCAS info and Comm-B bcast #1 msg rdy, bit2+bit1+bit0 is TCAS info and Comm-B bcast #2 msg rdy, 8-15 N/A, 16-31 req to send N-15 segments
-    um = shortdata >> 13 & 0x3F #transponder status readouts, no decoding information available
-
-    altitude = decode_alt(shortdata & 0x1FFF, True)
-
-    return [fs, dr, um, altitude]
-
-
-  def parse5(self, shortdata):
-    fs = shortdata >> 24 & 0x07 #flight status: 0 is airborne normal, 1 is ground normal, 2 is airborne alert, 3 is ground alert, 4 is alert SPI, 5 is normal SPI
-    dr = shortdata >> 19 & 0x1F #downlink request: 0 means no req, bit 0 is Comm-B msg rdy bit, bit 1 is TCAS info msg rdy, bit 2 is Comm-B bcast #1 msg rdy, bit2+bit0 is Comm-B bcast #2 msg rdy,
-								#bit2+bit1 is TCAS info and Comm-B bcast #1 msg rdy, bit2+bit1+bit0 is TCAS info and Comm-B bcast #2 msg rdy, 8-15 N/A, 16-31 req to send N-15 segments
-    um = shortdata >> 13 & 0x3F #transponder status readouts, no decoding information available
-    ident = shortdata & 0x1FFF
-
-    return [fs, dr, um, ident]
-
-  def parse11(self, shortdata, ecc):
+  def parse11(self, data, ecc):
     interrogator = ecc & 0x0F
-	
-    ca = shortdata >> 13 & 0x3F #capability
-    icao24 = shortdata & 0xFFFFFF
-    
-    return [icao24, interrogator, ca]
-
-	#the Type 17 subtypes are:
-	#0: No position information
-	#1: Identification (Category set D)
-	#2: Identification (Category set C)
-	#3: "" (B)
-	#4: "" (A)
-	#5: Surface position accurate to 7.5m
-	#6: "" to 25m
-	#7: "" to 185.2m (0.1nm)
-	#8: "" above 185.2m
-	#9: Airborne position to 7.5m
-	#10-18: Same with less accuracy
-	#19: Airborne velocity
-	#20: Airborne position w/GNSS height above earth
-	#21: same to 25m
-	#22: same above 25m
-	#23: Reserved
-	#24: Reserved for surface system status
-	#25-27: Reserved
-	#28: Extended squitter aircraft status
-	#29: Current/next trajectory change point
-	#30: Aircraft operational coordination
-	#31: Aircraft operational status
+    return [data["aa"], interrogator, data["ca"]]
 
   categories = [["NO INFO", "RESERVED", "RESERVED", "RESERVED", "RESERVED", "RESERVED", "RESERVED", "RESERVED"],\
                 ["NO INFO", "SURFACE EMERGENCY VEHICLE", "SURFACE SERVICE VEHICLE", "FIXED OBSTRUCTION", "RESERVED", "RESERVED", "RESERVED"],\
                 ["NO INFO", "GLIDER", "BALLOON/BLIMP", "PARACHUTE", "ULTRALIGHT", "RESERVED", "UAV", "SPACECRAFT"],\
                 ["NO INFO", "LIGHT", "SMALL", "LARGE", "LARGE HIGH VORTEX", "HEAVY", "HIGH PERFORMANCE", "ROTORCRAFT"]]
 
-  def parseBDS08(self, shortdata, longdata):
-    icao24 = shortdata & 0xFFFFFF
-    subtype = (longdata >> 51) & 0x1F
-    category = (longdata >> 48) & 0x07
-    catstring = self.categories[subtype-1][category]
+  def parseBDS08(self, data):
+    catstring = self.categories[data["me"]["ftc"]-1][data["me"]["cat"]]
 
     msg = ""
     for i in range(0, 8):
-      msg += self.charmap( longdata >> (42-6*i) & 0x3F)
+      msg += self.charmap( data["me"]["ident"] >> (42-6*i) & 0x3F)
     return (msg, catstring)
 
   def charmap(self, d):
@@ -287,16 +238,13 @@ class modes_parse:
 
     return retval
 
-  def parseBDS05(self, shortdata, longdata):
-    icao24 = shortdata & 0xFFFFFF
+  def parseBDS05(self, data):
+    icao24 = data["aa"]
 
-    encoded_lon = longdata & 0x1FFFF
-    encoded_lat = (longdata >> 17) & 0x1FFFF
-    cpr_format = (longdata >> 34) & 1
-
-    enc_alt = (longdata >> 36) & 0x0FFF
-
-    altitude = decode_alt(enc_alt, False)
+    encoded_lon = data["me"]["lon"]
+    encoded_lat = data["me"]["lat"]
+    cpr_format = data["me"]["cpr"]
+    altitude = decode_alt(data["me"]["alt"], False)
 
     [decoded_lat, decoded_lon, rnge, bearing] = self.cpr.decode(icao24, encoded_lat, encoded_lon, cpr_format, 0)
 
@@ -304,17 +252,14 @@ class modes_parse:
 
 
   #welp turns out it looks like there's only 17 bits in the BDS0,6 ground packet after all.
-  def parseBDS06(self, shortdata, longdata):
-    icao24 = shortdata & 0xFFFFFF
-
-    encoded_lon = longdata & 0x1FFFF
-    encoded_lat = (longdata >> 17) & 0x1FFFF
-    cpr_format = (longdata >> 34) & 1
-
-    altitude = 0
-
+  def parseBDS06(self, data):
+    icao24 = data["aa"]
+ 
+    encoded_lon = data["me"]["lon"]
+    encoded_lat = data["me"]["lat"]
+    cpr_format = data["me"]["cpr"]
+    altitude = decode_alt(data["me"]["alt"], False)
     [decoded_lat, decoded_lon, rnge, bearing] = self.cpr.decode(icao24, encoded_lat, encoded_lon, cpr_format, 1)
-
     return [altitude, decoded_lat, decoded_lon, rnge, bearing]
 
   def parseBDS09_0(self, shortdata, longdata):

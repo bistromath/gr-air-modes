@@ -32,17 +32,10 @@ class modes_output_print(modes_parse.modes_parse):
   def parse(self, message):
     [data, ecc, reference, timestamp] = message.split()
 
-    #TODO FIXME HALP
     data = modes_parse.modes_reply(long(data, 16))
     ecc = long(ecc, 16)
     reference = float(reference)
     timestamp = float(timestamp)
-
-    try:
-      msgtype = data["df"]
-    except NoHandlerError as err:
-      print "No handler for msgtype %s" % err.msgtype
-      return
 
     #TODO this is suspect
     if reference == 0.0:
@@ -50,6 +43,13 @@ class modes_output_print(modes_parse.modes_parse):
     else:
       refdb = 10.0*math.log10(reference)
     output = "(%.0f %.10f) " % (refdb, timestamp);
+
+    try:
+      msgtype = data["df"]
+    except NoHandlerError as err:
+      output += "No handler for msgtype %s" % err.msgtype
+      print output
+      return
 
     try:
       if msgtype == 0:
@@ -62,6 +62,8 @@ class modes_output_print(modes_parse.modes_parse):
         output += self.print11(data, ecc)
       elif msgtype == 17:
         output += self.print17(data)
+      else:
+        output += "No handler for message type " + str(msgtype) + " (but it's in modes_parse)"
       print output
     except NoHandlerError as e:
       output += "No handler for message type " + str(e.msgtype) + " from %x" % ecc
@@ -133,7 +135,7 @@ class modes_output_print(modes_parse.modes_parse):
     icao24 = data["aa"]
     subtype = data["me"]["ftc"]
 
-    retstr = ""
+    retstr = None
 
     if 1 <= subtype <= 4:
       (msg, typestring) = self.parseBDS08(data)
@@ -141,21 +143,19 @@ class modes_output_print(modes_parse.modes_parse):
 
     elif subtype >= 5 and subtype <= 8:
       [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(data)
-      if decoded_lat is not None:
-        retstr = "Type 17 subtype 06 (surface report) from " + "%x" % icao24 + " at (" + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
-        if rnge is not None and bearing is not None:
-            retstr += " (" + "%.2f" % rnge + " @ " + "%.0f" % bearing + ")"
+      retstr = "Type 17 subtype 06 (surface report) from " + "%x" % icao24 + " at (" + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
+      if rnge is not None and bearing is not None:
+        retstr += " (" + "%.2f" % rnge + " @ " + "%.0f" % bearing + ")"
 
     elif subtype >= 9 and subtype <= 18:
       [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(data)
-      if decoded_lat is not None:
-        retstr = "Type 17 subtype 05 (position report) from " + "%x" % icao24 + " at (" + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
-        if rnge is not None and bearing is not None:
-            retstr += " (" + "%.2f" % rnge + " @ " + "%.0f" % bearing + ")"
-        retstr += " at " + str(altitude) + "ft"
+      retstr = "Type 17 subtype 05 (position report) from " + "%x" % icao24 + " at (" + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
+      if rnge is not None and bearing is not None:
+        retstr += " (" + "%.2f" % rnge + " @ " + "%.0f" % bearing + ")"
+      retstr += " at " + str(altitude) + "ft"
 
     elif subtype == 19:
-      pass
+      retstr = "Fix BDS0,9, dickhead"
 #      subsubtype = (longdata >> 48) & 0x07
 #      if subsubtype == 0:
 #        [velocity, heading, vert_spd] = self.parseBDS09_0(shortdata, longdata)

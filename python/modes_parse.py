@@ -85,7 +85,7 @@ class mb_reply(data_field):
             2: ["bds", "bds1", "bds2", "ais"],
             3: ["bds", "bds1", "bds2", "ara",  "rac", "rat",
                 "mte", "tti",  "tida", "tidr", "tidb"]
-               }
+          }
 
   def get_type(self):
     bds1 = self.get_bits(self.fields["bds1"])
@@ -104,25 +104,18 @@ class me_reply(data_field):
              "time": (21,1),  "cpr":  (22,1),  "lat":   (23, 17), "lon":  (40, 17),
              "mvt":  (6,7),   "gts":  (13,1),  "gtk":   (14,7),   "trs":  (1,2),
              "ats":  (3,1),   "cat":  (6,3),   "ident": (9,48),   "sub":  (6,3),
-             "dew":  (10,1),  "vew":  (11,11), "dns":   (22,1),   "vns":  (23,11),
-             "str":  (34,1),  "tr":   (35,6),  "svr":   (41,1),   "vr":   (42,9),
-             "icf":  (9,1),   "ifr":  (10,1),  "nuc":   (11,3),   "gdew": (14,1),
-             "gvew": (15,10), "gdns": (25,1),  "gvns":  (26,10),  "vrs":  (36,1),
-             "gsvr": (37,1),  "gvr":  (38,9),  "ghds":  (49,1),   "ghd":  (50,6),
-             "mhs":  (14,1),  "hdg":  (15,10), "ast":   (25,1),   "spd":  (26,10),
-             "eps":  (9,3)
+             "bds09": (9,48), "eps":  (9,3)
              #TODO: TCP, TCP+1/BDS 6,2
-             }
+           }
+
+  subfields = { "bds09": bds09_reply }
   startbit = 0
   #types in this format are listed by BDS register
   types = { 0x05: ["ftc", "ss", "saf", "alt", "time", "cpr", "lat", "lon"], #airborne position
             0x06: ["ftc", "mvt", "gts", "gtk", "time", "cpr", "lat", "lon"], #surface position
             0x07: ["ftc",], #TODO extended squitter status
             0x08: ["ftc", "cat", "ident"], #extended squitter identification and type
-
-            #TODO: bds0,9 has 3 subtypes, needs to be subclassed
-            0x09: ["ftc", "sub", "dew", "vew", "dns", "vns", "str", "tr", "svr", "vr"], #velocity type 0
-            
+            0x09: ["ftc", "sub", "bds09"],
             #0x0A: data link capability report
             #0x17: common usage capability report
             #0x18-0x1F: Mode S specific services capability report
@@ -130,6 +123,7 @@ class me_reply(data_field):
             0x61: ["ftc", "eps"]
           }
 
+  #maps ftc to BDS register
   def get_type(self):
     ftc = self.get_bits(self.fields["ftc"])
     if 1 <= ftc <= 4:
@@ -146,11 +140,22 @@ class me_reply(data_field):
   def get_numbits(self):
     return 56
 
+class bds09_reply(data_field):
+  fields = { "sub": (6,3), "dew":  (10,1),  "vew":  (11,11), "dns":   (22,1),
+             "vns":  (23,11), "str":  (34,1),  "tr":   (35,6),  "svr":   (41,1),
+             "vr":   (42,9),  "icf":  (9,1),   "ifr":  (10,1),  "nuc":   (11,3),
+             "gdew": (14,1),  "gvew": (15,10), "gdns": (25,1),  "gvns":  (26,10),
+             "vrs":  (36,1),  "gsvr": (37,1),  "gvr":  (38,9),  "ghds":  (49,1),
+             "ghd":  (50,6),  "mhs":  (14,1),  "hdg":  (15,10), "ast":   (25,1),
+             "spd":  (26,10)
+           }
+
+  types = { #TODO
+
+  def get_type(self):
+    return self.get_bits(self.fields["sub"])
 
 class modes_reply(data_field):
-  def __init__(self, data):
-    data_field.__init__(self, data)
-
   #bitfield definitions according to Mode S spec
   #(start bit, num bits)
   fields = { "df": (1,5),   "vs": (6,1),   "fs": (6,3),   "cc": (7,1),
@@ -165,12 +170,12 @@ class modes_reply(data_field):
   types = { 0: ["df", "vs", "cc", "sl", "ri", "ac", "ap"],
             4: ["df", "fs", "dr", "um", "ac", "ap"],
             5: ["df", "fs", "dr", "um", "id", "ap"],
-            11: ["df", "ca", "aa", "pi"],
-            16: ["df", "vs", "sl", "ri", "ac", "mv", "lap"],
-            17: ["df", "ca", "aa", "me", "lpi"],
-            20: ["df", "fs", "dr", "um", "ac", "mb", "lap"],
-            21: ["df", "fs", "dr", "um", "id", "mb", "lap"],
-            24: ["df", "ke", "nd", "md", "lap"]
+           11: ["df", "ca", "aa", "pi"],
+           16: ["df", "vs", "sl", "ri", "ac", "mv", "lap"],
+           17: ["df", "ca", "aa", "me", "lpi"],
+           20: ["df", "fs", "dr", "um", "ac", "mb", "lap"],
+           21: ["df", "fs", "dr", "um", "id", "mb", "lap"],
+           24: ["df", "ke", "nd", "md", "lap"]
           }
 
   subfields = { "mb": mb_reply, "me": me_reply } #TODO MV

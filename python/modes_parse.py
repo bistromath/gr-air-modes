@@ -33,8 +33,10 @@ class data_field:
 
   fields = { }
   types = { }
-  subfields = { } #fields to return objects instead of just returning bits
-  startbit = 0 #field offset applied to all fields. used for offsetting subtypes to reconcile with spec.
+  subfields = { } #fields to return objects instead of just returning bits,
+                  #used for fields which may have multiple meanings (like ME for Type 17)
+  offset = 1   #field offset applied to all fields. used for offsetting
+               #subtypes to reconcile with the spec. Really just for readability.
 
   #get a particular field from the data
   def __getitem__(self, fieldname):
@@ -64,9 +66,9 @@ class data_field:
   #the offset is both left-justified (LSB) and starts at 1, to
   #correspond to the Mode S spec. Blame them.
   def get_bits(self, arg):
-    (offset, num) = arg
+    (startbit, num) = arg
     return (self.data \
-        >> (self.get_numbits() - offset - num + self.startbit + 1)) \
+        >> (self.get_numbits() - startbit - num + self.offset)) \
          & ((1 << num) - 1)
 
 #type MB (extended squitter types 20,21) subfields
@@ -77,7 +79,7 @@ class mb_reply(data_field):
              "tid": (33,26), "tida": (63,13), "tidb": (83,6), "tidr": (76,7),
              "tti": (61,2)
            }
-  startbit = 32 #fields offset by 32 to match documentation
+  offset = 33 #fields offset by 33 to match documentation
 
   #types are based on bds1 subfield
   types = { 0: ["bds", "bds1", "bds2"], #TODO
@@ -97,25 +99,64 @@ class mb_reply(data_field):
   def get_numbits(self):
     return 56
 
+class bds09_reply(data_field):
+  fields = {
+             "sub":  (6,3),   "dew":  (10,1),  "vew":  (11,11), "dns":   (22,1),
+             "vns":  (23,11), "str":  (34,1),  "tr":    (35,6),   "dvr":  (41,1),
+             "vr":   (42,9),  "icf":  (9,1),   "ifr":   (10,1),   "nuc":  (11,3),
+             "gdew": (14,1),  "gvew": (15,10), "gdns":  (25,1),   "gvns": (26,10),
+             "vrsrc":  (36,1),  "gdvr": (37,1),  "gvr":   (38,9),   "ghds": (49,1),
+             "ghd":  (50,6),  "mhs":  (14,1),  "hdg":   (15,10),  "ast":  (25,1),
+             "spd":  (26,10)
+           }
+
+  offset = 6
+           
+  types = {
+             #BDS0,9 subtype 0
+             0: ["sub", "dew", "vew", "dns", "vns", "str", "tr", "dvr", "vr"],
+             #BDS0,9 subtypes 1-2 (differ only in velocity encoding)
+             1: ["sub", "icf", "ifr", "nuc", "gdew", "gvew", "gdns", "gvns", "vrsrc", "gdvr", "gvr", "ghds", "ghd"],
+             #BDS0,9 subtype 3-4 (airspeed and heading)
+             3: ["sub", "icf", "ifr", "nuc", "mhs", "hdg", "ast", "spd", "vrs", "gsvr", "gvr", "ghds", "ghd"]
+          }
+
+  def get_type(self):
+    sub = self.get_bits(self.fields["sub"])
+    if sub == 0:
+      return 0
+    if 1 <= sub <= 2:
+      return 1
+    if 3 <= sub <= 4:
+      return 3
+
+  def get_numbits(self):
+    return 51
+      
 #type 17 extended squitter data
 class me_reply(data_field):
   #TODO: add comments explaining these fields
-  fields = { "ftc":  (1,5),   "ss":   (6,2),   "saf":   (8,1),    "alt":  (9, 12),
+  fields = { "ftc":  (1,5),
+             #BDS0,5 and BDS0,6 position information fields
+             "ss":   (6,2),   "saf":  (8,1),  "alt":    (9, 12),
              "time": (21,1),  "cpr":  (22,1),  "lat":   (23, 17), "lon":  (40, 17),
              "mvt":  (6,7),   "gts":  (13,1),  "gtk":   (14,7),   "trs":  (1,2),
-             "ats":  (3,1),   "cat":  (6,3),   "ident": (9,48),   "sub":  (6,3),
-             "bds09": (9,48), "eps":  (9,3)
-             #TODO: TCP, TCP+1/BDS 6,2
+             "ats":  (3,1),   "cat":  (6,3),   "ident": (9,48),
+             #subclassed BDS0,9 velocity information subfields
+             "bds09": (6,51),
+             #emergency type BDS6,1
+             "eps":  (9,3)
+             #TODO: TCP, TCP+1/BDS 6,2/FTC 29
            }
 
   subfields = { "bds09": bds09_reply }
-  startbit = 0
+
   #types in this format are listed by BDS register
   types = { 0x05: ["ftc", "ss", "saf", "alt", "time", "cpr", "lat", "lon"], #airborne position
             0x06: ["ftc", "mvt", "gts", "gtk", "time", "cpr", "lat", "lon"], #surface position
             0x07: ["ftc",], #TODO extended squitter status
             0x08: ["ftc", "cat", "ident"], #extended squitter identification and type
-            0x09: ["ftc", "sub", "bds09"],
+            0x09: ["ftc", "bds09"],
             #0x0A: data link capability report
             #0x17: common usage capability report
             #0x18-0x1F: Mode S specific services capability report
@@ -139,21 +180,6 @@ class me_reply(data_field):
     
   def get_numbits(self):
     return 56
-
-class bds09_reply(data_field):
-  fields = { "sub": (6,3), "dew":  (10,1),  "vew":  (11,11), "dns":   (22,1),
-             "vns":  (23,11), "str":  (34,1),  "tr":   (35,6),  "svr":   (41,1),
-             "vr":   (42,9),  "icf":  (9,1),   "ifr":  (10,1),  "nuc":   (11,3),
-             "gdew": (14,1),  "gvew": (15,10), "gdns": (25,1),  "gvns":  (26,10),
-             "vrs":  (36,1),  "gsvr": (37,1),  "gvr":  (38,9),  "ghds":  (49,1),
-             "ghd":  (50,6),  "mhs":  (14,1),  "hdg":  (15,10), "ast":   (25,1),
-             "spd":  (26,10)
-           }
-
-  types = { #TODO
-
-  def get_type(self):
-    return self.get_bits(self.fields["sub"])
 
 class modes_reply(data_field):
   #bitfield definitions according to Mode S spec
@@ -267,23 +293,22 @@ class modes_parse:
     [decoded_lat, decoded_lon, rnge, bearing] = self.cpr.decode(icao24, encoded_lat, encoded_lon, cpr_format, 1)
     return [altitude, decoded_lat, decoded_lon, rnge, bearing]
 
-  def parseBDS09_0(self, shortdata, longdata):
-    icao24 = shortdata & 0xFFFFFF
-    vert_spd = ((longdata >> 6) & 0x1FF) * 32
-    ud = bool((longdata >> 15) & 1)
+  def parseBDS09_0(self, data):
+    #0: ["sub", "dew", "vew", "dns", "vns", "str", "tr", "svr", "vr"],
+    bdsobj = data["me"]["bds09"]
+    vert_spd = bdsobj["vr"] * 32
+    ud = bool(bdsobj["dvr"])
     if ud:
       vert_spd = 0 - vert_spd
-    turn_rate = (longdata >> 16) & 0x3F
-    turn_rate = turn_rate * 15/62
-    rl = bool((longdata >> 22) & 1)
+    turn_rate = bdsobj["tr"] * 15/62
+    rl = bdsobj["str"]
     if rl:
       turn_rate = 0 - turn_rate
-    ns_vel = (longdata >> 23) & 0x7FF - 1
-    ns = bool((longdata >> 34) & 1)
-    ew_vel = (longdata >> 35) & 0x7FF - 1
-    ew = bool((longdata >> 46) & 1)
-    subtype = (longdata >> 48) & 0x07
-
+    ns_vel = bdsobj["vns"] - 1
+    ns = bool(bdsobj["dns"])
+    ew_vel = bdsobj["vew"] - 1
+    ew = bool(bdsobj["dew"])
+    
     velocity = math.hypot(ns_vel, ew_vel)
     if ew:
       ew_vel = 0 - ew_vel
@@ -295,14 +320,15 @@ class modes_parse:
 
     return [velocity, heading, vert_spd, turn_rate]
 
-  def parseBDS09_1(self, shortdata, longdata):
-    icao24 = shortdata & 0xFFFFFF
-    alt_geo_diff = longdata & 0x7F - 1
-    above_below = bool((longdata >> 7) & 1)
+  def parseBDS09_1(self, data):
+    #1: ["sub", "icf", "ifr", "nuc", "gdew", "gvew", "gdns", "gvns", "vrs", "gsvr", "gvr", "ghds", "ghd"],
+    bdsobj = data["me"]["bds09"]
+    alt_geo_diff = bdsobj["ghd"]
+    above_below = bool(bdsobj["ghds"])
     if above_below:
       alt_geo_diff = 0 - alt_geo_diff;
-    vert_spd = float((longdata >> 10) & 0x1FF - 1)
-    ud = bool((longdata >> 19) & 1)
+    vert_spd = float(bdsobj["gvr"] - 1)
+    ud = bool(bdsobj["gdvr"])
     if ud:
       vert_spd = 0 - vert_spd
     vert_src = bool((longdata >> 20) & 1)

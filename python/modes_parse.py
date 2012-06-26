@@ -156,6 +156,8 @@ class me_reply(data_field):
       return 0x05
     elif ftc == 19:
       return 0x09
+    elif ftc == 28:
+      return 0x61
     else:
       return NoHandlerError
     
@@ -212,7 +214,7 @@ class modes_parse:
     return [data["aa"], interrogator, data["ca"]]
 
   categories = [["NO INFO", "RESERVED", "RESERVED", "RESERVED", "RESERVED", "RESERVED", "RESERVED", "RESERVED"],\
-                ["NO INFO", "SURFACE EMERGENCY VEHICLE", "SURFACE SERVICE VEHICLE", "FIXED OBSTRUCTION", "RESERVED", "RESERVED", "RESERVED"],\
+                ["NO INFO", "SURFACE EMERGENCY VEHICLE", "SURFACE SERVICE VEHICLE", "FIXED OBSTRUCTION", "CLUSTER OBSTRUCTION", "LINE OBSTRUCTION", "RESERVED"],\
                 ["NO INFO", "GLIDER", "BALLOON/BLIMP", "PARACHUTE", "ULTRALIGHT", "RESERVED", "UAV", "SPACECRAFT"],\
                 ["NO INFO", "LIGHT", "SMALL", "LARGE", "LARGE HIGH VORTEX", "HEAVY", "HIGH PERFORMANCE", "ROTORCRAFT"]]
 
@@ -323,28 +325,33 @@ class modes_parse:
 
     return [velocity, heading, vert_spd]
 
-  def parse20(self, shortdata, longdata):
-    [fs, dr, um, alt] = self.parse4(shortdata)
-    #BDS defines TCAS reply type and is the first 8 bits
-    #BDS1 is first four, BDS2 is bits 5-8
-    bds1 = longdata_bits(longdata, 33, 4)
-    bds2 = longdata_bits(longdata, 37, 4)
-    #bds2 != 0 defines extended TCAS capabilities, not in spec
-    return [fs, dr, um, alt, bds1, bds2]
+  def parseBDS62(self, data):
+    eps_strings = ["NO EMERGENCY", "GENERAL EMERGENCY", "LIFEGUARD/MEDICAL", "FUEL EMERGENCY",
+                   "NO COMMUNICATIONS", "UNLAWFUL INTERFERENCE", "RESERVED", "RESERVED"]
+    return eps_strings[data["me"]["eps"]]
 
-  def parseMB_commB(self, longdata): #bds1, bds2 == 0
-    raise NoHandlerError
+#  def parse20(self, shortdata, longdata):
+#    [fs, dr, um, alt] = self.parse4(shortdata)
+#    #BDS defines TCAS reply type and is the first 8 bits
+#    #BDS1 is first four, BDS2 is bits 5-8
+#    bds1 = longdata_bits(longdata, 33, 4)
+#    bds2 = longdata_bits(longdata, 37, 4)
+#    #bds2 != 0 defines extended TCAS capabilities, not in spec
+#    return [fs, dr, um, alt, bds1, bds2]
 
-  def parseMB_caps(self, longdata): #bds1 == 1, bds2 == 0
-    #cfs, acs, bcs
-    raise NoHandlerError
+#  def parseMB_commB(self, longdata): #bds1, bds2 == 0
+#    raise NoHandlerError
 
-  def parseMB_id(self, longdata): #bds1 == 2, bds2 == 0
-    msg = ""
-    for i in range(0, 8):
-      msg += self.charmap( longdata >> (42-6*i) & 0x3F)
-    return (msg)
+#  def parseMB_caps(self, longdata): #bds1 == 1, bds2 == 0
+#    #cfs, acs, bcs
+#    raise NoHandlerError
 
-  def parseMB_TCASRA(self, longdata): #bds1 == 3, bds2 == 0
+#  def parseMB_id(self, longdata): #bds1 == 2, bds2 == 0
+#    msg = ""
+#    for i in range(0, 8):
+#      msg += self.charmap( longdata >> (42-6*i) & 0x3F)
+#    return (msg)
+
+#  def parseMB_TCASRA(self, longdata): #bds1 == 3, bds2 == 0
     #ara[41-54],rac[55-58],rat[59],mte[60],tti[61-62],tida[63-75],tidr[76-82],tidb[83-88]
-    raise NoHandlerError
+#    raise NoHandlerError

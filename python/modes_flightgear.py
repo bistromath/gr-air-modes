@@ -51,16 +51,15 @@ class modes_flightgear(modes_parse.modes_parse):
                     self.update(icao24)
 
                 elif subtype == 19: #velocity
-                  pass #FIXME TODO BDS0,9
-                #    subsubtype = (longdata >> 48) & 0x07
-                #    if subsubtype == 0:
-                #        [velocity, heading, vert_spd, turnrate] = self.parseBDS09_0(data)
-                #    elif subsubtype == 1:
-                #        [velocity, heading, vert_spd] = self.parseBDS09_1(data)
-                #        turnrate = 0
-                #    else:
-                #        return
-                #    self.velocities[icao24] = [velocity, heading, vert_spd, turnrate]
+                    subsubtype = data["me"]["bds09"]["sub"]
+                    if subsubtype == 0:
+                        [velocity, heading, vert_spd, turnrate] = self.parseBDS09_0(data)
+                    elif 1 <= subsubtype <= 2:
+                        [velocity, heading, vert_spd] = self.parseBDS09_1(data)
+                        turnrate = 0
+                    else:
+                        return
+                    self.velocities[icao24] = [velocity, heading, vert_spd, turnrate]
                     
         except ADSBError:
             pass

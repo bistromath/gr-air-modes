@@ -64,8 +64,9 @@ class modes_output_sbs1(modes_parse.modes_parse):
   def output(self, msg):
     try:
       sbs1_msg = self.parse(msg)
-      for conn in self._conns[:]: #iterate over a copy of the list
-        conn.send(sbs1_msg)
+      if sbs1_msg is not None:
+        for conn in self._conns[:]: #iterate over a copy of the list
+          conn.send(sbs1_msg)
     except socket.error:
       self._conns.remove(conn)
       print "Connections: ", len(self._conns)

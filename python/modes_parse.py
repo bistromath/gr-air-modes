@@ -130,7 +130,7 @@ class me_reply(data_field):
     elif ftc == 28:
       return 0x61
     else:
-      return NoHandlerError
+      return NoHandlerError(ftc)
     
   def get_numbits(self):
     return 56
@@ -163,7 +163,7 @@ class mb_reply(data_field):
     bds1 = self.get_bits(33,4)
     bds2 = self.get_bits(37,4)
     if bds1 not in (0,1,2,3) or bds2 not in (0,):
-      raise NoHandlerError
+      raise NoHandlerError(bds1)
     return int(bds1)
 
   def get_numbits(self):
@@ -263,9 +263,9 @@ class modes_parse:
     encoded_lon = data["me"]["lon"]
     encoded_lat = data["me"]["lat"]
     cpr_format = data["me"]["cpr"]
-    altitude = decode_alt(data["me"]["alt"], False)
+    ground_track = data["me"]["gtk"] * 360. / 128
     [decoded_lat, decoded_lon, rnge, bearing] = self.cpr.decode(icao24, encoded_lat, encoded_lon, cpr_format, 1)
-    return [altitude, decoded_lat, decoded_lon, rnge, bearing]
+    return [ground_track, decoded_lat, decoded_lon, rnge, bearing]
 
   def parseBDS09_0(self, data):
     #0: ["sub", "dew", "vew", "dns", "vns", "str", "tr", "svr", "vr"],

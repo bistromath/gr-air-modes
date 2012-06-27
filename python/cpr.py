@@ -29,11 +29,10 @@ from modes_exceptions import *
 latz = 15
 
 def nbits(surface):
-	return 17
-#	if surface == 1:
-#		return 19
-#	else:
-#		return 17
+	if surface == 1:
+		return 19
+	else:
+		return 17
 
 def nz(ctype):
 	return 4 * latz - ctype
@@ -97,18 +96,14 @@ def cpr_resolve_local(my_location, encoded_location, ctype, surface):
 def cpr_resolve_global(evenpos, oddpos, mostrecent, surface):
 	dlateven = dlat(0, surface)
 	dlatodd  = dlat(1, surface)
-	if surface is True:
-		scalar = float(2**19)
-	else:
-		scalar = float(2**17)
 
 	evenpos = [float(evenpos[0]), float(evenpos[1])]
 	oddpos = [float(oddpos[0]), float(oddpos[1])]
 	
-	j = math.floor(((nz(1)*evenpos[0] - nz(0)*oddpos[0])/scalar) + 0.5) #latitude index
+	j = math.floor(((nz(1)*evenpos[0] - nz(0)*oddpos[0])/2**17) + 0.5) #latitude index
 
-	rlateven = dlateven * ((j % nz(0))+evenpos[0]/scalar)
-	rlatodd  = dlatodd  * ((j % nz(1))+ oddpos[0]/scalar)
+	rlateven = dlateven * ((j % nz(0))+evenpos[0]/2**17)
+	rlatodd  = dlatodd  * ((j % nz(1))+ oddpos[0]/2**17)
 
 	#limit to -90, 90
 	if rlateven > 270.0:
@@ -131,14 +126,14 @@ def cpr_resolve_global(evenpos, oddpos, mostrecent, surface):
 	nlthing = nl(rlat)
 	ni = max(nlthing - mostrecent, 1)
 
-	m =  math.floor(((evenpos[1]*(nlthing-1)-oddpos[1]*(nlthing))/scalar)+0.5) #longitude index
+	m =  math.floor(((evenpos[1]*(nlthing-1)-oddpos[1]*(nlthing))/2**17)+0.5) #longitude index
 
 	if mostrecent == 0:
 		enclon = evenpos[1]
 	else:
 		enclon = oddpos[1]
 
-	rlon = dl * (((ni+m) % ni)+enclon/2**nbits(surface))
+	rlon = dl * (((ni+m) % ni)+enclon/2**17)
 
 	if rlon > 180:
 		rlon = rlon - 360.0
@@ -172,8 +167,6 @@ def range_bearing(loc_a, loc_b):
 		bearing += 360.0
 
 	rnge = math.hypot(distance_East,distance_North)
-
-
 	return [rnge, bearing]
 
 class cpr_decoder:
@@ -203,32 +196,30 @@ class cpr_decoder:
 
 		#okay, let's traverse the lists and weed out those entries that are older than 15 minutes, as they're unlikely to be useful.
 		self.weed_poslists()
-		
-		if surface==1:
-			validrange = 45
-		else:
-			validrange = 180
 
 		if icao24 in self.lkplist:
 			#do emitter-centered local decoding
 			[decoded_lat, decoded_lon] = cpr_resolve_local(self.lkplist[icao24][0:2], [encoded_lat, encoded_lon], cpr_format, surface)
 			self.lkplist[icao24] = [decoded_lat, decoded_lon, time.time()] #update the local position for next time
 
-		elif ((icao24 in self.evenlist) and (icao24 in self.oddlist) and abs(self.evenlist[icao24][2] - self.oddlist[icao24][2]) < 10):
+		elif (icao24 in self.evenlist) \
+		  and (icao24 in self.oddlist) \
+		  and (abs(self.evenlist[icao24][2] - self.oddlist[icao24][2]) < 10) \
+		  and (surface == 0):
 			newer = (self.oddlist[icao24][2] - self.evenlist[icao24][2]) > 0 #figure out which report is newer
-			[decoded_lat, decoded_lon] = cpr_resolve_global(self.evenlist[icao24][0:2], self.oddlist[icao24][0:2], newer, surface) #do a global decode
+   			[decoded_lat, decoded_lon] = cpr_resolve_global(self.evenlist[icao24][0:2], self.oddlist[icao24][0:2], newer, surface) #do a global decode
 			self.lkplist[icao24] = [decoded_lat, decoded_lon, time.time()]
-		else:
-			raise CPRNoPositionError
 
 		#so we really can't guarantee that local decoding will work unless you are POSITIVE that you can't hear more than 180nm out.
 		#this will USUALLY work, but you can't guarantee it!
-#		elif self.my_location is not None: #if we have a location, use it
-#			[local_lat, local_lon] = cpr_resolve_local(self.my_location, [encoded_lat, encoded_lon], cpr_format, surface) #try local decoding
-#			[rnge, bearing] = range_bearing(self.my_location, [local_lat, local_lon])
-#			if rnge < validrange: #if the local decoding can be guaranteed valid
-#				self.lkplist[icao24] = [local_lat, local_lon, time.time()] #update the local position for next time
-#				[decoded_lat, decoded_lon] = [local_lat, local_lon]
+		#elif surface == 1 and self.my_location is not None:
+		#	[local_lat, local_lon] = cpr_resolve_local(self.my_location, [encoded_lat, encoded_lon], cpr_format, surface) #try local decoding
+		#	[rnge, bearing] = range_bearing(self.my_location, [local_lat, local_lon])
+		#	if rnge < validrange: #if the local decoding can be guaranteed valid
+		#		self.lkplist[icao24] = [local_lat, local_lon, time.time()] #update the local position for next time
+		#		[decoded_lat, decoded_lon] = [local_lat, local_lon]
+		else:
+			raise CPRNoPositionError
 
 		if self.my_location is not None:
 			[rnge, bearing] = range_bearing(self.my_location, [decoded_lat, decoded_lon])

@@ -60,7 +60,7 @@ class modes_output_print(modes_parse.modes_parse):
         output += "No handler for message type %i from %x (but it's in modes_parse)" % (msgtype, ecc)
       print output
     except NoHandlerError as e:
-      output += "No handler for message type %i from %x" % (msgtype, ecc)
+      output += "No handler for message type %s from %x" % (e.msgtype, ecc)
       print output
     except MetricAltError:
       pass
@@ -71,7 +71,6 @@ class modes_output_print(modes_parse.modes_parse):
     [vs, cc, sl, ri, altitude] = self.parse0(shortdata)
 	
     retstr = "Type 0 (short A-A surveillance) from %x at %ift" % (ecc, altitude)
-    # the ri values below 9 are used for other things. might want to print those someday.
     if ri == 0:
       retstr += " (No TCAS)"
     elif ri == 2:
@@ -129,7 +128,7 @@ class modes_output_print(modes_parse.modes_parse):
 
   def print11(self, data, ecc):
     [icao24, interrogator, ca] = self.parse11(data, ecc)
-    retstr = "Type 11 (all call reply) from %x in reply to interrogator %i" % (icao24, interrogator)
+    retstr = "Type 11 (all call reply) from %x in reply to interrogator %i with capability level %i" % (icao24, interrogator, ca+1)
     return retstr
 
   def print17(self, data):
@@ -143,8 +142,8 @@ class modes_output_print(modes_parse.modes_parse):
       retstr = "Type 17 subtype 04 (ident) from %x type %s ident %s" % (icao24, typestring, msg)
 
     elif subtype >= 5 and subtype <= 8:
-      [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(data)
-      retstr = "Type 17 subtype 06 (surface report) from %x at (%.6f, %.6f)" % (icao24, decoded_lat, decoded_lon)
+      [ground_track, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(data)
+      retstr = "Type 17 subtype 06 (surface report) from %x at (%.6f, %.6f) ground track %i" % (icao24, decoded_lat, decoded_lon, ground_track)
       if rnge is not None and bearing is not None:
         retstr += " (%.2f @ %.0f)" % (rnge, bearing)
 

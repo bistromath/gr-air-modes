@@ -41,8 +41,8 @@ class modes_flightgear(modes_parse.modes_parse):
                     self.callsigns[icao24] = [ident, actype]
                     
                 elif 5 <= subtype <= 8: #BDS0,6 pos
-                    [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(data)
-                    self.positions[icao24] = [decoded_lat, decoded_lon, altitude]
+                    [ground_track, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(data)
+                    self.positions[icao24] = [decoded_lat, decoded_lon, 0]
                     self.update(icao24)
 
                 elif 9 <= subtype <= 18: #BDS0,5 pos

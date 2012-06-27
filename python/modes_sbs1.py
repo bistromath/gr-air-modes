@@ -103,25 +103,23 @@ class modes_output_sbs1(modes_parse.modes_parse):
   def parse(self, message):
     #assembles a SBS-1-style output string from the received message
 
-    [msgtype, shortdata, longdata, parity, ecc, reference, timestamp] = message.split()
+    [data, ecc, reference, timestamp] = message.split()
 
-    shortdata = long(shortdata, 16)
-    longdata = long(longdata, 16)
-    parity = long(parity, 16)
+    data = modes_parse.modes_reply(long(data, 16))
     ecc = long(ecc, 16)
-    msgtype = int(msgtype)
+    msgtype = data["df"]
     outmsg = None
 
     if msgtype == 0:
-      outmsg = self.pp0(shortdata, ecc)
+      outmsg = self.pp0(data, ecc)
     elif msgtype == 4:
-      outmsg = self.pp4(shortdata, ecc)
+      outmsg = self.pp4(data, ecc)
     elif msgtype == 5:
-      outmsg = self.pp5(shortdata, ecc)
+      outmsg = self.pp5(data, ecc)
     elif msgtype == 11:
-      outmsg = self.pp11(shortdata, ecc)
+      outmsg = self.pp11(data, ecc)
     elif msgtype == 17:
-      outmsg = self.pp17(shortdata, longdata)
+      outmsg = self.pp17(data)
     else:
       raise NoHandlerError(msgtype)
     return outmsg
@@ -147,7 +145,7 @@ class modes_output_sbs1(modes_parse.modes_parse):
   def pp5(self, shortdata, ecc):
     # I'm not sure what to do with the identiifcation shortdata & 0x1FFF
     [datestr, timestr] = self.current_time()
-    [fs, dr, um] = self.parse5(shortdata)
+    [fs, dr, um, ident] = self.parse5(shortdata)
     aircraft_id = self.get_aircraft_id(ecc)
     retstr = "MSG,6,0,%i,%06X,%i,%s,%s,%s,%s,,,,,,,,," % (aircraft_id, ecc, aircraft_id+100, datestr, timestr, datestr, timestr)
     return retstr + self.decode_fs(fs) + "\n"
@@ -158,10 +156,10 @@ class modes_output_sbs1(modes_parse.modes_parse):
     aircraft_id = self.get_aircraft_id(icao24)
     return "MSG,8,0,%i,%06X,%i,%s,%s,%s,%s,,,,,,,,,,,,\n" % (aircraft_id, icao24, aircraft_id+100, datestr, timestr, datestr, timestr)
 
-  def pp17(self, shortdata, longdata):
-    icao24 = shortdata & 0xFFFFFF
+  def pp17(self, data):
+    icao24 = data["aa"]
     aircraft_id = self.get_aircraft_id(icao24)
-    subtype = (longdata >> 51) & 0x1F
+    subtype = data["me"]["ftc"]
 
     retstr = None
     #we'll get better timestamps later, hopefully with actual VRT time
@@ -170,23 +168,22 @@ class modes_output_sbs1(modes_parse.modes_parse):
 
     if subtype >= 1 and subtype <= 4:
       # Aircraft Identification
-      (msg, typestring) = self.parseBDS08(shortdata, longdata)
+      (msg, typestring) = self.parseBDS08(data)
       retstr = "MSG,1,0,%i,%06X,%i,%s,%s,%s,%s,%s,,,,,,,,,,,\n" % (aircraft_id, icao24, aircraft_id+100, datestr, timestr, datestr, timestr, msg)
 
     elif subtype >= 5 and subtype <= 8:
       # Surface position measurement
-      [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(shortdata, longdata)
+      [ground_track, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(data)
+      altitude = 0
       if decoded_lat is None: #no unambiguously valid position available
         retstr = None
       else:
         retstr = "MSG,2,0,%i,%06X,%i,%s,%s,%s,%s,,%i,,,%.5f,%.5f,,,,0,0,0\n" % (aircraft_id, icao24, aircraft_id+100, datestr, timestr, datestr, timestr, altitude, decoded_lat, decoded_lon)
 
-    elif subtype >= 9 and subtype <= 18 and subtype != 15:
+    elif subtype >= 9 and subtype <= 18:
       # Airborne position measurements
       # WRONG (rnge, bearing), is this still true?
-      # i'm eliminating type 15 records because they don't appear to be
-      # valid position reports.
-      [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(shortdata, longdata)
+      [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(data)
       if decoded_lat is None: #no unambiguously valid position available
         retstr = None
       else:
@@ -195,13 +192,13 @@ class modes_output_sbs1(modes_parse.modes_parse):
     elif subtype == 19:
       # Airborne velocity measurements
       # WRONG (heading, vert_spd), Is this still true?
-      subsubtype = (longdata >> 48) & 0x07
+      subsubtype = data["me"]["bds09"]["sub"]
       if subsubtype == 0:
-        [velocity, heading, vert_spd] = self.parseBDS09_0(shortdata, longdata)
+        [velocity, heading, vert_spd] = self.parseBDS09_0(data)
         retstr = "MSG,4,0,%i,%06X,%i,%s,%s,%s,%s,,,%.1f,%.1f,,,%i,,,,,\n" % (aircraft_id, icao24, aircraft_id+100, datestr, timestr, datestr, timestr, velocity, heading, vert_spd)
 
-      elif subsubtype == 1:
-        [velocity, heading, vert_spd] = self.parseBDS09_1(shortdata, longdata)
+      elif 1 <= subsubtype <= 2:
+        [velocity, heading, vert_spd] = self.parseBDS09_1(data)
         retstr = "MSG,4,0,%i,%06X,%i,%s,%s,%s,%s,,,%.1f,%.1f,,,%i,,,,,\n" % (aircraft_id, icao24, aircraft_id+100, datestr, timestr, datestr, timestr, velocity, heading, vert_spd)
 
     return retstr

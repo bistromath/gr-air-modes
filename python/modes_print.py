@@ -174,3 +174,39 @@ class modes_output_print(modes_parse.modes_parse):
       retstr = "Type 17 subtype %i from %x not implemented" % (subtype, icao24)
 
     return retstr
+
+  def print20(self, data, ecc):
+    [fs, dr, um, alt] = self.parse4(data)
+    mb_fields = data["mb"].get_fields()
+    bds1 = mb_fields["bds1"]
+    bds2 = mb_fields["bds2"]
+
+    if bds2 != 0:
+      retstr = "No handler for BDS2 == %i from %x" % (bds2, ecc)
+
+    elif bds1 == 0:
+      retstr = "No handler for BDS1 == 0 from %x" % ecc
+    elif bds1 == 1:
+      retstr = "Type 20 link capability report from %x: ACS: 0x%x, BCS: 0x%x, ECS: 0x%x, continues %i" \
+                % (ecc, mb_fields["acs"], mb_fields["bcs"], mb_fields["ecs"], mb_fields["cfs"])
+    elif bds1 == 2:
+      retstr = "Type 20 identification from %x with text %s" % (ecc, self.parseMB_id(data))
+    elif bds2 == 3:
+      retstr = "TCAS report from %x: " % ecc
+      tti = mb_fields["tcas"].get_type()
+      if tti == 1:
+        (resolutions, complements, rat, mte, threat_id) = self.parseMB_TCAS_threatid(data)
+        retstr += "threat ID: %x advised: %s complement: %s" % (threat_id, resolutions, complements)
+      elif tti == 2:
+        (resolutions, complements, rat, mte, threat_alt, threat_range, threat_bearing) = self.parseMB_TCAS_threatloc(data)
+        retstr += "range: %i bearing: %i alt: %i advised: %s complement: %s" % (threat_range, threat_bearing, threat_alt, resolutions, complements)
+      else:
+        retstr += " (no handler for TTI=%i)" % tti
+      if mte == 1:
+        retstr += " (multiple threats)"
+      if rat == 1:
+        retstr += " (resolved)"
+    else:
+      retstr = "No handler for BDS1 == %i from %x" % (bds1, ecc)
+      
+    return retstr

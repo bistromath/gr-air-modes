@@ -72,38 +72,9 @@ class data_field:
       #return the bits as a number
       return bits
 
-#type MB (extended squitter types 20,21) subfields
-class mb_reply(data_field):
-  fields = { "acs": (45,20), "ais": (41,48),  "ara": (41,14), "bcs": (65,16),
-             "bds": (33,8),  "bds1": (33,4),  "bds2": (37,4), "cfs": (41,4),
-             "ecs": (81,8),  "mte": (60,1),   "rac": (55,4),  "rat": (59,1),
-             "tid": (33,26), "tida": (63,13), "tidb": (83,6), "tidr": (76,7),
-             "tti": (61,2)
-           }
-  offset = 33 #fields offset by 33 to match documentation
-
-  #types are based on bds1 subfield
-  types = { 0: ["bds", "bds1", "bds2"], #TODO
-            1: ["bds", "bds1", "bds2", "cfs", "acs", "bcs"],
-            2: ["bds", "bds1", "bds2", "ais"],
-            3: ["bds", "bds1", "bds2", "ara",  "rac", "rat",
-                "mte", "tti",  "tida", "tidr", "tidb"]
-          }
-
-  def get_type(self):
-    bds1 = self.get_bits(self.fields["bds1"])
-    bds2 = self.get_bits(self.fields["bds2"])
-    if bds1 not in (0,1,2,3) or bds2 not in (0,):
-      raise NoHandlerError
-    return int(bds1)
-
-  def get_numbits(self):
-    return 56
-
 class bds09_reply(data_field):
   offset = 6
-  types = {
-             #BDS0,9 subtype 0
+  types = {  #BDS0,9 subtype 0
              0: {"sub": (6,3), "dew": (10,1), "vew": (11,11), "dns": (22,1),
                  "vns": (23,11), "str": (34,1), "tr": (35,6), "dvr": (41,1),
                  "vr": (42,9)},
@@ -164,8 +135,47 @@ class me_reply(data_field):
   def get_numbits(self):
     return 56
 
+#resolves the TCAS reply types from TTI info
+class tcas_reply(data_field):
+  offset = 61
+  types = { 0: {"tti": (61,2)}, #UNKNOWN
+            1: {"tti": (61,2), "tid": (63,26)},
+            2: {"tti": (61,2), "tida": (63,13), "tidr": (76,7), "tidb": (83,6)}
+          }
+  def get_type(self):
+    return self.get_bits(61,2)
+
+  def get_numbits(self):
+    return 28
+
+#extended squitter types 20,21 MB subfield
+class mb_reply(data_field):
+  offset = 33 #fields offset by 33 to match documentation
+  #types are based on bds1 subfield
+  types = { 0: {"bds1": (33,4), "bds2": (37,4)}, #TODO
+            1: {"bds1": (33,4), "bds2": (37,4), "cfs": (41,4), "acs": (45,20), "bcs": (65,16), "ecs": (81,8)},
+            2: {"bds1": (33,4), "bds2": (37,4), "ais": (41,48)},
+            3: {"bds1": (33,4), "bds2": (37,4), "ara": (41,14), "rac": (55,4), "rat": (59,1),
+                "mte": (60,1), "tcas": (61, 28, tcas_reply)}
+          }
+
+  def get_type(self):
+    bds1 = self.get_bits(33,4)
+    bds2 = self.get_bits(37,4)
+    if bds1 not in (0,1,2,3) or bds2 not in (0,):
+      raise NoHandlerError
+    return int(bds1)
+
+  def get_numbits(self):
+    return 56
+
+#  #type MV (extended squitter type 16) subfields
+#  mv_fields = { "ara": (41,14), "mte": (60,1),  "rac": (55,4), "rat": (59,1),
+#                "vds": (33,8),  "vds1": (33,4), "vds2": (37,4)
+#              }
+
+#the whole Mode S packet type
 class modes_reply(data_field):
-  #bitfield definitions according to Mode S spec for each packet type
   types = { 0: {"df": (1,5), "vs": (6,1), "cc": (7,1), "sl": (9,3), "ri": (14,4), "ac": (20,13), "ap": (33,24)},
             4: {"df": (1,5), "fs": (6,3), "dr": (9,5), "um": (14,6), "ac": (20,13), "ap": (33,24)},
             5: {"df": (1,5), "fs": (6,3), "dr": (9,5), "um": (14,6), "id": (20,13), "ap": (33,24)},
@@ -185,11 +195,6 @@ class modes_reply(data_field):
 
   def get_type(self):
     return self.get_bits(1,5)
-
-#  #type MV (extended squitter type 16) subfields
-#  mv_fields = { "ara": (41,14), "mte": (60,1),  "rac": (55,4), "rat": (59,1),
-#                "vds": (33,8),  "vds1": (33,4), "vds2": (37,4)
-#              }
 
 class modes_parse:
   def __init__(self, mypos):
@@ -330,28 +335,42 @@ class modes_parse:
                    "NO COMMUNICATIONS", "UNLAWFUL INTERFERENCE", "RESERVED", "RESERVED"]
     return eps_strings[data["me"]["eps"]]
 
-#  def parse20(self, shortdata, longdata):
-#    [fs, dr, um, alt] = self.parse4(shortdata)
-#    #BDS defines TCAS reply type and is the first 8 bits
-#    #BDS1 is first four, BDS2 is bits 5-8
-#    bds1 = longdata_bits(longdata, 33, 4)
-#    bds2 = longdata_bits(longdata, 37, 4)
-#    #bds2 != 0 defines extended TCAS capabilities, not in spec
-#    return [fs, dr, um, alt, bds1, bds2]
+  def parseMB_id(self, data): #bds1 == 2, bds2 == 0
+    msg = ""
+    for i in range(0, 8):
+      msg += self.charmap( data["mb"]["ais"] >> (42-6*i) & 0x3F)
+    return (msg)
 
-#  def parseMB_commB(self, longdata): #bds1, bds2 == 0
-#    raise NoHandlerError
+  def parseMB_TCAS_resolutions(self, data):
+    #these are LSB because the ICAO are asshats
+    ara_bits    = {41: "CLIMB", 42: "DON'T DESCEND", 43: "DON'T DESCEND >500FPM", 44: "DON'T DESCEND >1000FPM",
+                   45: "DON'T DESCEND >2000FPM", 46: "DESCEND", 47: "DON'T CLIMB", 48: "DON'T CLIMB >500FPM",
+                   49: "DON'T CLIMB >1000FPM", 50: "DON'T CLIMB >2000FPM", 51: "TURN LEFT", 52: "TURN RIGHT",
+                   53: "DON'T TURN LEFT", 54: "DON'T TURN RIGHT"}
+    rac_bits    = {55: "DON'T DESCEND", 56: "DON'T CLIMB", 57: "DON'T TURN LEFT", 58: "DON'T TURN RIGHT"}
+    ara = data["mb"]["ara"]
+    #check to see which bits are set
+    resolutions = ""
+    for bit, name in ara_bits:
+      if ara & (1 << (54-bit)):
+        resolutions += " " + name
+    complements = ""
+    for bit, name in rac_bits:
+      if rac & (1 << (58-bit)):
+        complements += " " + name
+    return (resolutions, complements)
 
-#  def parseMB_caps(self, longdata): #bds1 == 1, bds2 == 0
-#    #cfs, acs, bcs
-#    raise NoHandlerError
+  #rat is 1 if resolution advisory terminated <18s ago
+  #mte is 1 if multiple threats indicated
+  #tti is threat type: 1 if ID, 2 if range/brg/alt
+  #tida is threat altitude in Mode C format
+  def parseMB_TCAS_threatid(self, data): #bds1==3, bds2==0, TTI==1
+    #3: {"bds1": (33,4), "bds2": (37,4), "ara": (41,14), "rac": (55,4), "rat": (59,1),
+    #    "mte": (60,1), "tti": (61,2),  "tida": (63,13), "tidr": (76,7), "tidb": (83,6)}
+    (resolutions, complements) = self.parseMB_TCAS_resolutions(data)
+    return (resolutions, complements, data["mb"]["rat"], data["mb"]["mte"], data["mb"]["tcas"]["tid"])
 
-#  def parseMB_id(self, longdata): #bds1 == 2, bds2 == 0
-#    msg = ""
-#    for i in range(0, 8):
-#      msg += self.charmap( longdata >> (42-6*i) & 0x3F)
-#    return (msg)
-
-#  def parseMB_TCASRA(self, longdata): #bds1 == 3, bds2 == 0
-    #ara[41-54],rac[55-58],rat[59],mte[60],tti[61-62],tida[63-75],tidr[76-82],tidb[83-88]
-#    raise NoHandlerError
+  def parseMB_TCAS_threatloc(self, data): #bds1==3, bds2==0, TTI==2
+    (resolutions, complements) = self.parseMB_TCAS_resolutions(data)
+    threat_alt = decode_alt(data["mb"]["tcas"]["tida"], True)
+    return (resolutions, complements, data["mb"]["rat"], data["mb"]["mte"], threat_alt, data["mb"]["tcas"]["tidr"], data["mb"]["tcas"]["tidb"])

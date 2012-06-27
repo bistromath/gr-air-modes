@@ -72,7 +72,7 @@ class modes_flightgear(modes_parse.modes_parse):
         if complete:
             print "FG update: %s" % (self.callsigns[icao24][0])
             msg = fg_posmsg(self.callsigns[icao24][0],
-                            None,#TODO FIX should populate ac type; this isn't pressing bc it appears nobody populates this field
+                            self.callsigns[icao24][1],
                             self.positions[icao24][0],
                             self.positions[icao24][1],
                             self.positions[icao24][2],
@@ -133,14 +133,14 @@ modelmap = { None:                       'Aircraft/777-200/Models/777-200ER.xml'
 }
 
 class fg_posmsg(fg_header):
-    def __init__(self, callsign, model, lat, lon, alt, hdg, vel, vs, turnrate):
+    def __init__(self, callsign, modelname, lat, lon, alt, hdg, vel, vs, turnrate):
         #from the above, calculate valid FGFS mp vals
         #this is the translation layer between ADS-B and FGFS
         fg_header.__init__(self)
         self.callsign = callsign
         if self.callsign is None:
             self.callsign = "UNKNOWN"
-        self.modelname = model
+        self.modelname = modelname
         if self.modelname not in modelmap:
             #this should keep people on their toes when strange aircraft types are seen
             self.model = 'Aircraft/santa/Models/santa.xml'

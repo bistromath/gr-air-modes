@@ -56,6 +56,8 @@ class modes_output_print(modes_parse.modes_parse):
         output += self.print11(data, ecc)
       elif msgtype == 17:
         output += self.print17(data)
+      elif msgtype == 20 or msgtype == 21:
+        output += self.print20(data, ecc)
       else:
         output += "No handler for message type %i from %x (but it's in modes_parse)" % (msgtype, ecc)
       print output
@@ -175,7 +177,11 @@ class modes_output_print(modes_parse.modes_parse):
     return retstr
 
   def print20(self, data, ecc):
-    [fs, dr, um, alt] = self.parse4(data)
+    msgtype = data["df"]
+    if(msgtype == 20):
+      [fs, dr, um, alt] = self.parse4(data)
+    else:
+      [fs, dr, um, ident] = self.parse5(data)
     mb_fields = data["mb"].get_fields()
     bds1 = mb_fields["bds1"]
     bds2 = mb_fields["bds2"]
@@ -207,5 +213,10 @@ class modes_output_print(modes_parse.modes_parse):
         retstr += " (resolved)"
     else:
       retstr = "No handler for BDS1 == %i from %x" % (bds1, ecc)
+
+    if(msgtype == 20):
+      retstr += " at %ift" % altitude
+    else:
+      retstr += " ident %x" % ident
       
     return retstr

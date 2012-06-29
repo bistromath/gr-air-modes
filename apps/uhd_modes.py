@@ -182,6 +182,12 @@ if __name__ == '__main__':
   outputs = [] #registry of plugin output functions
   updates = [] #registry of plugin update functions
 
+  if options.raw is True:
+    rawport = air_modes.modes_raw_server()
+    outputs.append(rawport.output)
+    outputs.append(printraw)
+    updates.append(rawport.add_pending_conns)
+
   if options.kml is not None:
     #we spawn a thread to run every 30 seconds (or whatever) to generate KML
     kmlgen = air_modes.modes_kml(options.kml, my_position) #create a KML generating thread
@@ -194,12 +200,6 @@ if __name__ == '__main__':
     
   if options.no_print is not True:
     outputs.append(air_modes.modes_output_print(my_position).parse)
-
-  if options.raw is True:
-    rawport = air_modes.modes_raw_server()
-    outputs.append(rawport.output)
-    outputs.append(printraw)
-    updates.append(rawport.add_pending_conns)
 
   if options.multiplayer is not None:
     [fghost, fgport] = options.multiplayer.split(':')

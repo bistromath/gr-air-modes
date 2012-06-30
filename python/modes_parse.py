@@ -30,6 +30,7 @@ from modes_exceptions import *
 class data_field:
   def __init__(self, data):
     self.data = data
+    self.fields = self.parse()
 
   types = { }
   offset = 1   #field offset applied to all fields. used for offsetting
@@ -39,16 +40,24 @@ class data_field:
   def __getitem__(self, fieldname):
     mytype = self.get_type()
     if mytype in self.types:
-      if fieldname in self.types[mytype]: #verify it exists in this packet type
-        return self.get_bits(*self.types[mytype][fieldname])
+      if fieldname in self.fields: #verify it exists in this packet type
+        return self.fields[fieldname]
       else:
         raise FieldNotInPacket(fieldname)
     else:
       raise NoHandlerError(mytype)
 
   #grab all the fields in the packet as a dict
-  def get_fields(self):
-    return {field: self[field] for field in self.types[self.get_type()]}
+  #done once on init so you don't have to iterate down every time you grab a field
+  def parse(self):
+    fields = {}
+    for field in self.types[self.get_type()]:
+      bits = self.types[self.get_type()][field]
+      if len(bits) == 3:
+        obj = bits[2](self.get_bits(bits[0], bits[1]))
+        fields.update(obj.parse())
+      fields.update({field: self.get_bits(bits[0], bits[1])})
+    return fields
 
   def get_type(self):
     raise NotImplementedError
@@ -65,12 +74,7 @@ class data_field:
     bits = (self.data \
         >> (self.get_numbits() - startbit - num + self.offset)) \
          & ((1 << num) - 1)
-    if len(args) == 3:
-      #construct a subtype from the bit field
-      return args[2](bits)
-    else:
-      #return the bits as a number
-      return bits
+    return bits
 
 class bds09_reply(data_field):
   offset = 6
@@ -99,7 +103,7 @@ class bds09_reply(data_field):
 
   def get_numbits(self):
     return 51
-      
+
 #type 17 extended squitter data
 class me_reply(data_field):
   #types in this format are listed by BDS register
@@ -202,12 +206,10 @@ class modes_parse:
       self.cpr = cpr.cpr_decoder(self.my_location)
     
   def parse0(self, data):
-    fields = data.get_fields()
     altitude = decode_alt(data["ac"], True)
-    return [fields["vs"], fields["cc"], fields["sl"], fields["ri"], altitude]
+    return [data["vs"], data["cc"], data["sl"], data["ri"], altitude]
 
   def parse4(self, data):
-    fields = data.get_fields()
     altitude = decode_alt(data["ac"], True)
     return [data["fs"], data["dr"], data["um"], altitude]
 
@@ -224,11 +226,11 @@ class modes_parse:
                 ["NO INFO", "LIGHT", "SMALL", "LARGE", "LARGE HIGH VORTEX", "HEAVY", "HIGH PERFORMANCE", "ROTORCRAFT"]]
 
   def parseBDS08(self, data):
-    catstring = self.categories[data["me"]["ftc"]-1][data["me"]["cat"]]
+    catstring = self.categories[data["ftc"]-1][data["cat"]]
 
     msg = ""
     for i in range(0, 8):
-      msg += self.charmap( data["me"]["ident"] >> (42-6*i) & 0x3F)
+      msg += self.charmap(data["ident"] >> (42-6*i) & 0x3F)
     return (msg, catstring)
 
   def charmap(self, d):
@@ -246,10 +248,10 @@ class modes_parse:
   def parseBDS05(self, data):
     icao24 = data["aa"]
 
-    encoded_lon = data["me"]["lon"]
-    encoded_lat = data["me"]["lat"]
-    cpr_format = data["me"]["cpr"]
-    altitude = decode_alt(data["me"]["alt"], False)
+    encoded_lon = data["lon"]
+    encoded_lat = data["lat"]
+    cpr_format = data["cpr"]
+    altitude = decode_alt(data["alt"], False)
 
     [decoded_lat, decoded_lon, rnge, bearing] = self.cpr.decode(icao24, encoded_lat, encoded_lon, cpr_format, 0)
 
@@ -260,28 +262,27 @@ class modes_parse:
   def parseBDS06(self, data):
     icao24 = data["aa"]
  
-    encoded_lon = data["me"]["lon"]
-    encoded_lat = data["me"]["lat"]
-    cpr_format = data["me"]["cpr"]
-    ground_track = data["me"]["gtk"] * 360. / 128
+    encoded_lon = data["lon"]
+    encoded_lat = data["lat"]
+    cpr_format = data["cpr"]
+    ground_track = data["gtk"] * 360. / 128
     [decoded_lat, decoded_lon, rnge, bearing] = self.cpr.decode(icao24, encoded_lat, encoded_lon, cpr_format, 1)
     return [ground_track, decoded_lat, decoded_lon, rnge, bearing]
 
   def parseBDS09_0(self, data):
     #0: ["sub", "dew", "vew", "dns", "vns", "str", "tr", "svr", "vr"],
-    bdsobj = data["me"]["bds09"]
-    vert_spd = bdsobj["vr"] * 32
-    ud = bool(bdsobj["dvr"])
+    vert_spd = data["vr"] * 32
+    ud = bool(data["dvr"])
     if ud:
       vert_spd = 0 - vert_spd
-    turn_rate = bdsobj["tr"] * 15/62
-    rl = bdsobj["str"]
+    turn_rate = data["tr"] * 15/62
+    rl = data["str"]
     if rl:
       turn_rate = 0 - turn_rate
-    ns_vel = bdsobj["vns"] - 1
-    ns = bool(bdsobj["dns"])
-    ew_vel = bdsobj["vew"] - 1
-    ew = bool(bdsobj["dew"])
+    ns_vel = data["vns"] - 1
+    ns = bool(data["dns"])
+    ew_vel = data["vew"] - 1
+    ew = bool(data["dew"])
     
     velocity = math.hypot(ns_vel, ew_vel)
     if ew:
@@ -296,21 +297,20 @@ class modes_parse:
 
   def parseBDS09_1(self, data):
     #1: ["sub", "icf", "ifr", "nuc", "dew", "vew", "dns", "vns", "vrsrc", "dvr", "vr", "dhd", "hd"],
-    bdsobj = data["me"]["bds09"]
-    alt_geo_diff = bdsobj["hd"] * 25
-    above_below = bool(bdsobj["dhd"])
+    alt_geo_diff = data["hd"] * 25
+    above_below = bool(data["dhd"])
     if above_below:
       alt_geo_diff = 0 - alt_geo_diff;
-    vert_spd = float(bdsobj["vr"] - 1) * 64
-    ud = bool(bdsobj["dvr"])
+    vert_spd = float(data["vr"] - 1) * 64
+    ud = bool(data["dvr"])
     if ud:
       vert_spd = 0 - vert_spd
-    vert_src = bool(bdsobj["vrsrc"])
-    ns_vel = float(bdsobj["vns"])
-    ns = bool(bdsobj["dns"])
-    ew_vel = float(bdsobj["vew"])
-    ew = bool(bdsobj["dew"])
-    subtype = bdsobj["sub"]
+    vert_src = bool(data["vrsrc"])
+    ns_vel = float(data["vns"])
+    ns = bool(data["dns"])
+    ew_vel = float(data["vew"])
+    ew = bool(data["dew"])
+    subtype = data["sub"]
     if subtype == 0x02:
       ns_vel <<= 2
       ew_vel <<= 2
@@ -333,12 +333,12 @@ class modes_parse:
   def parseBDS62(self, data):
     eps_strings = ["NO EMERGENCY", "GENERAL EMERGENCY", "LIFEGUARD/MEDICAL", "FUEL EMERGENCY",
                    "NO COMMUNICATIONS", "UNLAWFUL INTERFERENCE", "RESERVED", "RESERVED"]
-    return eps_strings[data["me"]["eps"]]
+    return eps_strings[data["eps"]]
 
   def parseMB_id(self, data): #bds1 == 2, bds2 == 0
     msg = ""
     for i in range(0, 8):
-      msg += self.charmap( data["mb"]["ais"] >> (42-6*i) & 0x3F)
+      msg += self.charmap( data["ais"] >> (42-6*i) & 0x3F)
     return (msg)
 
   def parseMB_TCAS_resolutions(self, data):
@@ -348,7 +348,7 @@ class modes_parse:
                    49: "DON'T CLIMB >1000FPM", 50: "DON'T CLIMB >2000FPM", 51: "TURN LEFT", 52: "TURN RIGHT",
                    53: "DON'T TURN LEFT", 54: "DON'T TURN RIGHT"}
     rac_bits    = {55: "DON'T DESCEND", 56: "DON'T CLIMB", 57: "DON'T TURN LEFT", 58: "DON'T TURN RIGHT"}
-    ara = data["mb"]["ara"]
+    ara = data["ara"]
     #check to see which bits are set
     resolutions = ""
     for bit, name in ara_bits:
@@ -368,9 +368,9 @@ class modes_parse:
     #3: {"bds1": (33,4), "bds2": (37,4), "ara": (41,14), "rac": (55,4), "rat": (59,1),
     #    "mte": (60,1), "tti": (61,2),  "tida": (63,13), "tidr": (76,7), "tidb": (83,6)}
     (resolutions, complements) = self.parseMB_TCAS_resolutions(data)
-    return (resolutions, complements, data["mb"]["rat"], data["mb"]["mte"], data["mb"]["tcas"]["tid"])
+    return (resolutions, complements, data["rat"], data["mte"], data["tid"])
 
   def parseMB_TCAS_threatloc(self, data): #bds1==3, bds2==0, TTI==2
     (resolutions, complements) = self.parseMB_TCAS_resolutions(data)
-    threat_alt = decode_alt(data["mb"]["tcas"]["tida"], True)
-    return (resolutions, complements, data["mb"]["rat"], data["mb"]["mte"], threat_alt, data["mb"]["tcas"]["tidr"], data["mb"]["tcas"]["tidb"])
+    threat_alt = decode_alt(data["tida"], True)
+    return (resolutions, complements, data["rat"], data["mte"], threat_alt, data["tidr"], data["tidb"])

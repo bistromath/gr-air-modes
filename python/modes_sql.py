@@ -88,7 +88,7 @@ class modes_output_sql(modes_parse.modes_parse):
 
   def sql17(self, data):
     icao24 = data["aa"]
-    subtype = data["me"]["ftc"]
+    subtype = data["ftc"]
 
     retstr = None
 
@@ -112,7 +112,7 @@ class modes_output_sql(modes_parse.modes_parse):
         retstr = "INSERT INTO positions (icao, seen, alt, lat, lon) VALUES (" + "%i" % icao24 + ", datetime('now'), " + str(altitude) + ", " + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
 
     elif subtype == 19:
-      subsubtype = data["me"]["bds09"]["sub"]
+      subsubtype = data["sub"]
       if subsubtype == 0:
         [velocity, heading, vert_spd] = self.parseBDS09_0(data)
         retstr = "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")";

@@ -159,7 +159,7 @@ class modes_output_sbs1(modes_parse.modes_parse):
   def pp17(self, data):
     icao24 = data["aa"]
     aircraft_id = self.get_aircraft_id(icao24)
-    subtype = data["me"]["ftc"]
+    subtype = data["ftc"]
 
     retstr = None
     #we'll get better timestamps later, hopefully with actual VRT time
@@ -192,7 +192,7 @@ class modes_output_sbs1(modes_parse.modes_parse):
     elif subtype == 19:
       # Airborne velocity measurements
       # WRONG (heading, vert_spd), Is this still true?
-      subsubtype = data["me"]["bds09"]["sub"]
+      subsubtype = data["sub"]
       if subsubtype == 0:
         [velocity, heading, vert_spd] = self.parseBDS09_0(data)
         retstr = "MSG,4,0,%i,%06X,%i,%s,%s,%s,%s,,,%.1f,%.1f,,,%i,,,,,\n" % (aircraft_id, icao24, aircraft_id+100, datestr, timestr, datestr, timestr, velocity, heading, vert_spd)

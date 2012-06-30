@@ -34,7 +34,7 @@ class modes_flightgear(modes_parse.modes_parse):
             msgtype = data["df"]
             if msgtype == 17: #ADS-B report
                 icao24 = data["aa"]
-                subtype = data["me"]["sub"]
+                subtype = data["sub"]
                 if subtype == 4: #ident packet
                     (ident, actype) = self.parseBDS08(data)
                     #select model based on actype
@@ -51,7 +51,7 @@ class modes_flightgear(modes_parse.modes_parse):
                     self.update(icao24)
 
                 elif subtype == 19: #velocity
-                    subsubtype = data["me"]["bds09"]["sub"]
+                    subsubtype = data["sub"]
                     if subsubtype == 0:
                         [velocity, heading, vert_spd, turnrate] = self.parseBDS09_0(data)
                     elif 1 <= subsubtype <= 2:

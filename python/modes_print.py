@@ -135,7 +135,7 @@ class modes_output_print(modes_parse.modes_parse):
 
   def print17(self, data):
     icao24 = data["aa"]
-    subtype = data["me"]["ftc"]
+    subtype = data["ftc"]
 
     retstr = None
 
@@ -157,7 +157,7 @@ class modes_output_print(modes_parse.modes_parse):
       retstr += " at " + str(altitude) + "ft"
 
     elif subtype == 19:
-      subsubtype = data["me"]["bds09"]["sub"]
+      subsubtype = data["sub"]
       if subsubtype == 0:
         [velocity, heading, vert_spd] = self.parseBDS09_0(data)
         retstr = "Type 17 subtype 09-0 (track report) from %x with velocity %.0fkt heading %.0f VS %.0f" % (icao24, velocity, heading, vert_spd)
@@ -182,9 +182,8 @@ class modes_output_print(modes_parse.modes_parse):
       [fs, dr, um, alt] = self.parse4(data)
     else:
       [fs, dr, um, ident] = self.parse5(data)
-    mb_fields = data["mb"].get_fields()
-    bds1 = mb_fields["bds1"]
-    bds2 = mb_fields["bds2"]
+    bds1 = data["bds1"]
+    bds2 = data["bds2"]
 
     if bds2 != 0:
       retstr = "No handler for BDS2 == %i from %x" % (bds2, ecc)
@@ -193,12 +192,12 @@ class modes_output_print(modes_parse.modes_parse):
       retstr = "No handler for BDS1 == 0 from %x" % ecc
     elif bds1 == 1:
       retstr = "Type 20 link capability report from %x: ACS: 0x%x, BCS: 0x%x, ECS: 0x%x, continues %i" \
-                % (ecc, mb_fields["acs"], mb_fields["bcs"], mb_fields["ecs"], mb_fields["cfs"])
+                % (ecc, data["acs"], data["bcs"], data["ecs"], data["cfs"])
     elif bds1 == 2:
       retstr = "Type 20 identification from %x with text %s" % (ecc, self.parseMB_id(data))
     elif bds2 == 3:
       retstr = "TCAS report from %x: " % ecc
-      tti = mb_fields["tcas"].get_type()
+      tti = data["tti"]
       if tti == 1:
         (resolutions, complements, rat, mte, threat_id) = self.parseMB_TCAS_threatid(data)
         retstr += "threat ID: %x advised: %s complement: %s" % (threat_id, resolutions, complements)

@@ -51,12 +51,16 @@ class data_field:
   #done once on init so you don't have to iterate down every time you grab a field
   def parse(self):
     fields = {}
-    for field in self.types[self.get_type()]:
-      bits = self.types[self.get_type()][field]
-      if len(bits) == 3:
-        obj = bits[2](self.get_bits(bits[0], bits[1]))
-        fields.update(obj.parse())
-      fields.update({field: self.get_bits(bits[0], bits[1])})
+    mytype = self.get_type()
+    if mytype in self.types:
+      for field in self.types[mytype]:
+        bits = self.types[self.get_type()][field]
+        if len(bits) == 3:
+          obj = bits[2](self.get_bits(bits[0], bits[1]))
+          fields.update(obj.parse())
+        fields.update({field: self.get_bits(bits[0], bits[1])})
+    else:
+      raise NoHandlerError(mytype)
     return fields
 
   def get_type(self):

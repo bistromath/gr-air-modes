@@ -223,7 +223,10 @@ if __name__ == '__main__':
           msg = queue.delete_head() #blocking read
 
           for out in outputs:
-            out(msg.to_string())
+            try:
+              out(msg.to_string())
+            except ADSBError:
+              pass
 
       elif runner.done:
         raise KeyboardInterrupt

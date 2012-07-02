@@ -32,7 +32,6 @@ class modes_output_print(modes_parse.modes_parse):
   def parse(self, message):
     [data, ecc, reference, timestamp] = message.split()
 
-    data = modes_parse.modes_reply(long(data, 16))
     ecc = long(ecc, 16)
     reference = float(reference)
     timestamp = float(timestamp)
@@ -45,6 +44,7 @@ class modes_output_print(modes_parse.modes_parse):
     output = "(%.0f %.10f) " % (refdb, timestamp);
 
     try:
+      data = modes_parse.modes_reply(long(data, 16))
       msgtype = data["df"]
       if msgtype == 0:
         output += self.print0(data, ecc)

@@ -25,9 +25,9 @@ from string import split, join
 from datetime import *
 
 class modes_raw_server:
-  def __init__(self):
+  def __init__(self, port):
     self._s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    self._s.bind(('', 9988))
+    self._s.bind(('', port))
     self._s.listen(1)
     self._s.setblocking(0) #nonblocking
     self._conns = [] #list of active connections

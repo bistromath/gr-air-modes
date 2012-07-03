@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>800</width>
-    <height>600</height>
+    <height>618</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -18,7 +18,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>220</y>
+      <y>240</y>
       <width>91</width>
       <height>281</height>
      </rect>
@@ -30,7 +30,7 @@
       <x>10</x>
       <y>10</y>
       <width>221</width>
-      <height>181</height>
+      <height>191</height>
      </rect>
     </property>
     <property name="title">
@@ -62,20 +62,7 @@
       <string>Source</string>
      </property>
     </widget>
-    <widget class="QLabel" name="label_2">
-     <property name="geometry">
-      <rect>
-       <x>10</x>
-       <y>90</y>
-       <width>66</width>
-       <height>17</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>Gain</string>
-     </property>
-    </widget>
-    <widget class="QComboBox" name="comboSource">
+    <widget class="QComboBox" name="combo_source">
      <property name="geometry">
       <rect>
        <x>90</x>
@@ -85,24 +72,11 @@
       </rect>
      </property>
     </widget>
-    <widget class="QLabel" name="label_4">
-     <property name="geometry">
-      <rect>
-       <x>10</x>
-       <y>150</y>
-       <width>66</width>
-       <height>17</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>Antenna</string>
-     </property>
-    </widget>
     <widget class="QLabel" name="label_3">
      <property name="geometry">
       <rect>
        <x>10</x>
-       <y>120</y>
+       <y>90</y>
        <width>66</width>
        <height>17</height>
       </rect>
@@ -121,54 +95,21 @@
       </rect>
      </property>
     </widget>
-    <widget class="QLineEdit" name="line_gain">
-     <property name="geometry">
-      <rect>
-       <x>90</x>
-       <y>90</y>
-       <width>71</width>
-       <height>27</height>
-      </rect>
-     </property>
-    </widget>
     <widget class="QLineEdit" name="line_threshold">
      <property name="geometry">
       <rect>
        <x>90</x>
-       <y>120</y>
+       <y>90</y>
        <width>71</width>
        <height>27</height>
       </rect>
-     </property>
-    </widget>
-    <widget class="QComboBox" name="combo_ant">
-     <property name="geometry">
-      <rect>
-       <x>90</x>
-       <y>150</y>
-       <width>121</width>
-       <height>27</height>
-      </rect>
-     </property>
-    </widget>
-    <widget class="QLabel" name="label_18">
-     <property name="geometry">
-      <rect>
-       <x>160</x>
-       <y>90</y>
-       <width>31</width>
-       <height>17</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>dB</string>
      </property>
     </widget>
     <widget class="QLabel" name="label_19">
      <property name="geometry">
       <rect>
        <x>160</x>
-       <y>120</y>
+       <y>90</y>
        <width>31</width>
        <height>17</height>
       </rect>
@@ -190,13 +131,112 @@
       <string>Msps</string>
      </property>
     </widget>
+    <widget class="QStackedWidget" name="stack_source">
+     <property name="geometry">
+      <rect>
+       <x>0</x>
+       <y>120</y>
+       <width>221</width>
+       <height>71</height>
+      </rect>
+     </property>
+     <property name="currentIndex">
+      <number>1</number>
+     </property>
+     <widget class="QWidget" name="page_rf">
+      <widget class="QComboBox" name="combo_ant">
+       <property name="geometry">
+        <rect>
+         <x>90</x>
+         <y>40</y>
+         <width>121</width>
+         <height>27</height>
+        </rect>
+       </property>
+      </widget>
+      <widget class="QLineEdit" name="line_gain">
+       <property name="geometry">
+        <rect>
+         <x>90</x>
+         <y>10</y>
+         <width>71</width>
+         <height>27</height>
+        </rect>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_2">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>10</y>
+         <width>66</width>
+         <height>17</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Gain</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_4">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>40</y>
+         <width>66</width>
+         <height>17</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Antenna</string>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_18">
+       <property name="geometry">
+        <rect>
+         <x>160</x>
+         <y>10</y>
+         <width>31</width>
+         <height>17</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>dB</string>
+       </property>
+      </widget>
+     </widget>
+     <widget class="QWidget" name="page_file">
+      <widget class="QLineEdit" name="line_inputfile">
+       <property name="geometry">
+        <rect>
+         <x>90</x>
+         <y>10</y>
+         <width>113</width>
+         <height>27</height>
+        </rect>
+       </property>
+      </widget>
+      <widget class="QLabel" name="label_13">
+       <property name="geometry">
+        <rect>
+         <x>10</x>
+         <y>10</y>
+         <width>66</width>
+         <height>17</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Filename</string>
+       </property>
+      </widget>
+     </widget>
+    </widget>
    </widget>
    <widget class="QGroupBox" name="group_output">
     <property name="geometry">
      <rect>
       <x>260</x>
       <y>10</y>
-      <width>341</width>
+      <width>281</width>
       <height>151</height>
      </rect>
     </property>
@@ -365,7 +405,7 @@
     <property name="geometry">
      <rect>
       <x>100</x>
-      <y>220</y>
+      <y>240</y>
       <width>16</width>
       <height>281</height>
      </rect>
@@ -378,7 +418,7 @@
     <property name="geometry">
      <rect>
       <x>130</x>
-      <y>200</y>
+      <y>220</y>
       <width>651</width>
       <height>301</height>
      </rect>
@@ -692,7 +732,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>200</y>
+      <y>220</y>
       <width>101</width>
       <height>17</height>
      </rect>
@@ -704,7 +744,7 @@
    <widget class="QPushButton" name="button_start">
     <property name="geometry">
      <rect>
-      <x>640</x>
+      <x>670</x>
       <y>30</y>
       <width>98</width>
       <height>27</height>
@@ -718,7 +758,7 @@
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>520</y>
+      <y>540</y>
       <width>271</width>
       <height>22</height>
      </rect>
@@ -726,6 +766,68 @@
     <property name="text">
      <string>Show ADS-B-equipped aircraft only</string>
     </property>
+   </widget>
+   <widget class="QGroupBox" name="groupBox">
+    <property name="geometry">
+     <rect>
+      <x>570</x>
+      <y>90</y>
+      <width>211</width>
+      <height>111</height>
+     </rect>
+    </property>
+    <property name="title">
+     <string>RX position</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+    </property>
+    <widget class="QLabel" name="label_29">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>60</y>
+       <width>71</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Longitude</string>
+     </property>
+    </widget>
+    <widget class="QLineEdit" name="line_my_lon">
+     <property name="geometry">
+      <rect>
+       <x>90</x>
+       <y>60</y>
+       <width>113</width>
+       <height>27</height>
+      </rect>
+     </property>
+    </widget>
+    <widget class="QLineEdit" name="line_my_lat">
+     <property name="geometry">
+      <rect>
+       <x>90</x>
+       <y>30</y>
+       <width>113</width>
+       <height>27</height>
+      </rect>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_28">
+     <property name="geometry">
+      <rect>
+       <x>30</x>
+       <y>40</y>
+       <width>61</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Latitude</string>
+     </property>
+    </widget>
    </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">

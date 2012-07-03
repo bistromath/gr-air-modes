@@ -183,7 +183,7 @@ if __name__ == '__main__':
   updates = [] #registry of plugin update functions
 
   if options.raw is True:
-    rawport = air_modes.modes_raw_server()
+    rawport = air_modes.modes_raw_server(9988) #port
     outputs.append(rawport.output)
     outputs.append(printraw)
     updates.append(rawport.add_pending_conns)
@@ -194,7 +194,7 @@ if __name__ == '__main__':
     outputs.append(kmlgen.output)
 
   if options.sbs1 is True:
-    sbs1port = air_modes.modes_output_sbs1(my_position)
+    sbs1port = air_modes.modes_output_sbs1(my_position, 30003)
     outputs.append(sbs1port.output)
     updates.append(sbs1port.add_pending_conns)
     

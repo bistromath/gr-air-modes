@@ -199,7 +199,7 @@ if __name__ == '__main__':
     updates.append(sbs1port.add_pending_conns)
     
   if options.no_print is not True:
-    outputs.append(air_modes.modes_output_print(my_position).parse)
+    outputs.append(air_modes.modes_output_print(my_position).output)
 
   if options.multiplayer is not None:
     [fghost, fgport] = options.multiplayer.split(':')

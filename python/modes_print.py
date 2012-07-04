@@ -60,14 +60,17 @@ class modes_output_print(modes_parse.modes_parse):
         output += self.print20(data, ecc)
       else:
         output += "No handler for message type %i from %x (but it's in modes_parse)" % (msgtype, ecc)
-      print output
+      return output
     except NoHandlerError as e:
       output += "No handler for message type %s from %x" % (e.msgtype, ecc)
-      print output
+      return output
     except MetricAltError:
       pass
     except CPRNoPositionError:
       pass
+
+  def output(self, msg):
+      print self.parse(msg)
 
   def print0(self, shortdata, ecc):
     [vs, cc, sl, ri, altitude] = self.parse0(shortdata)

@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>800</width>
+    <width>877</width>
     <height>618</height>
    </rect>
   </property>
@@ -419,12 +419,12 @@
      <rect>
       <x>130</x>
       <y>220</y>
-      <width>651</width>
+      <width>741</width>
       <height>301</height>
      </rect>
     </property>
     <property name="currentIndex">
-     <number>0</number>
+     <number>2</number>
     </property>
     <widget class="QWidget" name="dashboard">
      <attribute name="title">
@@ -721,7 +721,7 @@
        <rect>
         <x>5</x>
         <y>11</y>
-        <width>631</width>
+        <width>721</width>
         <height>251</height>
        </rect>
       </property>
@@ -835,7 +835,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>800</width>
+     <width>877</width>
      <height>25</height>
     </rect>
    </property>

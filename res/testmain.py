@@ -5,6 +5,7 @@ from PyQt4 import QtCore,QtGui
 from gnuradio import gr, gru, optfir, eng_notation, blks2
 import gnuradio.gr.gr_threading as _threading
 import air_modes
+from air_modes.modes_exceptions import *
 from test import Ui_MainWindow
 import csv
 
@@ -114,16 +115,17 @@ class mainwindow(QtGui.QMainWindow):
             self.runner = None
             if self.kmlgen is not None:
                 self.kmlgen.done = True
-                #TODO FIXME KMLGEN NEEDS SELFDESTRUCT
+                #TODO FIXME need a way to kill kmlgen safely without delay
+                #self.kmlgen.join()
                 #self.kmlgen = None
 
             self.ui.button_start.setText("Start")
 
         else: #we aren't already running, let's get this party started
             options = {}
-            options["source"] = self.ui.combo_source.currentText()
+            options["source"] = str(self.ui.combo_source.currentText())
             options["rate"] = int(self.ui.combo_rate.currentIndex())
-            options["antenna"] = self.ui.combo_ant.currentText()
+            options["antenna"] = str(self.ui.combo_ant.currentText())
             options["gain"] = float(self.ui.line_gain.text())
             options["threshold"] = float(self.ui.line_threshold.text())
             options["filename"] = str(self.ui.line_inputfile.text())
@@ -162,6 +164,8 @@ class mainwindow(QtGui.QMainWindow):
                 self.outputs.append(rawport.output)
                 self.updates.append(rawport.add_pending_conns)
 
+            self.livedata = air_modes.modes_output_print(my_position)
+
             #add output for live data box
             self.outputs.append(self.output_live_data)
 
@@ -170,7 +174,9 @@ class mainwindow(QtGui.QMainWindow):
             self.ui.button_start.setText("Stop") #modify button text
 
     def output_live_data(self, msg):
-        self.ui.text_livedata.append(msg)
+        msgstr = self.livedata.parse(msg)
+        if msgstr is not None:
+            self.ui.text_livedata.append(msgstr)
 
 
 class output_handler(threading.Thread):
@@ -195,7 +201,7 @@ class output_handler(threading.Thread):
                     except ADSBError:
                         pass
 
-            time.sleep(0.3)
+            time.sleep(0.1)
 
         self.done = True
         
@@ -219,8 +225,9 @@ class adsb_rx_block (gr.top_block):
         gr.top_block.__init__(self)
 
         self.options = options
-        rate = int(options["rate"])
+        rate = options["rate"]
         use_resampler = False
+        freq = 1090e6
 
         if options["source"] == "UHD device":
             from gnuradio import uhd
@@ -229,24 +236,30 @@ class adsb_rx_block (gr.top_block):
             self.u.set_time_now(time_spec)
             self.u.set_antenna(options["antenna"])
             self.u.set_samp_rate(rate)
-            self.u.set_gain(options["gain"])
+            rate = self.u.get_samp_rate()
+            self.u.set_gain(int(options["gain"]))
+            self.u.set_center_freq(freq, 0)
         
         elif options["source"] == "RTL-SDR":
             import osmosdr
             self.u = osmosdr.source_c()
             self.u.set_sample_rate(2.4e6) #fixed for RTL dongles
+            rate = int(4e6)
             self.u.set_gain_mode(0) #manual gain mode
-            self.u.set_gain(options["gain"])
+            self.u.set_gain(int(options["gain"]))
+            self.u.set_center_freq(freq, 0)
             use_resampler = True
 
         elif options["source"] == "File":
             self.u = gr.file_source(gr.sizeof_gr_complex, options["filename"])
+        else:
+            raise NotImplementedError
 
         self.demod = gr.complex_to_mag()
         self.avg = gr.moving_average_ff(100, 1.0/100, 400)
-        
-        self.preamble = air_modes.modes_preamble(rate, options["threshold"])
-        self.slicer = air_modes.modes_slicer(rate, queue)
+
+        self.preamble = air_modes.modes_preamble(int(rate), float(options["threshold"]))
+        self.slicer = air_modes.modes_slicer(int(rate), queue)
 
         if use_resampler:
             self.lpfiltcoeffs = gr.firdes.low_pass(1, 5*2.4e6, 1.2e6, 300e3)
@@ -258,11 +271,15 @@ class adsb_rx_block (gr.top_block):
         self.connect(self.demod, self.avg)
         self.connect(self.demod, (self.preamble, 0))
         self.connect(self.avg, (self.preamble, 1))
-        self.connect((self.preamble, 0), (self.slicer, 0))
+        self.connect(self.preamble, self.slicer)
+        
+class wat_block(gr.top_block):
+    def __init__(self, options, queue):
+        gr.top_block.__init__(self)
 
-    def tune(self, freq):
-        result = self.u.set_center_freq(freq, 0)
-        return result
+        self.src = gr.file_source(gr.sizeof_gr_complex, options["filename"])
+        self.sink = gr.null_sink(gr.sizeof_gr_complex)
+        self.connect(self.src, self.sink)
 
 if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)

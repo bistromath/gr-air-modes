@@ -113,6 +113,7 @@ class mainwindow(QtGui.QMainWindow):
             self.output_handler = None
             self.fg.stop()
             self.runner = None
+            self.fg = None
             if self.kmlgen is not None:
                 self.kmlgen.done = True
                 #TODO FIXME need a way to kill kmlgen safely without delay

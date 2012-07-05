@@ -21,6 +21,7 @@ include(GrPython)
 
 GR_PYTHON_INSTALL(
     PROGRAMS
-    uhd_modes.py
+    modes_rx
+    modes_gui
     DESTINATION bin
 )

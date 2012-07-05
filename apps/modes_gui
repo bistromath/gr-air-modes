@@ -6,7 +6,7 @@ from gnuradio import gr, gru, optfir, eng_notation, blks2
 import gnuradio.gr.gr_threading as _threading
 import air_modes
 from air_modes.modes_exceptions import *
-from test import Ui_MainWindow
+from air_modes.modes_rx_ui import Ui_MainWindow
 import csv
 
 class mainwindow(QtGui.QMainWindow):

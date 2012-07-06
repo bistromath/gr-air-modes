@@ -21,13 +21,11 @@
 
 import sqlite3
 import string, math, threading, time
-from air_modes.modes_sql import modes_output_sql
 
-class modes_kml(threading.Thread, modes_output_sql):
-    def __init__(self, filename, localpos, timeout=5):
+class modes_kml(threading.Thread):
+    def __init__(self, filename, dbname, localpos, timeout=5):
         threading.Thread.__init__(self)
-        self._dbname = 'adsb.db'
-        modes_output_sql.__init__(self, localpos, self._dbname) #write to the db
+        self._dbname = dbname
         self._filename = filename
         self.my_coords = localpos
         self._timeout = timeout
@@ -43,6 +41,8 @@ class modes_kml(threading.Thread, modes_output_sql):
             time.sleep(self._timeout) 
                 
         self.done = True
+        self._db.close()
+        self._db = None
         
     def writekml(self):
         kmlstr = self.genkml()

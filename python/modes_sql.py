@@ -29,6 +29,7 @@ class modes_output_sql(modes_parse.modes_parse):
   def __init__(self, mypos, filename):
     modes_parse.modes_parse.__init__(self, mypos)
     #create the database
+    self.filename = filename
     self.db = sqlite3.connect(filename)
     #now execute a schema to create the tables you need
     c = self.db.cursor()
@@ -54,18 +55,28 @@ class modes_output_sql(modes_parse.modes_parse):
             );"""
     c.execute(query)
     c.close()
+    #we close the db conn now to reopen it in the output() thread context.
+    self.db.close()
+    self.db = None
 
   def __del__(self):
-    self.db.close()
+    self.db = None
 
   def output(self, message):
     try:
+      #we're checking to see if the db is empty, and creating the db object
+      #if it is. the reason for this is so that the db writing is done within
+      #the thread context of output(), rather than the thread context of the
+      #constructor. that way you can spawn a thread to do output().
+      if self.db is None:
+        self.db = sqlite3.connect(self.filename)
+          
       query = self.make_insert_query(message)
       if query is not None:
         c = self.db.cursor()
         c.execute(query)
         c.close()
-        self.db.commit()
+        self.db.commit() #don't know if this is necessary
     except ADSBError:
       pass
 

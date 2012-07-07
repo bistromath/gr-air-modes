@@ -24,7 +24,7 @@
      </rect>
     </property>
     <property name="currentIndex">
-     <number>0</number>
+     <number>1</number>
     </property>
     <widget class="QWidget" name="tab">
      <attribute name="title">
@@ -602,7 +602,7 @@
       <property name="geometry">
        <rect>
         <x>370</x>
-        <y>90</y>
+        <y>120</y>
         <width>51</width>
         <height>20</height>
        </rect>
@@ -654,7 +654,7 @@
       <property name="geometry">
        <rect>
         <x>410</x>
-        <y>90</y>
+        <y>120</y>
         <width>71</width>
         <height>27</height>
        </rect>
@@ -667,7 +667,7 @@
       <property name="geometry">
        <rect>
         <x>410</x>
-        <y>120</y>
+        <y>150</y>
         <width>121</width>
         <height>27</height>
        </rect>
@@ -680,7 +680,7 @@
       <property name="geometry">
        <rect>
         <x>370</x>
-        <y>120</y>
+        <y>150</y>
         <width>51</width>
         <height>20</height>
        </rect>
@@ -739,6 +739,45 @@
       </property>
       <property name="text">
        <string>Longitude</string>
+      </property>
+     </widget>
+     <widget class="QLineEdit" name="line_climb">
+      <property name="geometry">
+       <rect>
+        <x>410</x>
+        <y>90</y>
+        <width>71</width>
+        <height>27</height>
+       </rect>
+      </property>
+      <property name="readOnly">
+       <bool>true</bool>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_30">
+      <property name="geometry">
+       <rect>
+        <x>480</x>
+        <y>90</y>
+        <width>31</width>
+        <height>17</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>ft/s</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_31">
+      <property name="geometry">
+       <rect>
+        <x>370</x>
+        <y>90</y>
+        <width>41</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Climb</string>
       </property>
      </widget>
     </widget>

@@ -195,14 +195,47 @@ class mainwindow(QtGui.QMainWindow):
             self.ui.text_livedata.append(msgstr)
             self.ui.text_livedata.verticalScrollBar().setSliderPosition(self.ui.text_livedata.verticalScrollBar().maximum())
 
+    #refresh dashboard display with info from clicked aircraft.
+    #this can either be on-click (hence the name for auto slot) or
+    #due to a database update.
     def on_list_aircraft_clicked(self, index):
         icao = long(str(index.data().toString()), 16)
-        #ok now let's fetch the info for this icao and update the display
-        print icao
+        self.db = sqlite3.connect(self.dbname)
+        
+        #get ident
+        q = "select ident from ident where icao=%i" % icao
+        cursor = self.db.cursor()
+        cursor.execute(q)
+        ident = cursor.fetchall()
+        self.ui.line_ident.clear()
+        if len(ident) > 0:
+            self.ui.line_ident.insert(ident[-1][0])
+
+        #get vector info
+        q = "select seen, speed, heading, vertical from vectors where icao=%i order by seen desc limit 1" % icao
+        cursor.execute(q)
+        r = cursor.fetchall()
+        speed = "-"
+        vs = "-"
+        heading = 0
+        seen = time.time()
+        if len(r) != 0:
+            seen = r[0][0]
+            speed = "%i" % r[0][1]
+            heading = r[0][2]
+            vs = "%i" % r[0][3]
+
+        self.ui.line_speed.clear()
+        self.ui.line_climb.clear()
+        self.ui.line_speed.insert(speed)
+        self.ui.line_climb.insert(vs)
 
 #eventually: set up a QTimer or whatever and have it self-update and emit dataChanged()
 #better yet just have the SQL interface yell and say hey that line changed.
 #on selected aircraft or on update for visible aircraft, emit signal to update current dashboard display.
+#maybe the datamodel should be responsible for inserting data into the SQL db as well, making this the
+#main interface. this could subclass modes_sql for insert functionality. then you get the ability to
+#invalidate on update.
 class modes_datamodel(QtCore.QAbstractListModel):
     def __init__(self, dbname):
         QtCore.QAbstractListModel.__init__(self)
@@ -222,6 +255,7 @@ class modes_datamodel(QtCore.QAbstractListModel):
         if role != QtCore.Qt.DisplayRole:
             return QtCore.QVariant()
 
+        #TODO eventually find a way to populate the ICAOs with fading according to age
         icaoquery = "select distinct icao from positions order by icao"
         cursor = self.db.cursor()
         cursor.execute(icaoquery)

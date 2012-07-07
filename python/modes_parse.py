@@ -75,9 +75,14 @@ class data_field:
   def get_bits(self, *args):
     startbit = args[0]
     num = args[1]
-    bits = (self.data \
-        >> (self.get_numbits() - startbit - num + self.offset)) \
-         & ((1 << num) - 1)
+    bits = 0
+    try:
+      bits = (self.data \
+          >> (self.get_numbits() - startbit - num + self.offset)) \
+           & ((1 << num) - 1)
+    except ValueError:
+      #pass
+      print "Got short packet but expected long retrieving bits (%i, %i) with type %i" % (startbit, num, self.get_type())
     return bits
 
 class bds09_reply(data_field):

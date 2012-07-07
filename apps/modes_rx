@@ -227,7 +227,7 @@ if __name__ == '__main__':
           for out in outputs:
             try:
               out(msg.to_string())
-            except ADSBError:
+            except air_modes.ADSBError:
               pass
 
       elif runner.done:

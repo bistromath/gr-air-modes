@@ -837,7 +837,7 @@
      <string>Show ADS-B-equipped aircraft only</string>
     </property>
    </widget>
-   <widget class="ModeSFadingListView" name="list_aircraft">
+   <widget class="QListView" name="list_aircraft">
     <property name="geometry">
      <rect>
       <x>15</x>
@@ -863,13 +863,6 @@
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
- <customwidgets>
-  <customwidget>
-   <class>ModeSFadingListView</class>
-   <extends>QListView</extends>
-   <header>air_modes.modesfadinglistview</header>
-  </customwidget>
- </customwidgets>
  <resources/>
  <connections/>
 </ui>

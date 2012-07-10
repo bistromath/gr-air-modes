@@ -42,7 +42,6 @@ GR_PYTHON_INSTALL(
     modes_raw_server.py
     modes_sbs1.py
     modes_sql.py
-    modesfadinglistview.py
     Quaternion.py
     DESTINATION ${GR_PYTHON_DIR}/air_modes
 )

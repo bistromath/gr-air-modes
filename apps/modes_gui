@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import os, sys, time, threading
-from PyQt4 import QtCore,QtGui
+from PyQt4 import QtCore,QtGui,QtSql
 from gnuradio import gr, gru, optfir, eng_notation, blks2
 import gnuradio.gr.gr_threading as _threading
 import air_modes
@@ -55,11 +55,18 @@ class mainwindow(QtGui.QMainWindow):
         self.kmlgen = None #necessary bc we stop its thread in shutdown
         self.dbinput = None
 
+        #connect the database to the model and the model to the listview
         self.dbname = 'air_modes.db'
-
-        self.datamodel = modes_datamodel(self.dbname)
+        self.db = QtSql.QSqlDatabase.addDatabase("QSQLITE")
+        self.db.setDatabaseName(self.dbname)
+        self.db.open()
+        #self.db = sqlite3.connect(self.dbname)
+        self.datamodel = modes_datamodel(self.db)
+        #self.datamodel = QtSql.QSqlQueryModel(None)
+        #self.datamodel.setQuery(QtSql.QSqlQuery("select distinct icao from positions order by icao"))
         self.ui.list_aircraft.setModel(self.datamodel)
-        self.ui.list_aircraft.show() #TODO remove
+        self.ui.list_aircraft.setModelColumn(0)
+        #self.ui.list_aircraft.show() #TODO remove
 
     #goes and gets valid antenna, sample rate options from the device and grays out appropriate things
     def populate_source_options(self):
@@ -198,8 +205,10 @@ class mainwindow(QtGui.QMainWindow):
     #refresh dashboard display with info from clicked aircraft.
     #this can either be on-click (hence the name for auto slot) or
     #due to a database update.
+    #this is all due to be replaced by model accesses. do not update.
     def on_list_aircraft_clicked(self, index):
         icao = long(str(index.data().toString()), 16)
+        #icao = index.data().toInt()[0]
         self.db = sqlite3.connect(self.dbname)
         
         #get ident
@@ -236,17 +245,21 @@ class mainwindow(QtGui.QMainWindow):
 #maybe the datamodel should be responsible for inserting data into the SQL db as well, making this the
 #main interface. this could subclass modes_sql for insert functionality. then you get the ability to
 #invalidate on update.
-class modes_datamodel(QtCore.QAbstractListModel):
-    def __init__(self, dbname):
-        QtCore.QAbstractListModel.__init__(self)
-        self.db = sqlite3.connect(dbname)
+class modes_datamodel(QtCore.QAbstractItemModel):
+    def __init__(self, db):
+        QtCore.QAbstractItemModel.__init__(self)
+        self.db = db
+        
     def rowCount(self, parent=QtCore.QModelIndex()):
         icaoquery = "select count(distinct icao) from positions"
-        cursor = self.db.cursor()
-        cursor.execute(icaoquery)
-        icaolist = cursor.fetchall()
-        cursor.close()
-        return icaolist[0][0]
+        query = QtSql.QSqlQuery()
+        query.exec_(icaoquery)
+        query.next()
+        return query.value(0).toInt()[0]
+                
+    def columnCount(self, parent=QtCore.QModelIndex()):
+        return 2
+    
     def data(self, index, role=QtCore.Qt.DisplayRole):
         if not index.isValid():
             return QtCore.QVariant()
@@ -256,12 +269,29 @@ class modes_datamodel(QtCore.QAbstractListModel):
             return QtCore.QVariant()
 
         #TODO eventually find a way to populate the ICAOs with fading according to age
-        icaoquery = "select distinct icao from positions order by icao"
-        cursor = self.db.cursor()
-        cursor.execute(icaoquery)
-        icaolist = cursor.fetchall()
-        cursor.close()
-        return "%06x" % icaolist[index.row()][0]
+        icaoquery = "select distinct icao from positions order by icao limit %i,1" % index.row()
+        query = QtSql.QSqlQuery()
+        query.exec_(icaoquery)
+        query.next()
+        icao = query.value(0).toInt()[0]
+        icaostr = "%06x" % icao
+        seenquery = "select seen from positions where icao = %i order by seen desc limit 1" % icao
+        query = QtSql.QSqlQuery()
+        query.exec_(seenquery)
+        query.next()
+        seen = query.value(0).toString()
+        if index.column() == 0:
+            return icaostr
+        if index.column() == 1:
+            return seen
+
+        return QtCore.QVariant()
+
+    def index(self, row, column, parent=QtCore.QModelIndex()):
+        return self.createIndex(row, column)
+
+    def parent(self, child):
+        return QtCore.QModelIndex()
 
 class output_handler(threading.Thread):
     def __init__(self, outputs, updates, queue):

@@ -69,6 +69,10 @@ class mainwindow(QtGui.QMainWindow):
         self.dashboard_mapper = QtGui.QDataWidgetMapper()
         self.dashboard_mapper.setModel(self.datamodel)
         self.dashboard_mapper.addMapping(self.ui.line_ident, 2)
+        self.dashboard_mapper.addMapping(self.ui.line_alt, 3)
+        self.dashboard_mapper.addMapping(self.ui.line_latitude, 4)
+        self.dashboard_mapper.addMapping(self.ui.line_longitude, 5)
+        self.ui.list_aircraft.selectionModel().currentRowChanged.connect(self.dashboard_mapper.setCurrentModelIndex)
 
 
     #goes and gets valid antenna, sample rate options from the device and grays out appropriate things
@@ -205,38 +209,6 @@ class mainwindow(QtGui.QMainWindow):
             self.ui.text_livedata.append(msgstr)
             self.ui.text_livedata.verticalScrollBar().setSliderPosition(self.ui.text_livedata.verticalScrollBar().maximum())
 
-    #refresh dashboard display with info from clicked aircraft.
-    #this can either be on-click (hence the name for auto slot) or
-    #due to a database update.
-    def on_list_aircraft_clicked(self, index):
-        icao = long(str(index.data().toString()), 16)
-        #icao = index.data().toInt()[0]
-        self.db = sqlite3.connect(self.dbname)
-        
-        #self.ui.line_ident.clear()
-        #self.ui.line_ident.insert(index.model().data(index.model().index(index.row(), 2)))
-        self.dashboard_mapper.setCurrentIndex(index.row())
-
-        #get vector info
-        q = "select seen, speed, heading, vertical from vectors where icao=%i order by seen desc limit 1" % icao
-        cursor = self.db.cursor()
-        cursor.execute(q)
-        r = cursor.fetchall()
-        speed = "-"
-        vs = "-"
-        heading = 0
-        seen = time.time()
-        if len(r) != 0:
-            seen = r[0][0]
-            speed = "%i" % r[0][1]
-            heading = r[0][2]
-            vs = "%i" % r[0][3]
-
-        self.ui.line_speed.clear()
-        self.ui.line_climb.clear()
-        self.ui.line_speed.insert(speed)
-        self.ui.line_climb.insert(vs)
-
 #all this does is fade the ICAOs out as their last report gets older
 class ICAOViewDelegate(QtGui.QStyledItemDelegate):
     def paint(self, painter, option, index):
@@ -250,6 +222,11 @@ class ICAOViewDelegate(QtGui.QStyledItemDelegate):
         painter.drawText(option.rect.left()+3, option.rect.top(), option.rect.width(), option.rect.height(), option.displayAlignment, paintstr)
         #TODO: draw highlight for selection
 
+#so, not to be a dick or anything, but this thing could be entirely
+#replaced with a clever SQL join or just a separate SQL table flattened
+#in modes_sql and designed specifically for this. you can keep the older
+#ones, too. this would let you access indices by column name, too. bonus.
+#you wouldn't get the nice hierarchical tree view, though. what does that lose you?
 class modes_datamodel(QtCore.QAbstractItemModel):
     def __init__(self, db):
         QtCore.QAbstractItemModel.__init__(self)
@@ -282,23 +259,29 @@ class modes_datamodel(QtCore.QAbstractItemModel):
             query.exec_(icaoquery)
             query.next()
             icao = query.value(0).toInt()[0]
+            #TODO figure out how to grab multiple records in one query and return them all?
             if index.column() == 0: #ICAO
                 return "%06x" % icao
             elif index.column() == 1: #last seen
                 seenquery = "select seen from positions where icao = %i order by seen desc limit 1" % icao
                 query.exec_(seenquery)
-                query.next()
-                return query.value(0).toString()
+                return "" if query.next() is False else query.value(0).toString()
             elif index.column() == 2: #ident
                 identquery = "select ident from ident where icao = %i" % icao
                 query.exec_(identquery)
-                if query.next() is False:
-                    return ""
-                return query.value(0).toString()
-            elif index.column() == 3: #last position
-                return QtCore.QVariant()
-            elif index.column() == 4: #last vector
-                return QtCore.QVariant()
+                return "" if query.next() is False else query.value(0).toString()
+            elif index.column() == 3: #altitude
+                querystr = "select alt from positions where icao = %i order by seen desc limit 1" % icao
+                query.exec_(querystr)
+                return "" if query.next() is False else "%i" % query.value(0).toInt()[0]
+            elif index.column() == 4: #latitude
+                querystr = "select lat from positions where icao = %i order by seen desc limit 1" % icao
+                query.exec_(querystr)
+                return "" if query.next() is False else "%.6f" % query.value(0).toFloat()[0]
+            elif index.column() == 5: #longitude
+                querystr = "select lon from positions where icao = %i order by seen desc limit 1" % icao
+                query.exec_(querystr)
+                return "" if query.next() is False else "%.6f" % query.value(0).toFloat()[0]
 
         else:
             return QtCore.QVariant()

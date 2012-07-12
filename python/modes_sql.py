@@ -19,7 +19,7 @@
 # Boston, MA 02110-1301, USA.
 # 
 
-import time, os, sys
+import time, os, sys, math
 from string import split, join
 import modes_parse
 import sqlite3
@@ -54,6 +54,20 @@ class modes_output_sql(modes_parse.modes_parse):
                 "ident"    TEXT NOT NULL
             );"""
     c.execute(query)
+    query = """CREATE TABLE IF NOT EXISTS "aircraft" (
+                "icao" integer primary key not null,
+                "seen" text not null,
+                "rssi" real,
+                "latitude" real,
+                "longitude" real,
+                "altitude" real,
+                "speed" real,
+                "heading" real,
+                "vertical" real,
+                "ident" text,
+                "type" text
+            );"""
+    c.execute(query)
     c.close()
     #we close the db conn now to reopen it in the output() thread context.
     self.db.close()
@@ -71,12 +85,8 @@ class modes_output_sql(modes_parse.modes_parse):
       if self.db is None:
         self.db = sqlite3.connect(self.filename)
           
-      query = self.make_insert_query(message)
-      if query is not None:
-        c = self.db.cursor()
-        c.execute(query)
-        c.close()
-        self.db.commit() #don't know if this is necessary
+      self.make_insert_query(message)
+      self.db.commit() #don't know if this is necessary
     except ADSBError:
       pass
 
@@ -87,49 +97,60 @@ class modes_output_sql(modes_parse.modes_parse):
 
     data = modes_parse.modes_reply(long(data, 16))
     ecc = long(ecc, 16)
-#   reference = float(reference)
+    rssi = 10.0*math.log10(float(reference))
 
 
     query = None
     msgtype = data["df"]
     if msgtype == 17:
-      query = self.sql17(data)
+      query = self.sql17(data, rssi)
 
     return query
 
-  def sql17(self, data):
+  def sql17(self, data, rssi):
     icao24 = data["aa"]
     subtype = data["ftc"]
-
-    retstr = None
+    c = self.db.cursor()
 
     if subtype == 4:
-      (msg, typename) = self.parseBDS08(data)
-      retstr = "INSERT OR REPLACE INTO ident (icao, ident) VALUES (" + "%i" % icao24 + ", '" + msg + "')"
+      (ident, typename) = self.parseBDS08(data)
+      c.execute("insert or ignore into aircraft (icao, seen, rssi, ident, type) values (%i, datetime('now'), %f, '%s', '%s')" % (icao24, rssi, ident, typename))
+      c.execute("update aircraft set seen=datetime('now'), rssi=%f, ident='%s', type='%s' where icao=%i" % (rssi, ident, typename, icao24))
 
     elif subtype >= 5 and subtype <= 8:
       [ground_track, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(data)
       altitude = 0
       if decoded_lat is None: #no unambiguously valid position available
-        retstr = None
+        c.execute("insert or ignore into aircraft (icao, seen, rssi) values (%i, datetime('now'), %f)" % (icao24, rssi))
+        c.execute("update aircraft set seen=datetime('now'), rssi=%f where icao=%i" % (icao24, rssi))
       else:
-        retstr = "INSERT INTO positions (icao, seen, alt, lat, lon) VALUES (" + "%i" % icao24 + ", datetime('now'), " + str(altitude) + ", " + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
+        c.execute("insert or ignore into aircraft (icao, seen, rssi, latitude, longitude, altitude) \
+                   values (%i, datetime('now'), %f, %.6f, %.6f, %i)" % (icao24, rssi, decoded_lat, decoded_lon, altitude))
+        c.execute("update aircraft set seen=datetime('now'), rssi=%f, latitude=%.6f, longitude=%.6f, altitude=%i" % (rssi, decoded_lat, decoded_lon, altitude))
 
     elif subtype >= 9 and subtype <= 18 and subtype != 15: #i'm eliminating type 15 records because they don't appear to be valid position reports.
       [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(data)
       if decoded_lat is None: #no unambiguously valid position available
-        retstr = None
+        c.execute("insert or ignore into aircraft (icao, seen, rssi) values (%i, datetime('now'), %f);" % (icao24, rssi))
+        c.execute("update aircraft set seen=datetime('now'), rssi=%f where icao=%i" % (icao24, rssi))
       else:
-        retstr = "INSERT INTO positions (icao, seen, alt, lat, lon) VALUES (" + "%i" % icao24 + ", datetime('now'), " + str(altitude) + ", " + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
+        c.execute("insert or ignore into aircraft (icao, seen, rssi, latitude, longitude, altitude)  \
+                   values (%i, datetime('now'), %f, %.6f, %.6f, %i)" % (icao24, rssi, decoded_lat, decoded_lon, altitude))
+        c.execute("update aircraft set seen=datetime('now'), rssi=%f, latitude=%.6f, longitude=%.6f, altitude=%i where icao=%i" % (rssi, decoded_lat, decoded_lon, altitude, icao24))
 
     elif subtype == 19:
       subsubtype = data["sub"]
       if subsubtype == 0:
         [velocity, heading, vert_spd] = self.parseBDS09_0(data)
-        retstr = "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")";
 
       elif 1 <= subsubtype <= 2:
         [velocity, heading, vert_spd] = self.parseBDS09_1(data)
-        retstr = "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")";
+      else:
+        return None
+      
+      c.execute("insert or ignore into aircraft (icao, seen, rssi, speed, heading, vertical) \
+                 values (%i, datetime('now'), %f, %.0f, %.0f, %.0f);" % (icao24, rssi, velocity, heading, vert_spd))
+      c.execute("update aircraft set seen=datetime('now'), rssi=%f, speed=%.0f, heading=%.0f, vertical=%.0f where icao=%i" % (rssi, velocity, heading, vert_spd, icao24))
 
-    return retstr
+
+    c.close()

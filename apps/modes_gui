@@ -2,6 +2,7 @@
 
 import os, sys, time, threading, datetime
 from PyQt4 import QtCore,QtGui,QtSql
+from PyQt4.Qwt5 import Qwt
 from gnuradio import gr, gru, optfir, eng_notation, blks2
 import gnuradio.gr.gr_threading as _threading
 import air_modes
@@ -29,6 +30,9 @@ class mainwindow(QtGui.QMainWindow):
 
         #default to 3dB
         self.ui.line_threshold.insert("3")
+
+        self.ui.prog_rssi.setMinimum(-20)
+        self.ui.prog_rssi.setMaximum(0)
 
         self.ui.combo_ant.setCurrentIndex(self.ui.combo_ant.findText("RX2"))
 
@@ -65,23 +69,53 @@ class mainwindow(QtGui.QMainWindow):
         
         self.ui.list_aircraft.setModel(self.datamodel)
         self.ui.list_aircraft.setModelColumn(0)
-        
+
+        #set up dashboard views
         self.icaodelegate = ICAOViewDelegate()
         self.ui.list_aircraft.setItemDelegate(self.icaodelegate)
         self.dashboard_mapper = QtGui.QDataWidgetMapper()
         self.dashboard_mapper.setModel(self.datamodel)
-        self.dashboard_mapper.addMapping(self.ui.prog_rssi, 2)
+        #self.dashboard_mapper.addMapping(self.ui.prog_rssi, 2)
         self.dashboard_mapper.addMapping(self.ui.line_latitude, 3)
         self.dashboard_mapper.addMapping(self.ui.line_longitude, 4)
         self.dashboard_mapper.addMapping(self.ui.line_alt, 5)
         self.dashboard_mapper.addMapping(self.ui.line_speed, 6)
-        #self.dashboard_mapper.addMapping(self.ui.line_heading, 7)
+        #self.dashboard_mapper.addMapping(self.ui.compass_heading, 7)
         self.dashboard_mapper.addMapping(self.ui.line_climb, 8)
         self.dashboard_mapper.addMapping(self.ui.line_ident, 9)
         self.dashboard_mapper.addMapping(self.ui.line_type, 10)
 
+        compass_palette = QtGui.QPalette()
+        compass_palette.setColor(QtGui.QPalette.Foreground, QtCore.Qt.white)
+        self.ui.compass_heading.setPalette(compass_palette)
+        self.ui.compass_heading.setNeedle(Qwt.QwtDialSimpleNeedle(Qwt.QwtDialSimpleNeedle.Ray, False, QtCore.Qt.black))
+        self.ui.compass_heading.setValue(315.0)
+
         #hook up the update signal
         self.ui.list_aircraft.selectionModel().currentRowChanged.connect(self.dashboard_mapper.setCurrentModelIndex)
+        self.ui.list_aircraft.selectionModel().currentRowChanged.connect(self.update_heading_widget)
+        self.ui.list_aircraft.selectionModel().currentRowChanged.connect(self.update_rssi_widget)
+
+    def update_heading_widget(self, index):
+        heading = index.model().data(index.model().index(index.row(), 7)).toFloat()[0]
+        self.ui.compass_heading.setValue(heading)
+
+    def update_rssi_widget(self, index):
+        rssi = index.model().data(index.model().index(index.row(), 2)).toFloat()[0]
+        self.ui.prog_rssi.setValue(rssi)
+
+    #this is fired off by the main loop each time a packet comes in.
+    #eventually you might have this set to just QTimer, depending on how fast things go
+    #this is also updated on EVERY mode S packet, not just valid ADS-B
+    #the RIGHT way to do this is:
+    #all SQL is done inside the datamodel, which can be a QSqlTableModel type.
+    #No fields are editable by the user.
+    #when an update happens, the SQL model determines the row which has changed (by ICAO)
+    #the SQL model then invalidates that row, which will selectively update the list and hopefully the mapper.
+    def update_gui_widgets(self, msg):
+        #self.datamodel.reset() #this is hella bad
+        self.datamodel.setQuery("select * from aircraft order by icao")
+        self.dashboard_mapper.revert()
 
     #goes and gets valid antenna, sample rate options from the device and grays out appropriate things
     def populate_source_options(self):
@@ -173,7 +207,7 @@ class mainwindow(QtGui.QMainWindow):
             except:
                 my_position = None
 
-            self.outputs = []
+            self.outputs = [self.update_gui_widgets]
             self.updates = []
 
             #output options to populate outputs, updates
@@ -222,7 +256,7 @@ class ICAOViewDelegate(QtGui.QStyledItemDelegate):
     def paint(self, painter, option, index):
         paintstr = "%x" % index.model().data(index.model().index(index.row(), 0)).toInt()[0]
         last_report = str(index.model().data(index.model().index(index.row(), 1)).toString())
-        age = (datetime.datetime.now() - datetime.datetime.strptime(last_report, "%Y-%m-%d %H:%M:%S")).total_seconds()
+        age = (datetime.datetime.utcnow() - datetime.datetime.strptime(last_report, "%Y-%m-%d %H:%M:%S")).total_seconds()
         #minimum alpha is 0x40 (oldest), max is 0xFF (newest)
         alpha = 0xFF - (0xBF / 600.) * min(age, 600)
         painter.setPen(QtGui.QColor(0, 0, 0, alpha))

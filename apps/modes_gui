@@ -60,17 +60,18 @@ class mainwindow(QtGui.QMainWindow):
         self.dbinput = None
 
         #connect the database to the model and the model to the listview
-        self.dbname = 'air_modes.db'
-        self.db = QtSql.QSqlDatabase.addDatabase("QSQLITE")
-        self.db.setDatabaseName(self.dbname)
-        self.db.open()
-        self.datamodel = QtSql.QSqlQueryModel()
-        self.datamodel.setQuery("select * from aircraft order by icao")
+#        self.dbname = 'air_modes.db'
+#        self.db = QtSql.QSqlDatabase.addDatabase("QSQLITE")
+#        self.db.setDatabaseName(self.dbname)
+#        self.db.open()
+        self.datamodel = dashboard_data_model(None)
         
         self.ui.list_aircraft.setModel(self.datamodel)
         self.ui.list_aircraft.setModelColumn(0)
 
         #set up dashboard views
+        #TODO: figure out why you can't update the RSSI or compass widgets with this mapper
+        #pretty sure it's a Qt bug in the SQL code -- returns as string instead of double
         self.icaodelegate = ICAOViewDelegate()
         self.ui.list_aircraft.setItemDelegate(self.icaodelegate)
         self.dashboard_mapper = QtGui.QDataWidgetMapper()
@@ -88,6 +89,7 @@ class mainwindow(QtGui.QMainWindow):
         compass_palette = QtGui.QPalette()
         compass_palette.setColor(QtGui.QPalette.Foreground, QtCore.Qt.white)
         self.ui.compass_heading.setPalette(compass_palette)
+        #TODO: change the needle to an aircraft silhouette
         self.ui.compass_heading.setNeedle(Qwt.QwtDialSimpleNeedle(Qwt.QwtDialSimpleNeedle.Ray, False, QtCore.Qt.black))
         self.ui.compass_heading.setValue(315.0)
 
@@ -103,19 +105,6 @@ class mainwindow(QtGui.QMainWindow):
     def update_rssi_widget(self, index):
         rssi = index.model().data(index.model().index(index.row(), 2)).toFloat()[0]
         self.ui.prog_rssi.setValue(rssi)
-
-    #this is fired off by the main loop each time a packet comes in.
-    #eventually you might have this set to just QTimer, depending on how fast things go
-    #this is also updated on EVERY mode S packet, not just valid ADS-B
-    #the RIGHT way to do this is:
-    #all SQL is done inside the datamodel, which can be a QSqlTableModel type.
-    #No fields are editable by the user.
-    #when an update happens, the SQL model determines the row which has changed (by ICAO)
-    #the SQL model then invalidates that row, which will selectively update the list and hopefully the mapper.
-    def update_gui_widgets(self, msg):
-        #self.datamodel.reset() #this is hella bad
-        self.datamodel.setQuery("select * from aircraft order by icao")
-        self.dashboard_mapper.revert()
 
     #goes and gets valid antenna, sample rate options from the device and grays out appropriate things
     def populate_source_options(self):
@@ -207,7 +196,7 @@ class mainwindow(QtGui.QMainWindow):
             except:
                 my_position = None
 
-            self.outputs = [self.update_gui_widgets]
+            self.outputs = []
             self.updates = []
 
             #output options to populate outputs, updates
@@ -254,7 +243,7 @@ class mainwindow(QtGui.QMainWindow):
 #all this does is fade the ICAOs out as their last report gets older
 class ICAOViewDelegate(QtGui.QStyledItemDelegate):
     def paint(self, painter, option, index):
-        paintstr = "%x" % index.model().data(index.model().index(index.row(), 0)).toInt()[0]
+        paintstr = "%06x" % index.model().data(index.model().index(index.row(), 0)).toInt()[0]
         last_report = str(index.model().data(index.model().index(index.row(), 1)).toString())
         age = (datetime.datetime.utcnow() - datetime.datetime.strptime(last_report, "%Y-%m-%d %H:%M:%S")).total_seconds()
         #minimum alpha is 0x40 (oldest), max is 0xFF (newest)
@@ -263,6 +252,30 @@ class ICAOViewDelegate(QtGui.QStyledItemDelegate):
         #QtGui.QStyledItemDelegate.paint(self, painter, option, index)
         painter.drawText(option.rect.left()+3, option.rect.top(), option.rect.width(), option.rect.height(), option.displayAlignment, paintstr)
         #TODO: draw highlight for selection
+
+class dashboard_data_model(QtCore.QAbstractTableModel):
+    def __init__(self, parent):
+        QtCore.QAbstractTableModel.__init__(self, parent)
+        self._data = []
+        self._colnames = ["icao", "seen", "rssi", "latitude", "longitude", "altitude", "speed", "heading", "vertical", "ident", "type"]
+        self._data.append([0x012345, "2012-07-12 09:17:51", -12.23, 31.12345, -112.12345, 86200.0, 776.0, 251.0, 11200.0, "BUTTSEX", "WAT"])
+    def rowCount(self, parent=QtCore.QVariant()):
+        return len(self._data)
+    def columnCount(self, parent=QtCore.QVariant()):
+        return len(self._colnames)
+    def data(self, index, role=QtCore.Qt.DisplayRole):
+        if not index.isValid():
+            return QtCore.QVariant()
+        if index.row() >= self.rowCount():
+            return QtCore.QVariant()
+        if index.column() >= self.columnCount():
+            return QtCore.QVariant()
+        if (role != QtCore.Qt.DisplayRole) and (role != QtCore.Qt.EditRole):
+            return QtCore.QVariant()
+        if self._data[index.row()][index.column()] is None:
+            return QtCore.QVariant()
+        else:
+            return QtCore.QVariant(self._data[index.row()][index.column()])
 
 class output_handler(threading.Thread):
     def __init__(self, outputs, updates, queue):

@@ -478,7 +478,7 @@
       <property name="geometry">
        <rect>
         <x>480</x>
-        <y>30</y>
+        <y>60</y>
         <width>21</width>
         <height>17</height>
        </rect>
@@ -491,7 +491,7 @@
       <property name="geometry">
        <rect>
         <x>480</x>
-        <y>60</y>
+        <y>90</y>
         <width>21</width>
         <height>17</height>
        </rect>
@@ -530,7 +530,7 @@
       <property name="geometry">
        <rect>
         <x>120</x>
-        <y>150</y>
+        <y>240</y>
         <width>118</width>
         <height>23</height>
        </rect>
@@ -546,7 +546,7 @@
       <property name="geometry">
        <rect>
         <x>10</x>
-        <y>150</y>
+        <y>240</y>
         <width>101</width>
         <height>17</height>
        </rect>
@@ -572,7 +572,7 @@
       <property name="geometry">
        <rect>
         <x>360</x>
-        <y>30</y>
+        <y>60</y>
         <width>51</width>
         <height>20</height>
        </rect>
@@ -585,7 +585,7 @@
       <property name="geometry">
        <rect>
         <x>350</x>
-        <y>60</y>
+        <y>90</y>
         <width>61</width>
         <height>20</height>
        </rect>
@@ -598,7 +598,7 @@
       <property name="geometry">
        <rect>
         <x>370</x>
-        <y>120</y>
+        <y>150</y>
         <width>51</width>
         <height>20</height>
        </rect>
@@ -624,7 +624,7 @@
       <property name="geometry">
        <rect>
         <x>410</x>
-        <y>30</y>
+        <y>60</y>
         <width>71</width>
         <height>27</height>
        </rect>
@@ -637,7 +637,7 @@
       <property name="geometry">
        <rect>
         <x>410</x>
-        <y>60</y>
+        <y>90</y>
         <width>71</width>
         <height>27</height>
        </rect>
@@ -650,7 +650,7 @@
       <property name="geometry">
        <rect>
         <x>410</x>
-        <y>120</y>
+        <y>150</y>
         <width>71</width>
         <height>27</height>
        </rect>
@@ -663,7 +663,7 @@
       <property name="geometry">
        <rect>
         <x>410</x>
-        <y>150</y>
+        <y>180</y>
         <width>121</width>
         <height>27</height>
        </rect>
@@ -676,7 +676,7 @@
       <property name="geometry">
        <rect>
         <x>370</x>
-        <y>150</y>
+        <y>180</y>
         <width>51</width>
         <height>20</height>
        </rect>
@@ -741,7 +741,7 @@
       <property name="geometry">
        <rect>
         <x>410</x>
-        <y>90</y>
+        <y>120</y>
         <width>71</width>
         <height>27</height>
        </rect>
@@ -754,7 +754,7 @@
       <property name="geometry">
        <rect>
         <x>480</x>
-        <y>90</y>
+        <y>120</y>
         <width>31</width>
         <height>17</height>
        </rect>
@@ -767,7 +767,7 @@
       <property name="geometry">
        <rect>
         <x>370</x>
-        <y>90</y>
+        <y>120</y>
         <width>41</width>
         <height>20</height>
        </rect>
@@ -780,6 +780,51 @@
       <property name="geometry">
        <rect>
         <x>200</x>
+        <y>30</y>
+        <width>161</width>
+        <height>91</height>
+       </rect>
+      </property>
+      <property name="readOnly">
+       <bool>true</bool>
+      </property>
+      <property name="lineWidth">
+       <number>4</number>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_32">
+      <property name="geometry">
+       <rect>
+        <x>370</x>
+        <y>30</y>
+        <width>51</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>ICAO</string>
+      </property>
+     </widget>
+     <widget class="QLineEdit" name="line_icao">
+      <property name="geometry">
+       <rect>
+        <x>410</x>
+        <y>30</y>
+        <width>71</width>
+        <height>27</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+      <property name="readOnly">
+       <bool>true</bool>
+      </property>
+     </widget>
+     <widget class="QwtCompass" name="compass_bearing">
+      <property name="geometry">
+       <rect>
+        <x>-20</x>
         <y>30</y>
         <width>161</width>
         <height>91</height>

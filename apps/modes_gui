@@ -70,12 +70,13 @@ class mainwindow(QtGui.QMainWindow):
         self.ui.list_aircraft.setItemDelegate(self.icaodelegate)
         self.dashboard_mapper = QtGui.QDataWidgetMapper()
         self.dashboard_mapper.setModel(self.datamodel)
+        self.dashboard_mapper.addMapping(self.ui.line_icao, 0)
         #self.dashboard_mapper.addMapping(self.ui.prog_rssi, 2)
         self.dashboard_mapper.addMapping(self.ui.line_latitude, 3)
         self.dashboard_mapper.addMapping(self.ui.line_longitude, 4)
         self.dashboard_mapper.addMapping(self.ui.line_alt, 5)
         self.dashboard_mapper.addMapping(self.ui.line_speed, 6)
-        #self.dashboard_mapper.addMapping(self.ui.compass_heading, 7)
+        self.dashboard_mapper.addMapping(self.ui.compass_heading, 7)
         self.dashboard_mapper.addMapping(self.ui.line_climb, 8)
         self.dashboard_mapper.addMapping(self.ui.line_ident, 9)
         self.dashboard_mapper.addMapping(self.ui.line_type, 10)
@@ -89,7 +90,7 @@ class mainwindow(QtGui.QMainWindow):
 
         #hook up the update signal
         self.ui.list_aircraft.selectionModel().currentRowChanged.connect(self.dashboard_mapper.setCurrentModelIndex)
-        self.ui.list_aircraft.selectionModel().currentRowChanged.connect(self.update_heading_widget)
+        #self.ui.list_aircraft.selectionModel().currentRowChanged.connect(self.update_heading_widget)
         self.ui.list_aircraft.selectionModel().currentRowChanged.connect(self.update_rssi_widget)
 
     def update_heading_widget(self, index):
@@ -219,6 +220,7 @@ class mainwindow(QtGui.QMainWindow):
 
             self.livedata = air_modes.modes_output_print(my_position)
             #add output for live data box
+            #TODO: this doesn't handle large volumes of data well; i get segfaults.
             #self.outputs.append(self.output_live_data)
 
             #create SQL database for KML and dashboard displays
@@ -243,7 +245,7 @@ class ICAOViewDelegate(QtGui.QStyledItemDelegate):
         if index.model().data(index.model().index(index.row(), 9)) != QtCore.QVariant():
             paintstr = index.model().data(index.model().index(index.row(), 9)).toString()
         else:
-            paintstr = "%06x" % index.model().data(index.model().index(index.row(), 0)).toInt()[0]
+            paintstr = index.model().data(index.model().index(index.row(), 0)).toString()
         last_report = index.model().data(index.model().index(index.row(), 1)).toDouble()[0]
         age = (time.time() - last_report)
         max_age = 60. #age at which it grays out
@@ -285,7 +287,10 @@ class dashboard_data_model(QtCore.QAbstractTableModel):
             if self._precisions[index.column()] is not None:
                 return QtCore.QVariant("%.*f" % (self._precisions[index.column()], self._data[index.row()][index.column()]))
             else:
-                return QtCore.QVariant(self._data[index.row()][index.column()])
+                if self._colnames[index.column()] == "icao":
+                    return QtCore.QVariant("%06x" % self._data[index.row()][index.column()]) #return as hex string
+                else:
+                    return QtCore.QVariant(self._data[index.row()][index.column()])
 
     def setData(self, index, value, role=QtCore.Qt.EditRole):
         self.lock.acquire()

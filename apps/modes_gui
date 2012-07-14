@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import os, sys, time, threading, datetime
+import os, sys, time, threading, datetime, math, csv
 from PyQt4 import QtCore,QtGui,QtSql
 from PyQt4.Qwt5 import Qwt
 from gnuradio import gr, gru, optfir, eng_notation, blks2
@@ -8,7 +8,6 @@ import gnuradio.gr.gr_threading as _threading
 import air_modes
 from air_modes.modes_exceptions import *
 from air_modes.modes_rx_ui import Ui_MainWindow
-import csv
 import sqlite3
 
 class mainwindow(QtGui.QMainWindow):
@@ -31,7 +30,7 @@ class mainwindow(QtGui.QMainWindow):
         #default to 3dB
         self.ui.line_threshold.insert("3")
 
-        self.ui.prog_rssi.setMinimum(-20)
+        self.ui.prog_rssi.setMinimum(-40)
         self.ui.prog_rssi.setMaximum(0)
 
         self.ui.combo_ant.setCurrentIndex(self.ui.combo_ant.findText("RX2"))
@@ -58,14 +57,9 @@ class mainwindow(QtGui.QMainWindow):
         self.output_handler = None
         self.kmlgen = None #necessary bc we stop its thread in shutdown
         self.dbinput = None
+        self.dbname = "air_modes.db"
 
-        #connect the database to the model and the model to the listview
-#        self.dbname = 'air_modes.db'
-#        self.db = QtSql.QSqlDatabase.addDatabase("QSQLITE")
-#        self.db.setDatabaseName(self.dbname)
-#        self.db.open()
         self.datamodel = dashboard_data_model(None)
-        
         self.ui.list_aircraft.setModel(self.datamodel)
         self.ui.list_aircraft.setModelColumn(0)
 
@@ -99,11 +93,11 @@ class mainwindow(QtGui.QMainWindow):
         self.ui.list_aircraft.selectionModel().currentRowChanged.connect(self.update_rssi_widget)
 
     def update_heading_widget(self, index):
-        heading = index.model().data(index.model().index(index.row(), 7)).toFloat()[0]
+        heading = index.model().data(index.model().index(index.row(), 7)).toDouble()[0]
         self.ui.compass_heading.setValue(heading)
 
     def update_rssi_widget(self, index):
-        rssi = index.model().data(index.model().index(index.row(), 2)).toFloat()[0]
+        rssi = index.model().data(index.model().index(index.row(), 2)).toDouble()[0]
         self.ui.prog_rssi.setValue(rssi)
 
     #goes and gets valid antenna, sample rate options from the device and grays out appropriate things
@@ -182,7 +176,7 @@ class mainwindow(QtGui.QMainWindow):
         else: #we aren't already running, let's get this party started
             options = {}
             options["source"] = str(self.ui.combo_source.currentText())
-            options["rate"] = int(self.ui.combo_rate.currentIndex())
+            options["rate"] = float(self.ui.combo_rate.currentText()) * 1e6
             options["antenna"] = str(self.ui.combo_ant.currentText())
             options["gain"] = float(self.ui.line_gain.text())
             options["threshold"] = float(self.ui.line_threshold.text())
@@ -196,7 +190,9 @@ class mainwindow(QtGui.QMainWindow):
             except:
                 my_position = None
 
-            self.outputs = []
+            self.datamodelout = dashboard_output(my_position, self.datamodel)
+
+            self.outputs = [self.datamodelout.output]
             self.updates = []
 
             #output options to populate outputs, updates
@@ -223,7 +219,7 @@ class mainwindow(QtGui.QMainWindow):
 
             self.livedata = air_modes.modes_output_print(my_position)
             #add output for live data box
-            self.outputs.append(self.output_live_data)
+            #self.outputs.append(self.output_live_data)
 
             #create SQL database for KML and dashboard displays
             self.dbwriter = air_modes.modes_output_sql(my_position, self.dbname)
@@ -241,24 +237,35 @@ class mainwindow(QtGui.QMainWindow):
             self.ui.text_livedata.verticalScrollBar().setSliderPosition(self.ui.text_livedata.verticalScrollBar().maximum())
 
 #all this does is fade the ICAOs out as their last report gets older
+#TODO: fading is only done on paint() -- should you call paint() repeatedly to update when no data is received?
 class ICAOViewDelegate(QtGui.QStyledItemDelegate):
     def paint(self, painter, option, index):
-        paintstr = "%06x" % index.model().data(index.model().index(index.row(), 0)).toInt()[0]
-        last_report = str(index.model().data(index.model().index(index.row(), 1)).toString())
-        age = (datetime.datetime.utcnow() - datetime.datetime.strptime(last_report, "%Y-%m-%d %H:%M:%S")).total_seconds()
+        if index.model().data(index.model().index(index.row(), 9)) != QtCore.QVariant():
+            paintstr = index.model().data(index.model().index(index.row(), 9)).toString()
+        else:
+            paintstr = "%06x" % index.model().data(index.model().index(index.row(), 0)).toInt()[0]
+        last_report = index.model().data(index.model().index(index.row(), 1)).toDouble()[0]
+        age = (time.time() - last_report)
+        max_age = 60. #age at which it grays out
         #minimum alpha is 0x40 (oldest), max is 0xFF (newest)
-        alpha = 0xFF - (0xBF / 600.) * min(age, 600)
+        age = min(age, max_age)
+        alpha = int(0xFF - (0xBF / max_age) * age)
         painter.setPen(QtGui.QColor(0, 0, 0, alpha))
         #QtGui.QStyledItemDelegate.paint(self, painter, option, index)
         painter.drawText(option.rect.left()+3, option.rect.top(), option.rect.width(), option.rect.height(), option.displayAlignment, paintstr)
         #TODO: draw highlight for selection
 
+#the data model used to display dashboard data.
 class dashboard_data_model(QtCore.QAbstractTableModel):
     def __init__(self, parent):
         QtCore.QAbstractTableModel.__init__(self, parent)
         self._data = []
+        self.lock = threading.Lock()
         self._colnames = ["icao", "seen", "rssi", "latitude", "longitude", "altitude", "speed", "heading", "vertical", "ident", "type"]
-        self._data.append([0x012345, "2012-07-12 09:17:51", -12.23, 31.12345, -112.12345, 86200.0, 776.0, 251.0, 11200.0, "BUTTSEX", "WAT"])
+        #custom precision limits for display
+        self._precisions = [None, None, None, 6, 6, 0, 0, 0, 0, None, None]
+        for field in self._colnames:
+            self.setHeaderData(self._colnames.index(field), QtCore.Qt.Horizontal, field)
     def rowCount(self, parent=QtCore.QVariant()):
         return len(self._data)
     def columnCount(self, parent=QtCore.QVariant()):
@@ -275,8 +282,100 @@ class dashboard_data_model(QtCore.QAbstractTableModel):
         if self._data[index.row()][index.column()] is None:
             return QtCore.QVariant()
         else:
-            return QtCore.QVariant(self._data[index.row()][index.column()])
+            if self._precisions[index.column()] is not None:
+                return QtCore.QVariant("%.*f" % (self._precisions[index.column()], self._data[index.row()][index.column()]))
+            else:
+                return QtCore.QVariant(self._data[index.row()][index.column()])
 
+    def setData(self, index, value, role=QtCore.Qt.EditRole):
+        self.lock.acquire()
+        if not index.isValid():
+            return False
+        if index.row() >= self.rowCount():
+            return False
+        if index.column >= self.columnCount():
+            return False
+        if role != QtCore.Qt.EditRole:
+            return False
+        self._data[index.row()][index.column()] = value
+        self.lock.release()
+
+    #addRecord implements an upsert on self._data; that is,
+    #it updates the row if the ICAO exists, or else it creates a new
+    #row with the appropriate information. in any case, it maintains sorting
+    #by ICAO, emits beginInsertRows() and endInsertRows()
+    #NOTE: could also use QSortFilterProxyModel to handle sorting without
+    #having to do it in the model, but this isn't exactly hard
+    def addRecord(self, record):
+        self.lock.acquire()
+        icaos = [x[0] for x in self._data]
+        if record["icao"] in icaos:
+            row = icaos.index(record["icao"])
+            for column in record:
+                self._data[row][self._colnames.index(column)] = record[column]
+            #create index to existing row and tell the model everything's changed in this row
+            #or inside the for loop, use dataChanged on each changed field (might be better)
+            self.dataChanged.emit(self.createIndex(row, 0), self.createIndex(row, len(self._colnames)-1))
+        else:
+            newrecord = [None for x in xrange(len(self._colnames))]
+            for col in xrange(0, len(self._colnames)):
+                if self._colnames[col] in record:
+                    newrecord[col] = record[self._colnames[col]]
+            self._data.append(newrecord)
+            self._data = sorted(self._data, key = lambda x: x[0]) #sort by icao
+            #create index to new row and use beginInsertRows/endInsertRows to tell the model that there's a new record in town
+            self.reset()
+        self.lock.release()
+
+class dashboard_output(air_modes.modes_parse.modes_parse):
+    def __init__(self, mypos, model):
+        air_modes.modes_parse.modes_parse.__init__(self, mypos)
+        self.model = model
+    def output(self, msg):
+        [data, ecc, reference, timestamp] = msg.split()
+        data = air_modes.modes_parse.modes_reply(long(data, 16))
+        ecc = long(ecc, 16)
+        rssi = 10.*math.log10(float(reference))
+        msgtype = data["df"]
+        now = time.time()
+        newrow = {"rssi": rssi, "seen": now}
+        if msgtype == 17:
+            icao = data["aa"]
+            newrow["icao"] = icao
+            subtype = data["ftc"]
+            if subtype == 4:
+                (ident, actype) = self.parseBDS08(data)
+                newrow["ident"] = ident
+                newrow["type"] = actype
+            elif 5 <= subtype <= 8:
+                (ground_track, decoded_lat, decoded_lon, rnge, bearing) = self.parseBDS06(data)
+                newrow["heading"] = ground_track
+                newrow["latitude"] = decoded_lat
+                newrow["longitude"] = decoded_lon
+                newrow["altitude"] = 0
+            elif 9 <= subtype <= 18:
+                (altitude, decoded_lat, decoded_lon, rnge, bearing) = self.parseBDS05(data)
+                newrow["altitude"] = altitude
+                newrow["latitude"] = decoded_lat
+                newrow["longitude"] = decoded_lon
+            elif subtype == 19:
+                subsubtype = data["sub"]
+                velocity = None
+                heading = None
+                vert_spd = None
+                if subsubtype == 0:
+                    (velocity, heading, vert_spd) = self.parseBDS09_0(data)
+                elif 1 <= subsubtype <= 2:
+                    (velocity, heading, vert_spd) = self.parseBDS09_1(data)
+                newrow["speed"] = velocity
+                newrow["heading"] = heading
+                newrow["vertical"] = vert_spd
+
+            self.model.addRecord(newrow)
+
+
+#the output handler is a thread which runs the various registered output functions when there's a received message.
+#it also executes registered updates at the sleep rate -- currently 10Hz.
 class output_handler(threading.Thread):
     def __init__(self, outputs, updates, queue):
         threading.Thread.__init__(self)
@@ -291,7 +390,7 @@ class output_handler(threading.Thread):
         while self.done is False:
             for update in self.updates:
                 update()
-            if not self.queue.empty_p():
+            while not self.queue.empty_p():
                 msg = self.queue.delete_head()
                 for output in self.outputs:
                     try:
@@ -327,6 +426,7 @@ class adsb_rx_block (gr.top_block):
 
         self.options = options
         rate = options["rate"]
+        print "Rate: %f" % rate
         use_resampler = False
         freq = 1090e6
 

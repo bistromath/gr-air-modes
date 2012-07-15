@@ -76,32 +76,47 @@ class mainwindow(QtGui.QMainWindow):
         self.dashboard_mapper.addMapping(self.ui.line_longitude, 4)
         self.dashboard_mapper.addMapping(self.ui.line_alt, 5)
         self.dashboard_mapper.addMapping(self.ui.line_speed, 6)
-        self.dashboard_mapper.addMapping(self.ui.compass_heading, 7)
+        #self.dashboard_mapper.addMapping(self.ui.compass_heading, 7)
         self.dashboard_mapper.addMapping(self.ui.line_climb, 8)
         self.dashboard_mapper.addMapping(self.ui.line_ident, 9)
         self.dashboard_mapper.addMapping(self.ui.line_type, 10)
+        self.dashboard_mapper.addMapping(self.ui.line_range, 11)
 
         compass_palette = QtGui.QPalette()
         compass_palette.setColor(QtGui.QPalette.Foreground, QtCore.Qt.white)
         self.ui.compass_heading.setPalette(compass_palette)
+        self.ui.compass_bearing.setPalette(compass_palette)
         #TODO: change the needle to an aircraft silhouette
         self.ui.compass_heading.setNeedle(Qwt.QwtDialSimpleNeedle(Qwt.QwtDialSimpleNeedle.Ray, False, QtCore.Qt.black))
-        self.ui.compass_heading.setValue(315.0)
+        self.ui.compass_bearing.setNeedle(Qwt.QwtDialSimpleNeedle(Qwt.QwtDialSimpleNeedle.Ray, False, QtCore.Qt.black))
+        #TODO FIXME do not release
+        self.ui.line_my_lat.insert("37.7623")
+        self.ui.line_my_lon.insert("-122.442527")
 
         #hook up the update signal
         self.ui.list_aircraft.selectionModel().currentRowChanged.connect(self.dashboard_mapper.setCurrentModelIndex)
         self.ui.list_aircraft.selectionModel().currentRowChanged.connect(self.update_heading_widget)
-        self.datamodel.dataChanged.connect(self.update_heading_widget_data)
+        self.ui.list_aircraft.selectionModel().currentRowChanged.connect(self.update_bearing_widget)
+        self.datamodel.dataChanged.connect(self.compass_widgets_dataChanged)
         self.ui.list_aircraft.selectionModel().currentRowChanged.connect(self.update_rssi_widget)
 
     def update_heading_widget(self, index):
         if index.model() is not None:
-            heading = index.model().data(index.model().index(index.row(), 7)).toDouble()[0]
+            heading = index.model().data(index.model().index(index.row(), self.datamodel._colnames.index("heading"))).toDouble()[0]
             self.ui.compass_heading.setValue(heading)
 
-    def update_heading_widget_data(self, startIndex, endIndex):
+    def update_bearing_widget(self, index):
+        if index.model() is not None:
+            bearing = index.model().data(index.model().index(index.row(), self.datamodel._colnames.index("bearing"))).toDouble()[0]
+            self.ui.compass_bearing.setValue(bearing)
+
+    def compass_widgets_dataChanged(self, startIndex, endIndex):
         index = self.ui.list_aircraft.selectionModel().currentIndex()
-        self.update_heading_widget(index)
+        if index.row() in range(startIndex.row(), endIndex.row()+1): #the current aircraft was affected
+            if self.datamodel._colnames.index("heading") in range(startIndex.column(), endIndex.column()+1):
+                self.update_heading_widget(index)
+            if self.datamodel._colnames.index("bearing") in range(startIndex.column(), endIndex.column()+1):
+                self.update_bearing_widget(index)
 
     def update_rssi_widget(self, index):
         if index.model() is not None:
@@ -274,9 +289,9 @@ class dashboard_data_model(QtCore.QAbstractTableModel):
         QtCore.QAbstractTableModel.__init__(self, parent)
         self._data = []
         self.lock = threading.Lock()
-        self._colnames = ["icao", "seen", "rssi", "latitude", "longitude", "altitude", "speed", "heading", "vertical", "ident", "type"]
+        self._colnames = ["icao", "seen", "rssi", "latitude", "longitude", "altitude", "speed", "heading", "vertical", "ident", "type", "range", "bearing"]
         #custom precision limits for display
-        self._precisions = [None, None, None, 6, 6, 0, 0, 0, 0, None, None]
+        self._precisions = [None, None, None, 6, 6, 0, 0, 0, 0, None, None, 2, 0]
         for field in self._colnames:
             self.setHeaderData(self._colnames.index(field), QtCore.Qt.Horizontal, field)
     def rowCount(self, parent=QtCore.QVariant()):
@@ -332,7 +347,9 @@ class dashboard_data_model(QtCore.QAbstractTableModel):
             #create index to existing row and tell the model everything's changed in this row
             #or inside the for loop, use dataChanged on each changed field (might be better)
             self.dataChanged.emit(self.createIndex(row, 0), self.createIndex(row, len(self._colnames)-1))
-        else:
+
+        #only create records for ICAOs with ADS-B reports
+        elif ("latitude" or "speed" or "ident") in record:
             #find new inserted row number
             icaos.append(record["icao"])
             newrowoffset = sorted(icaos).index(record["icao"])
@@ -370,7 +387,12 @@ class dashboard_output(air_modes.modes_parse.modes_parse):
         msgtype = data["df"]
         now = time.time()
         newrow = {"rssi": rssi, "seen": now}
-        if msgtype == 17:
+        if msgtype in [0, 4, 20]:
+            newrow["altitude"] = air_modes.altitude.decode_alt(data["ac"], True)
+            newrow["icao"] = ecc
+            self.model.addRecord(newrow)
+        
+        elif msgtype == 17:
             icao = data["aa"]
             newrow["icao"] = icao
             subtype = data["ftc"]
@@ -384,11 +406,17 @@ class dashboard_output(air_modes.modes_parse.modes_parse):
                 newrow["latitude"] = decoded_lat
                 newrow["longitude"] = decoded_lon
                 newrow["altitude"] = 0
+                if rnge is not None:
+                    newrow["range"] = rnge
+                    newrow["bearing"] = bearing
             elif 9 <= subtype <= 18:
                 (altitude, decoded_lat, decoded_lon, rnge, bearing) = self.parseBDS05(data)
                 newrow["altitude"] = altitude
                 newrow["latitude"] = decoded_lat
                 newrow["longitude"] = decoded_lon
+                if rnge is not None:
+                    newrow["range"] = rnge
+                    newrow["bearing"] = bearing
             elif subtype == 19:
                 subsubtype = data["sub"]
                 velocity = None

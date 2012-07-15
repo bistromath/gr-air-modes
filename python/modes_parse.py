@@ -81,8 +81,8 @@ class data_field:
           >> (self.get_numbits() - startbit - num + self.offset)) \
            & ((1 << num) - 1)
     except ValueError:
-      #pass
-      print "Got short packet but expected long retrieving bits (%i, %i) with type %i" % (startbit, num, self.get_type())
+      pass
+      #print "Got short packet but expected long retrieving bits (%i, %i) with type %i" % (startbit, num, self.get_type())
     return bits
 
 class bds09_reply(data_field):

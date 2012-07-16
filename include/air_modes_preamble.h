@@ -24,17 +24,18 @@
 #define INCLUDED_AIR_MODES_PREAMBLE_H
 
 #include <gr_block.h>
+#include <air_modes_api.h>
 
 class air_modes_preamble;
 typedef boost::shared_ptr<air_modes_preamble> air_modes_preamble_sptr;
 
-air_modes_preamble_sptr air_make_modes_preamble(int channel_rate, float threshold_db);
+AIR_MODES_API air_modes_preamble_sptr air_make_modes_preamble(int channel_rate, float threshold_db);
 
 /*!
  * \brief mode select preamble detection
  * \ingroup block
  */
-class air_modes_preamble : public gr_block
+class AIR_MODES_API air_modes_preamble : public gr_block
 {
 private:
     friend air_modes_preamble_sptr air_make_modes_preamble(int channel_rate, float threshold_db);

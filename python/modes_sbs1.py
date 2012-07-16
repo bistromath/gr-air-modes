@@ -64,8 +64,9 @@ class modes_output_sbs1(modes_parse.modes_parse):
   def output(self, msg):
     try:
       sbs1_msg = self.parse(msg)
-      for conn in self._conns[:]: #iterate over a copy of the list
-        conn.send(sbs1_msg)
+      if sbs1_msg is not None:
+        for conn in self._conns[:]: #iterate over a copy of the list
+          conn.send(sbs1_msg)
     except socket.error:
       self._conns.remove(conn)
       print "Connections: ", len(self._conns)
@@ -145,7 +146,7 @@ class modes_output_sbs1(modes_parse.modes_parse):
   def pp5(self, shortdata, ecc):
     # I'm not sure what to do with the identiifcation shortdata & 0x1FFF
     [datestr, timestr] = self.current_time()
-    [fs, dr, um, ident] = self.parse5(shortdata)
+    [fs, dr, um] = self.parse5(shortdata)
     aircraft_id = self.get_aircraft_id(ecc)
     retstr = "MSG,6,0,%i,%06X,%i,%s,%s,%s,%s,,,,,,,,," % (aircraft_id, ecc, aircraft_id+100, datestr, timestr, datestr, timestr)
     return retstr + self.decode_fs(fs) + "\n"

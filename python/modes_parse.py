@@ -58,7 +58,9 @@ class data_field:
         if len(bits) == 3:
           obj = bits[2](self.get_bits(bits[0], bits[1]))
           fields.update(obj.parse())
-        fields.update({field: self.get_bits(bits[0], bits[1])})
+          fields.update({field: obj})
+        else:
+          fields.update({field: self.get_bits(bits[0], bits[1])})
     else:
       raise NoHandlerError(mytype)
     return fields
@@ -131,7 +133,7 @@ class me_reply(data_field):
       return 0x08
     elif 5 <= ftc <= 8:
       return 0x06
-    elif 9 <= ftc <= 18:
+    elif 9 <= ftc <= 18 and ftc != 15: #FTC 15 does not appear to be valid
       return 0x05
     elif ftc == 19:
       return 0x09

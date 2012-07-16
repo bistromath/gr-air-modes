@@ -135,41 +135,39 @@ class modes_output_print(modes_parse.modes_parse):
 
   def print17(self, data):
     icao24 = data["aa"]
-    subtype = data["ftc"]
+    bdsreg = data["me"].get_type()
 
     retstr = None
 
-    if 1 <= subtype <= 4:
+    if bdsreg == 0x08:
       (msg, typestring) = self.parseBDS08(data)
-      retstr = "Type 17 subtype 04 (ident) from %x type %s ident %s" % (icao24, typestring, msg)
+      retstr = "Type 17 BDS0,8 (ident) from %x type %s ident %s" % (icao24, typestring, msg)
 
-    elif subtype >= 5 and subtype <= 8:
+    elif bdsreg == 0x06:
       [ground_track, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(data)
-      retstr = "Type 17 subtype 06 (surface report) from %x at (%.6f, %.6f) ground track %i" % (icao24, decoded_lat, decoded_lon, ground_track)
+      retstr = "Type 17 BDS0,6 (surface report) from %x at (%.6f, %.6f) ground track %i" % (icao24, decoded_lat, decoded_lon, ground_track)
       if rnge is not None and bearing is not None:
         retstr += " (%.2f @ %.0f)" % (rnge, bearing)
 
-    elif subtype >= 9 and subtype <= 18:
+    elif bdsreg == 0x05:
       [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(data)
-      retstr = "Type 17 subtype 05 (position report) from %x at (%.6f, %.6f)" % (icao24, decoded_lat, decoded_lon)
+      retstr = "Type 17 BDS0,5 (position report) from %x at (%.6f, %.6f)" % (icao24, decoded_lat, decoded_lon)
       if rnge is not None and bearing is not None:
         retstr += " (" + "%.2f" % rnge + " @ " + "%.0f" % bearing + ")"
       retstr += " at " + str(altitude) + "ft"
 
-    elif subtype == 19:
-      subsubtype = data["sub"]
-      if subsubtype == 0:
-        [velocity, heading, vert_spd] = self.parseBDS09_0(data)
-        retstr = "Type 17 subtype 09-0 (track report) from %x with velocity %.0fkt heading %.0f VS %.0f" % (icao24, velocity, heading, vert_spd)
-      elif 1 <= subsubtype <= 2:
-        [velocity, heading, vert_spd] = self.parseBDS09_1(data)
-        retstr = "Type 17 subtype 09-%i (track report) from %x with velocity %.0fkt heading %.0f VS %.0f" % (subsubtype, icao24, velocity, heading, vert_spd)
+    elif bdsreg == 0x09:
+      subtype = data["bds09"].get_type()
+      if subtype == 0 or subtype == 1:
+        parser = self.parseBDS09_0 if subtype == 0 else self.parseBDS09_1
+        [velocity, heading, vert_spd] = parser(data)
+        retstr = "Type 17 BDS0,9-%i (track report) from %x with velocity %.0fkt heading %.0f VS %.0f" % (subtype, icao24, velocity, heading, vert_spd)
       else:
-        retstr = "Type 17 subtype 09-%i from %x not implemented" % (subsubtype, icao24)
+        retstr = "Type 17 BDS0,9-%i from %x not implemented" % (subtype, icao24)
 
-    elif subtype == 28:
+    elif bdsreg == 0x62:
       emerg_str = self.parseBDS62(data)
-      retstr = "Type 17 subtype 28 (emergency) from %x type %s" % (icao24, emerg_str)
+      retstr = "Type 17 BDS6,2 (emergency) from %x type %s" % (icao24, emerg_str)
       
     else:
       retstr = "Type 17 subtype %i from %x not implemented" % (subtype, icao24)

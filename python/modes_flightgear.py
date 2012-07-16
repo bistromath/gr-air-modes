@@ -34,31 +34,32 @@ class modes_flightgear(modes_parse.modes_parse):
             msgtype = data["df"]
             if msgtype == 17: #ADS-B report
                 icao24 = data["aa"]
-                subtype = data["sub"]
-                if subtype == 4: #ident packet
+                bdsreg = data["me"].get_type()
+                if bdsreg == 0x08: #ident packet
                     (ident, actype) = self.parseBDS08(data)
                     #select model based on actype
                     self.callsigns[icao24] = [ident, actype]
                     
-                elif 5 <= subtype <= 8: #BDS0,6 pos
+                elif bdsreg == 0x06: #BDS0,6 pos
                     [ground_track, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(data)
                     self.positions[icao24] = [decoded_lat, decoded_lon, 0]
                     self.update(icao24)
 
-                elif 9 <= subtype <= 18: #BDS0,5 pos
+                elif bdsreg == 0x05: #BDS0,5 pos
                     [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(data)
                     self.positions[icao24] = [decoded_lat, decoded_lon, altitude]
                     self.update(icao24)
 
-                elif subtype == 19: #velocity
-                    subsubtype = data["sub"]
-                    if subsubtype == 0:
-                        [velocity, heading, vert_spd, turnrate] = self.parseBDS09_0(data)
-                    elif 1 <= subsubtype <= 2:
-                        [velocity, heading, vert_spd] = self.parseBDS09_1(data)
-                        turnrate = 0
+                elif bdsreg == 0x09: #velocity
+                    subtype = data["bds09"].get_type()
+                    if subtype == 0:
+                      [velocity, heading, vert_spd, turnrate] = self.parseBDS09_0(data)
+                    elif subtype == 1:
+                      [velocity, heading, vert_spd] = self.parseBDS09_1(data)
+                      turnrate = 0
                     else:
                         return
+
                     self.velocities[icao24] = [velocity, heading, vert_spd, turnrate]
                     
         except ADSBError:

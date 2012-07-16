@@ -158,10 +158,10 @@ def range_bearing(loc_a, loc_b):
 	delta_lat = b_lat - a_lat
 	delta_lon = b_lon - a_lon
 
-	avg_lat = (a_lat + b_lat) / 2.0
+	avg_lat = ((a_lat + b_lat) / 2.0) * math.pi / 180
 
 	R1 = earth_radius_mi*(1.0-esquared)/pow((1.0-esquared*pow(math.sin(avg_lat),2)),1.5)
-             
+
 	R2 = earth_radius_mi/math.sqrt(1.0-esquared*pow(math.sin(avg_lat),2))
 
 	distance_North = R1*delta_lat

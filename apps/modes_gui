@@ -89,9 +89,6 @@ class mainwindow(QtGui.QMainWindow):
         #TODO: change the needle to an aircraft silhouette
         self.ui.compass_heading.setNeedle(Qwt.QwtDialSimpleNeedle(Qwt.QwtDialSimpleNeedle.Ray, False, QtCore.Qt.black))
         self.ui.compass_bearing.setNeedle(Qwt.QwtDialSimpleNeedle(Qwt.QwtDialSimpleNeedle.Ray, False, QtCore.Qt.black))
-        #TODO FIXME do not release
-        self.ui.line_my_lat.insert("37.7623")
-        self.ui.line_my_lon.insert("-122.442527")
 
         #hook up the update signal
         self.ui.list_aircraft.selectionModel().currentRowChanged.connect(self.dashboard_mapper.setCurrentModelIndex)

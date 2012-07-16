@@ -25,17 +25,18 @@
 
 #include <gr_sync_block.h>
 #include <gr_msg_queue.h>
+#include <air_modes_api.h>
 
 class air_modes_slicer;
 typedef boost::shared_ptr<air_modes_slicer> air_modes_slicer_sptr;
 
-air_modes_slicer_sptr air_make_modes_slicer(int channel_rate, gr_msg_queue_sptr queue);
+AIR_MODES_API air_modes_slicer_sptr air_make_modes_slicer(int channel_rate, gr_msg_queue_sptr queue);
 
 /*!
  * \brief mode select slicer detection
  * \ingroup block
  */
-class air_modes_slicer : public gr_sync_block
+class AIR_MODES_API air_modes_slicer : public gr_sync_block
 {
 private:
     friend air_modes_slicer_sptr air_make_modes_slicer(int channel_rate, gr_msg_queue_sptr queue);

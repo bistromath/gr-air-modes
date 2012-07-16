@@ -32,7 +32,6 @@
 #include <modes_crc.h>
 #include <iostream>
 #include <gr_tags.h>
-#include <air_modes_api.h>
 
 extern "C"
 {
@@ -40,7 +39,7 @@ extern "C"
 #include <string.h>
 }
 
-AIR_MODES_API air_modes_slicer_sptr air_make_modes_slicer(int channel_rate, gr_msg_queue_sptr queue)
+air_modes_slicer_sptr air_make_modes_slicer(int channel_rate, gr_msg_queue_sptr queue)
 {
 	return air_modes_slicer_sptr (new air_modes_slicer(channel_rate, queue));
 }

@@ -29,9 +29,8 @@
 #include <string.h>
 #include <iostream>
 #include <gr_tags.h>
-#include <air_modes_api.h>
 
-AIR_MODES_API air_modes_preamble_sptr air_make_modes_preamble(int channel_rate, float threshold_db)
+air_modes_preamble_sptr air_make_modes_preamble(int channel_rate, float threshold_db)
 {
 	return air_modes_preamble_sptr (new air_modes_preamble(channel_rate, threshold_db));
 }

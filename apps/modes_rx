@@ -29,6 +29,7 @@ from string import split, join
 import air_modes
 import gnuradio.gr.gr_threading as _threading
 import csv
+from air_modes.modes_exceptions import *
 
 class top_block_runner(_threading.Thread):
     def __init__(self, tb):
@@ -87,7 +88,7 @@ class adsb_rx_block (gr.top_block):
 
         self.u.set_gain_mode(0) #manual gain mode
         if options.gain is None:
-            options.gain = 49
+            options.gain = 34
             
         self.u.set_gain(options.gain)
         print "Gain is %i" % self.u.get_gain()

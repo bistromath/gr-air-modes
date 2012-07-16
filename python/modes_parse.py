@@ -58,7 +58,9 @@ class data_field:
         if len(bits) == 3:
           obj = bits[2](self.get_bits(bits[0], bits[1]))
           fields.update(obj.parse())
-        fields.update({field: self.get_bits(bits[0], bits[1])})
+          fields.update({field: obj})
+        else:
+          fields.update({field: self.get_bits(bits[0], bits[1])})
     else:
       raise NoHandlerError(mytype)
     return fields
@@ -75,14 +77,16 @@ class data_field:
   def get_bits(self, *args):
     startbit = args[0]
     num = args[1]
-    bits = 0
     try:
       bits = (self.data \
-          >> (self.get_numbits() - startbit - num + self.offset)) \
-           & ((1 << num) - 1)
+        >> (self.get_numbits() - startbit - num + self.offset)) \
+         & ((1 << num) - 1)
+    #the exception handler catches instances when you try to shift more than
+    #the number of bits. this can happen when a garbage packet gets through
+    #which reports itself as a short packet but of type long.
+    #TODO: should find more productive way to throw this out
     except ValueError:
-      pass
-      #print "Got short packet but expected long retrieving bits (%i, %i) with type %i" % (startbit, num, self.get_type())
+      bits = 0
     return bits
 
 class bds09_reply(data_field):
@@ -136,7 +140,7 @@ class me_reply(data_field):
       return 0x08
     elif 5 <= ftc <= 8:
       return 0x06
-    elif 9 <= ftc <= 18:
+    elif 9 <= ftc <= 18 and ftc != 15: #FTC 15 does not appear to be valid
       return 0x05
     elif ftc == 19:
       return 0x09

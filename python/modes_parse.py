@@ -77,9 +77,16 @@ class data_field:
   def get_bits(self, *args):
     startbit = args[0]
     num = args[1]
-    bits = (self.data \
+    try:
+      bits = (self.data \
         >> (self.get_numbits() - startbit - num + self.offset)) \
          & ((1 << num) - 1)
+    #the exception handler catches instances when you try to shift more than
+    #the number of bits. this can happen when a garbage packet gets through
+    #which reports itself as a short packet but of type long.
+    #TODO: should find more productive way to throw this out
+    except ValueError:
+      bits = 0
     return bits
 
 class bds09_reply(data_field):

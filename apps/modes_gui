@@ -58,6 +58,8 @@ class mainwindow(QtGui.QMainWindow):
         self.kmlgen = None #necessary bc we stop its thread in shutdown
         self.dbinput = None
         self.dbname = "air_modes.db"
+        self.num_reports = 0
+        self.last_report = 0
 
         self.datamodel = dashboard_data_model(None)
         self.ui.list_aircraft.setModel(self.datamodel)
@@ -106,6 +108,16 @@ class mainwindow(QtGui.QMainWindow):
         if index.model() is not None:
             bearing = index.model().data(index.model().index(index.row(), self.datamodel._colnames.index("bearing"))).toDouble()[0]
             self.ui.compass_bearing.setValue(bearing)
+
+    def increment_reportspersec(self, msg):
+        self.num_reports += 1
+
+    def update_reportspersec(self):
+        dt = time.time() - self.last_report
+        if dt >= 1.0:
+            self.last_report = time.time()
+            self.ui.line_reports.setText("%i" % self.num_reports)
+            self.num_reports = 0
 
     def compass_widgets_dataChanged(self, startIndex, endIndex):
         index = self.ui.list_aircraft.selectionModel().currentIndex()
@@ -191,6 +203,9 @@ class mainwindow(QtGui.QMainWindow):
             if self.dbinput is not None: self.dbinput.close()
             self.dbinput = None
 
+            self.num_reports = 0
+            self.ui.line_reports.setText("0")
+
             self.ui.button_start.setText("Start")
 
         else: #we aren't already running, let's get this party started
@@ -245,6 +260,10 @@ class mainwindow(QtGui.QMainWindow):
             #create SQL database for KML and dashboard displays
             self.dbwriter = air_modes.modes_output_sql(my_position, self.dbname)
             self.outputs.append(self.dbwriter.output) #now the db will update itself
+
+            #output to update reports/sec widget
+            self.outputs.append(self.increment_reportspersec)
+            self.updates.append(self.update_reportspersec)
 
             #create output handler thread
             self.output_handler = output_handler(self.outputs, self.updates, self.queue)

@@ -36,6 +36,7 @@ GR_PYTHON_INSTALL(
     mlat.py
     modes_exceptions.py
     modes_flightgear.py
+    modes_gui_model.py
     modes_kml.py
     modes_parse.py
     modes_print.py

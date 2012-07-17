@@ -76,7 +76,6 @@ class mainwindow(QtGui.QMainWindow):
         self.updates = []
         self.output_handler = None
         self.kmlgen = None #necessary bc we stop its thread in shutdown
-        self.dbinput = None
         self.dbname = "air_modes.db"
         self.num_reports = 0
         self.last_report = 0
@@ -114,7 +113,7 @@ class mainwindow(QtGui.QMainWindow):
         self.ui.list_aircraft.selectionModel().currentRowChanged.connect(self.dashboard_mapper.setCurrentModelIndex)
         self.ui.list_aircraft.selectionModel().currentRowChanged.connect(self.update_heading_widget)
         self.ui.list_aircraft.selectionModel().currentRowChanged.connect(self.update_bearing_widget)
-        self.datamodel.dataChanged.connect(self.compass_widgets_dataChanged)
+        self.datamodel.dataChanged.connect(self.unmapped_widgets_dataChanged)
         self.ui.list_aircraft.selectionModel().currentRowChanged.connect(self.update_rssi_widget)
 
 ############ widget update functions for non-mapped widgets ############
@@ -128,13 +127,15 @@ class mainwindow(QtGui.QMainWindow):
             bearing = index.model().data(index.model().index(index.row(), self.datamodel._colnames.index("bearing"))).toDouble()[0]
             self.ui.compass_bearing.setValue(bearing)
 
-    def compass_widgets_dataChanged(self, startIndex, endIndex):
+    def unmapped_widgets_dataChanged(self, startIndex, endIndex):
         index = self.ui.list_aircraft.selectionModel().currentIndex()
         if index.row() in range(startIndex.row(), endIndex.row()+1): #the current aircraft was affected
             if self.datamodel._colnames.index("heading") in range(startIndex.column(), endIndex.column()+1):
                 self.update_heading_widget(index)
             if self.datamodel._colnames.index("bearing") in range(startIndex.column(), endIndex.column()+1):
                 self.update_bearing_widget(index)
+            if self.datamodel._colnames.index("rssi") in range(startIndex.column(), endIndex.column()+1):
+                self.update_rssi_widget(index)
 
     def update_rssi_widget(self, index):
         if index.model() is not None:
@@ -221,9 +222,6 @@ class mainwindow(QtGui.QMainWindow):
                 #self.kmlgen.join()
                 #self.kmlgen = None
 
-            if self.dbinput is not None: self.dbinput.close()
-            self.dbinput = None
-
             self.num_reports = 0
             self.ui.line_reports.setText("0")
 
@@ -290,6 +288,21 @@ class mainwindow(QtGui.QMainWindow):
             self.output_handler = output_handler(self.outputs, self.updates, self.queue)
             
             self.ui.button_start.setText("Stop")
+
+    def on_quit(self):
+        if self.runner is not None:
+            self.output_handler.done = True
+            self.output_handler = None
+            self.outputs = []
+            self.updates = []
+            self.fg.stop()
+            self.runner = None
+            self.fg = None
+            if self.kmlgen is not None:
+                self.kmlgen.done = True
+                #TODO FIXME need a way to kill kmlgen safely without delay
+                #self.kmlgen.join()
+                #self.kmlgen = None
 
     def output_live_data(self, msg):
         msgstr = self.livedata.parse(msg)
@@ -397,11 +410,11 @@ class adsb_rx_block (gr.top_block):
         self.connect(self.demod, (self.preamble, 0))
         self.connect(self.avg, (self.preamble, 1))
         self.connect(self.preamble, self.slicer)
-        
 
 if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)
     window = mainwindow()
+    app.lastWindowClosed.connect(window.on_quit)
     window.setWindowTitle("Mode S/ADS-B receiver")
     window.show()
     sys.exit(app.exec_())

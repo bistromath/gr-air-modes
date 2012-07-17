@@ -21,7 +21,7 @@
 # 
 
 import math, time
-from modes_exceptions import *
+from air_modes.exceptions import *
 #this implements CPR position decoding and encoding.
 #the decoder is implemented as a class, cpr_decoder, which keeps state for local decoding.
 #the encoder is cpr_encode([lat, lon], type (even=0, odd=1), and surface (0 for surface, 1 for airborne))

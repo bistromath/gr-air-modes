@@ -21,13 +21,13 @@
 
 import time, os, sys
 from string import split, join
-import modes_parse
+import air_modes
 import sqlite3
-from modes_exceptions import *
+from air_modes.exceptions import *
 
-class modes_output_sql(modes_parse.modes_parse):
+class output_sql(air_modes.parse):
   def __init__(self, mypos, filename):
-    modes_parse.modes_parse.__init__(self, mypos)
+    air_modes.parse.__init__(self, mypos)
     #create the database
     self.filename = filename
     self.db = sqlite3.connect(filename)
@@ -85,7 +85,7 @@ class modes_output_sql(modes_parse.modes_parse):
     #this version ignores anything that isn't Type 17 for now, because we just don't care
     [data, ecc, reference, timestamp] = message.split()
 
-    data = modes_parse.modes_reply(long(data, 16))
+    data = air_modes.modes_reply(long(data, 16))
     ecc = long(ecc, 16)
 #   reference = float(reference)
 

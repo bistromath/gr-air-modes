@@ -24,7 +24,7 @@ import time, os, sys, socket
 from string import split, join
 from datetime import *
 
-class modes_raw_server:
+class raw_server:
   def __init__(self, port):
     self._s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self._s.bind(('', port))

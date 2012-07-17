@@ -5,17 +5,18 @@
 
 import struct
 import socket
-from air_modes import mlat, modes_parse
+import air_modes
+from air_modes import mlat
 import sqlite3
 import string, threading, math, time
-from air_modes.modes_sql import modes_output_sql
+from air_modes.sql import output_sql
 from Quaternion import Quat
 import numpy
-from modes_exceptions import *
+from air_modes.exceptions import *
 
-class modes_flightgear(modes_parse.modes_parse):
+class output_flightgear(air_modes.parse):
     def __init__(self, localpos, hostname, port):
-        modes_parse.modes_parse.__init__(self, localpos)
+        air_modes.parse.__init__(self, localpos)
         self.hostname = hostname
         self.port = port
         self.localpos = localpos
@@ -28,7 +29,7 @@ class modes_flightgear(modes_parse.modes_parse):
 
     def output(self, message):
         [data, ecc, reference, timestamp] = message.split()
-        data = modes_parse.modes_reply(long(data, 16))
+        data = air_modes.modes_reply(long(data, 16))
         
         try:
             msgtype = data["df"]
@@ -204,7 +205,7 @@ if __name__ == '__main__':
     localpos = [37.409066,-122.077836]
     hostname = "localhost"
     port = 5000
-    fgout = modes_flightgear(localpos, hostname, port)
+    fgout = output_flightgear(localpos, hostname, port)
 
     for line in iof:
         timetosend = float(line.split()[6])

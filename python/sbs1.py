@@ -22,13 +22,13 @@
 
 import time, os, sys, socket
 from string import split, join
-import modes_parse
+import air_modes
 from datetime import *
-from modes_exceptions import *
+from air_modes.exceptions import *
 
-class modes_output_sbs1(modes_parse.modes_parse):
+class output_sbs1(air_modes.parse):
   def __init__(self, mypos, port):
-    modes_parse.modes_parse.__init__(self, mypos)
+    air_modes.parse.__init__(self, mypos)
     self._s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self._s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     self._s.bind(('', port))
@@ -106,7 +106,7 @@ class modes_output_sbs1(modes_parse.modes_parse):
 
     [data, ecc, reference, timestamp] = message.split()
 
-    data = modes_parse.modes_reply(long(data, 16))
+    data = air_modes.modes_reply(long(data, 16))
     ecc = long(ecc, 16)
     msgtype = data["df"]
     outmsg = None

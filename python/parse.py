@@ -22,9 +22,9 @@
 import time, os, sys
 from string import split, join
 from altitude import decode_alt
-import cpr
 import math
-from modes_exceptions import *
+from air_modes.exceptions import *
+from air_modes import cpr
 
 #this implements a packet class which can retrieve its own fields.
 class data_field:
@@ -213,7 +213,7 @@ class modes_reply(data_field):
   def get_type(self):
     return self.get_bits(1,5)
 
-class modes_parse:
+class parse:
   def __init__(self, mypos):
       self.my_location = mypos
       self.cpr = cpr.cpr_decoder(self.my_location)

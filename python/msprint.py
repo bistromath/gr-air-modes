@@ -21,13 +21,13 @@
 
 import time, os, sys
 from string import split, join
-import modes_parse
-from modes_exceptions import *
+import air_modes
+from air_modes.exceptions import *
 import math
 
-class modes_output_print(modes_parse.modes_parse):
+class output_print(air_modes.parse):
   def __init__(self, mypos):
-      modes_parse.modes_parse.__init__(self, mypos)
+      air_modes.parse.__init__(self, mypos)
       
   def parse(self, message):
     [data, ecc, reference, timestamp] = message.split()
@@ -44,7 +44,7 @@ class modes_output_print(modes_parse.modes_parse):
     output = "(%.0f %.10f) " % (refdb, timestamp);
 
     try:
-      data = modes_parse.modes_reply(long(data, 16))
+      data = air_modes.modes_reply(long(data, 16))
       msgtype = data["df"]
       if msgtype == 0:
         output += self.print0(data, ecc)

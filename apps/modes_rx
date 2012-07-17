@@ -29,7 +29,7 @@ from string import split, join
 import air_modes
 import gnuradio.gr.gr_threading as _threading
 import csv
-from air_modes.modes_exceptions import *
+from air_modes.exceptions import *
 
 class top_block_runner(_threading.Thread):
     def __init__(self, tb):
@@ -184,7 +184,7 @@ if __name__ == '__main__':
   updates = [] #registry of plugin update functions
 
   if options.raw is True:
-    rawport = air_modes.modes_raw_server(9988) #port
+    rawport = air_modes.raw_server(9988) #port
     outputs.append(rawport.output)
     outputs.append(printraw)
     updates.append(rawport.add_pending_conns)
@@ -192,21 +192,21 @@ if __name__ == '__main__':
   if options.kml is not None:
     #we spawn a thread to run every 30 seconds (or whatever) to generate KML
     dbname = 'adsb.db'
-    sqldb = air_modes.modes_output_sql(my_position, dbname) #input into the db
-    kmlgen = air_modes.modes_kml(options.kml, dbname, my_position) #create a KML generating thread to read from the db
+    sqldb = air_modes.output_sql(my_position, dbname) #input into the db
+    kmlgen = air_modes.output_kml(options.kml, dbname, my_position) #create a KML generating thread to read from the db
     outputs.append(sqldb.output)
 
   if options.sbs1 is True:
-    sbs1port = air_modes.modes_output_sbs1(my_position, 30003)
+    sbs1port = air_modes.output_sbs1(my_position, 30003)
     outputs.append(sbs1port.output)
     updates.append(sbs1port.add_pending_conns)
     
   if options.no_print is not True:
-    outputs.append(air_modes.modes_output_print(my_position).output)
+    outputs.append(air_modes.output_print(my_position).output)
 
   if options.multiplayer is not None:
     [fghost, fgport] = options.multiplayer.split(':')
-    fgout = air_modes.modes_flightgear(my_position, fghost, int(fgport))
+    fgout = air_modes.output_flightgear(my_position, fghost, int(fgport))
     outputs.append(fgout.output)
 
   fg = adsb_rx_block(options, args, queue)

@@ -140,13 +140,13 @@ class dashboard_data_model(QtCore.QAbstractTableModel):
                 self.endRemoveRows()
         self.lock.release()
                 
-class dashboard_output(air_modes.modes_parse.modes_parse):
+class dashboard_output(air_modes.parse):
     def __init__(self, mypos, model):
-        air_modes.modes_parse.modes_parse.__init__(self, mypos)
+        air_modes.parse.__init__(self, mypos)
         self.model = model
     def output(self, msg):
         [data, ecc, reference, timestamp] = msg.split()
-        data = air_modes.modes_parse.modes_reply(long(data, 16))
+        data = air_modes.modes_reply(long(data, 16))
         ecc = long(ecc, 16)
         rssi = 10.*math.log10(float(reference))
         msgtype = data["df"]

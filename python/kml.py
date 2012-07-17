@@ -22,7 +22,7 @@
 import sqlite3
 import string, math, threading, time
 
-class modes_kml(threading.Thread):
+class output_kml(threading.Thread):
     def __init__(self, filename, dbname, localpos, timeout=5):
         threading.Thread.__init__(self)
         self._dbname = dbname

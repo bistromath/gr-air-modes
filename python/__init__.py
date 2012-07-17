@@ -51,15 +51,16 @@ from air_modes_swig import *
 
 # import any pure python here
 #
-from modes_print import modes_output_print
-from modes_sql import modes_output_sql
-from modes_sbs1 import modes_output_sbs1
-from modes_kml import modes_kml
-from modes_raw_server import modes_raw_server
-from modes_exceptions import *
+from parse import parse,modes_reply
+from msprint import output_print
+from sql import output_sql
+from sbs1 import output_sbs1
+from kml import output_kml
+from raw_server import raw_server
+from exceptions import *
 #this is try/excepted in case the user doesn't have numpy installed
 try:
-    from modes_flightgear import modes_flightgear
+    from flightgear import output_flightgear
     from Quaternion import *
 except ImportError:
     print "gr-air-modes warning: numpy+scipy not installed, FlightGear interface not supported"

@@ -34,15 +34,15 @@ GR_PYTHON_INSTALL(
     altitude.py
     cpr.py
     mlat.py
-    modes_exceptions.py
-    modes_flightgear.py
-    modes_gui_model.py
-    modes_kml.py
-    modes_parse.py
-    modes_print.py
-    modes_raw_server.py
-    modes_sbs1.py
-    modes_sql.py
+    exceptions.py
+    flightgear.py
+    gui_model.py
+    kml.py
+    parse.py
+    msprint.py
+    raw_server.py
+    sbs1.py
+    sql.py
     Quaternion.py
     DESTINATION ${GR_PYTHON_DIR}/air_modes
 )

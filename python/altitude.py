@@ -23,7 +23,7 @@
 # For reference into the methodology used to decode altitude,
 # see RTCA DO-181D p.42
 
-from modes_exceptions import *
+from air_modes.exceptions import *
 
 def decode_alt(alt, bit13):
 	mbit = alt & 0x0040

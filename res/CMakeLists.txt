@@ -34,15 +34,22 @@ endif()
 
 set(PYUIC4_COMPILE pyuic4)
 set(RX_UI_SRC ${CMAKE_CURRENT_SOURCE_DIR}/modes_rx.ui)
+set(RX_UI_PY_PRE_MASSAGE ${CMAKE_CURRENT_BINARY_DIR}/modes_rx_ui_borked.py)
 set(RX_UI_PY ${CMAKE_CURRENT_BINARY_DIR}/modes_rx_ui.py)
+set(PYUIC_MASSAGER sed "s/from qwt.* import/from PyQt4.Qwt5.Qwt import/")
 
 add_custom_target(rx_ui ALL
     DEPENDS ${RX_UI_PY}
 )
 
-add_custom_command(OUTPUT ${RX_UI_PY}
-    COMMAND ${PYUIC4_COMPILE} ${RX_UI_SRC} > ${RX_UI_PY}
+add_custom_command(OUTPUT ${RX_UI_PY_PRE_MASSAGE}
+    COMMAND ${PYUIC4_COMPILE} ${RX_UI_SRC} > ${RX_UI_PY_PRE_MASSAGE}
     MAIN_DEPENDENCY ${RX_UI_SRC}
+)
+
+add_custom_command(OUTPUT ${RX_UI_PY}
+    COMMAND ${PYUIC_MASSAGER} ${RX_UI_PY_PRE_MASSAGE} > ${RX_UI_PY}
+    MAIN_DEPENDENCY ${RX_UI_PY_PRE_MASSAGE}
 )
 
 ########################################################################

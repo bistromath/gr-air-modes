@@ -54,6 +54,7 @@ class modes_output_sql(modes_parse.modes_parse):
             );"""
     c.execute(query)
     c.close()
+    self.db.commit()
 
   def __del__(self):
     self.db.close()

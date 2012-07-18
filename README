@@ -114,6 +114,7 @@ $ cd build
 $ cmake ../
 $ make
 $ sudo make install
+$ sudo ldconfig
 
 This will build gr-air-modes out of the source tree in build/ and
 install it on your system, generally in /usr/local/bin.

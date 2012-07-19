@@ -262,12 +262,12 @@ class mainwindow(QtGui.QMainWindow):
 
             if self.ui.check_fgfs.checkState():
                 fghost = "127.0.0.1" #TODO FIXME
-                fgport = self.ui.line_fgfsport.currentText()
+                fgport = self.ui.line_fgfsport.text()
                 fgout = air_modes.output_flightgear(my_position, fghost, int(fgport))
                 self.outputs.append(fgout.output)
 
             if self.ui.check_raw.checkState():
-                rawport = air_modes.raw_server(int(self.ui.line_raw.text()))
+                rawport = air_modes.raw_server(int(self.ui.line_rawport.text()))
                 self.outputs.append(rawport.output)
                 self.updates.append(rawport.add_pending_conns)
 

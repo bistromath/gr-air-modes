@@ -31,6 +31,12 @@ if(NOT PYQT4_FOUND)
     return()
 endif()
 
+find_package(Qwt)
+if(NOT QWT_FOUND)
+    message(STATUS "Qwt not found, not installing GUI application")
+    return()
+endif()
+
 
 set(PYUIC4_COMPILE pyuic4)
 set(RX_UI_SRC ${CMAKE_CURRENT_SOURCE_DIR}/modes_rx.ui)

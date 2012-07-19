@@ -55,6 +55,7 @@ class output_sql(air_modes.parse):
             );"""
     c.execute(query)
     c.close()
+    self.db.commit()
     #we close the db conn now to reopen it in the output() thread context.
     self.db.close()
     self.db = None

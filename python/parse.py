@@ -87,7 +87,8 @@ class data_field:
     #which reports itself as a short packet but of type long.
     #TODO: should find more productive way to throw this out
     except ValueError:
-      print "Short packet received for long packet type: %x" % self.data
+      pass
+      #print "Short packet received for long packet type: %x" % self.data
     return bits
 
 class bds09_reply(data_field):

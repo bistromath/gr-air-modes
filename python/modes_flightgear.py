@@ -27,39 +27,39 @@ class modes_flightgear(modes_parse.modes_parse):
         self.sock.connect((self.hostname, self.port))
 
     def output(self, message):
-        [msgtype, shortdata, longdata, parity, ecc, reference, timestamp] = message.split()
-        shortdata = long(shortdata, 16)
-        longdata = long(longdata, 16)
-        msgtype = int(msgtype)
+        [data, ecc, reference, timestamp] = message.split()
+        data = modes_parse.modes_reply(long(data, 16))
         
         try:
+            msgtype = data["df"]
             if msgtype == 17: #ADS-B report
-                icao24 = shortdata & 0xFFFFFF	
-                subtype = (longdata >> 51) & 0x1F
-                if subtype == 4: #ident packet
-                    (ident, actype) = self.parseBDS08(shortdata, longdata)
+                icao24 = data["aa"]
+                bdsreg = data["me"].get_type()
+                if bdsreg == 0x08: #ident packet
+                    (ident, actype) = self.parseBDS08(data)
                     #select model based on actype
                     self.callsigns[icao24] = [ident, actype]
                     
-                elif 5 <= subtype <= 8: #BDS0,6 pos
-                    [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(shortdata, longdata)
+                elif bdsreg == 0x06: #BDS0,6 pos
+                    [ground_track, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(data)
+                    self.positions[icao24] = [decoded_lat, decoded_lon, 0]
+                    self.update(icao24)
+
+                elif bdsreg == 0x05: #BDS0,5 pos
+                    [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(data)
                     self.positions[icao24] = [decoded_lat, decoded_lon, altitude]
                     self.update(icao24)
 
-                elif 9 <= subtype <= 18: #BDS0,5 pos
-                    [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(shortdata, longdata)
-                    self.positions[icao24] = [decoded_lat, decoded_lon, altitude]
-                    self.update(icao24)
-
-                elif subtype == 19: #velocity
-                    subsubtype = (longdata >> 48) & 0x07
-                    if subsubtype == 0:
-                        [velocity, heading, vert_spd, turnrate] = self.parseBDS09_0(shortdata, longdata)
-                    elif subsubtype == 1:
-                        [velocity, heading, vert_spd] = self.parseBDS09_1(shortdata, longdata)
-                        turnrate = 0
+                elif bdsreg == 0x09: #velocity
+                    subtype = data["bds09"].get_type()
+                    if subtype == 0:
+                      [velocity, heading, vert_spd, turnrate] = self.parseBDS09_0(data)
+                    elif subtype == 1:
+                      [velocity, heading, vert_spd] = self.parseBDS09_1(data)
+                      turnrate = 0
                     else:
                         return
+
                     self.velocities[icao24] = [velocity, heading, vert_spd, turnrate]
                     
         except ADSBError:
@@ -73,7 +73,7 @@ class modes_flightgear(modes_parse.modes_parse):
         if complete:
             print "FG update: %s" % (self.callsigns[icao24][0])
             msg = fg_posmsg(self.callsigns[icao24][0],
-                            None,#TODO FIX should populate ac type; this isn't pressing bc it appears nobody populates this field
+                            self.callsigns[icao24][1],
                             self.positions[icao24][0],
                             self.positions[icao24][1],
                             self.positions[icao24][2],
@@ -134,14 +134,14 @@ modelmap = { None:                       'Aircraft/777-200/Models/777-200ER.xml'
 }
 
 class fg_posmsg(fg_header):
-    def __init__(self, callsign, model, lat, lon, alt, hdg, vel, vs, turnrate):
+    def __init__(self, callsign, modelname, lat, lon, alt, hdg, vel, vs, turnrate):
         #from the above, calculate valid FGFS mp vals
         #this is the translation layer between ADS-B and FGFS
         fg_header.__init__(self)
         self.callsign = callsign
         if self.callsign is None:
             self.callsign = "UNKNOWN"
-        self.modelname = model
+        self.modelname = modelname
         if self.modelname not in modelmap:
             #this should keep people on their toes when strange aircraft types are seen
             self.model = 'Aircraft/santa/Models/santa.xml'

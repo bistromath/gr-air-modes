@@ -73,59 +73,54 @@ class modes_output_sql(modes_parse.modes_parse):
   def make_insert_query(self, message):
     #assembles a SQL query tailored to our database
     #this version ignores anything that isn't Type 17 for now, because we just don't care
-    [msgtype, shortdata, longdata, parity, ecc, reference, timestamp] = message.split()
+    [data, ecc, reference, timestamp] = message.split()
 
-    shortdata = long(shortdata, 16)
-    longdata = long(longdata, 16)
-    parity = long(parity, 16)
+    data = modes_parse.modes_reply(long(data, 16))
     ecc = long(ecc, 16)
 #   reference = float(reference)
 
-    msgtype = int(msgtype)
 
     query = None
-
+    msgtype = data["df"]
     if msgtype == 17:
-      query = self.sql17(shortdata, longdata)
+      query = self.sql17(data)
 
     return query
 
-  def sql17(self, shortdata, longdata):
-    icao24 = shortdata & 0xFFFFFF	
-    subtype = (longdata >> 51) & 0x1F
+  def sql17(self, data):
+    icao24 = data["aa"]
+    bdsreg = data["me"].get_type()
 
     retstr = None
 
-    if subtype == 4:
-      (msg, typename) = self.parseBDS08(shortdata, longdata)
+    if bdsreg == 0x08:
+      (msg, typename) = self.parseBDS08(data)
       retstr = "INSERT OR REPLACE INTO ident (icao, ident) VALUES (" + "%i" % icao24 + ", '" + msg + "')"
 
-    elif subtype >= 5 and subtype <= 8:
-      [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(shortdata, longdata)
+    elif bdsreg == 0x06:
+      [ground_track, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(data)
+      altitude = 0
       if decoded_lat is None: #no unambiguously valid position available
         retstr = None
       else:
         retstr = "INSERT INTO positions (icao, seen, alt, lat, lon) VALUES (" + "%i" % icao24 + ", datetime('now'), " + str(altitude) + ", " + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
 
-    elif subtype >= 9 and subtype <= 18 and subtype != 15: #i'm eliminating type 15 records because they don't appear to be valid position reports.
-      [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(shortdata, longdata)
+    elif bdsreg == 0x05:
+      [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(data)
       if decoded_lat is None: #no unambiguously valid position available
         retstr = None
       else:
         retstr = "INSERT INTO positions (icao, seen, alt, lat, lon) VALUES (" + "%i" % icao24 + ", datetime('now'), " + str(altitude) + ", " + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
 
-    elif subtype == 19:
-      subsubtype = (longdata >> 48) & 0x07
-      if subsubtype == 0:
-        [velocity, heading, vert_spd, turnrate] = self.parseBDS09_0(shortdata, longdata)
-        retstr = "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")";
-
-      elif subsubtype == 1:
-        [velocity, heading, vert_spd] = self.parseBDS09_1(shortdata, longdata)
-        retstr = "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")";
-
+    elif bdsreg == 0x09:
+      subtype = data["bds09"].get_type()
+      if subtype == 0:
+        [velocity, heading, vert_spd, turnrate] = self.parseBDS09_0(data)
+        retstr = "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")"
+      elif subtype == 1:
+        [velocity, heading, vert_spd] = self.parseBDS09_1(data)  
+        retstr = "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")"
+      else:
+        retstr = None
+        
     return retstr
-
-
-
-

@@ -29,6 +29,7 @@ from string import split, join
 import air_modes
 import gnuradio.gr.gr_threading as _threading
 import csv
+from air_modes.modes_exceptions import *
 
 class top_block_runner(_threading.Thread):
     def __init__(self, tb):
@@ -87,7 +88,7 @@ class adsb_rx_block (gr.top_block):
 
         self.u.set_gain_mode(0) #manual gain mode
         if options.gain is None:
-            options.gain = 49
+            options.gain = 34
             
         self.u.set_gain(options.gain)
         print "Gain is %i" % self.u.get_gain()
@@ -184,6 +185,12 @@ if __name__ == '__main__':
   outputs = [] #registry of plugin output functions
   updates = [] #registry of plugin update functions
 
+  if options.raw is True:
+    rawport = air_modes.modes_raw_server()
+    outputs.append(rawport.output)
+    outputs.append(printraw)
+    updates.append(rawport.add_pending_conns)
+
   if options.kml is not None:
     #we spawn a thread to run every 30 seconds (or whatever) to generate KML
     kmlgen = air_modes.modes_kml(options.kml, my_position) #create a KML generating thread
@@ -196,12 +203,6 @@ if __name__ == '__main__':
     
   if options.no_print is not True:
     outputs.append(air_modes.modes_output_print(my_position).parse)
-
-  if options.raw is True:
-    rawport = air_modes.modes_raw_server()
-    outputs.append(rawport.output)
-    outputs.append(printraw)
-    updates.append(rawport.add_pending_conns)
 
   if options.multiplayer is not None:
     [fghost, fgport] = options.multiplayer.split(':')
@@ -225,7 +226,10 @@ if __name__ == '__main__':
           msg = queue.delete_head() #blocking read
 
           for out in outputs:
-            out(msg.to_string())
+            try:
+              out(msg.to_string())
+            except ADSBError:
+              pass
 
       elif runner.done:
         raise KeyboardInterrupt

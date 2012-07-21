@@ -113,9 +113,12 @@ class modes_output_sql(modes_parse.modes_parse):
 
     elif bdsreg == 0x09:
       subtype = data["bds09"].get_type()
-      if subtype == 0 or subtype == 1:
-        parser = self.parseBDS09_0 if subtype == 0 else self.parseBDS09_1
-        [velocity, heading, vert_spd] = parser(data)
+      if subtype == 0:
+        [velocity, heading, vert_spd, turnrate] = self.parseBDS09_0(data)
         retstr = "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")"
-
+      elif subtype == 1:
+        [velocity, heading, vert_spd] = self.parseBDS09_1(data)  
+        retstr = "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")"
+      else:
+        retstr = None
     return retstr

@@ -211,9 +211,9 @@ class modes_output_print(modes_parse.modes_parse):
     else:
       retstr = "No handler for BDS1 == %i from %x" % (bds1, ecc)
 
-    if(msgtype == 20):
-      retstr += " at %ift" % altitude
-    else:
-      retstr += " ident %x" % ident
+#    if(msgtype == 20):
+#      retstr += " at %ift" % altitude
+#    else:
+#      retstr += " ident %x" % ident
       
     return retstr

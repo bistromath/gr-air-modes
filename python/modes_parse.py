@@ -345,6 +345,21 @@ class modes_parse:
 
     return [velocity, heading, vert_spd]
 
+  def parseBDS09_3(self, data):
+    #3: {"sub", "icf", "ifr", "nuc", "mhs", "hdg", "ast", "spd", "vrsrc",
+    #    "dvr", "vr", "dhd", "hd"}
+    mag_hdg = data["mhs"] * 360. / 1024
+    vel_src = "TAS" if data["ast"] == 1 else "IAS"
+    vel = data["spd"]
+    if data["sub"] == 4:
+        vel *= 4
+    vert_spd = float(data["vr"] - 1) * 64
+    if data["dvr"] == 1:
+        vert_spd = 0 - vert_spd
+    geo_diff = float(data["hd"] - 1) * 25
+    return [mag_hdg, vel_src, vel, vert_spd, geo_diff]
+      
+
   def parseBDS62(self, data):
     eps_strings = ["NO EMERGENCY", "GENERAL EMERGENCY", "LIFEGUARD/MEDICAL", "FUEL EMERGENCY",
                    "NO COMMUNICATIONS", "UNLAWFUL INTERFERENCE", "RESERVED", "RESERVED"]

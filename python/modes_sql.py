@@ -117,7 +117,7 @@ class modes_output_sql(modes_parse.modes_parse):
     elif subtype == 19:
       subsubtype = (longdata >> 48) & 0x07
       if subsubtype == 0:
-        [velocity, heading, vert_spd] = self.parseBDS09_0(shortdata, longdata)
+        [velocity, heading, vert_spd, turnrate] = self.parseBDS09_0(shortdata, longdata)
         retstr = "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")";
 
       elif subsubtype == 1:

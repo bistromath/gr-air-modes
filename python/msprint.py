@@ -197,7 +197,7 @@ class output_print(air_modes.parse):
     elif bds1 == 2:
       retstr = "Type 20 identification from %x with text %s" % (ecc, self.parseMB_id(data))
     elif bds2 == 3:
-      retstr = "TCAS report from %x: " % ecc
+      retstr = "Type 20 TCAS report from %x: " % ecc
       tti = data["tti"]
       if tti == 1:
         (resolutions, complements, rat, mte, threat_id) = self.parseMB_TCAS_threatid(data)
@@ -214,9 +214,9 @@ class output_print(air_modes.parse):
     else:
       retstr = "No handler for BDS1 == %i from %x" % (bds1, ecc)
 
-    if(msgtype == 20):
-      retstr += " at %ift" % alt
-    else:
-      retstr += " ident %x" % ident
+#    if(msgtype == 20):
+#      retstr += " at %ift" % altitude
+#    else:
+#      retstr += " ident %x" % ident
       
     return retstr

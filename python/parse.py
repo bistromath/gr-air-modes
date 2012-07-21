@@ -77,6 +77,7 @@ class data_field:
   def get_bits(self, *args):
     startbit = args[0]
     num = args[1]
+    bits = 0
     try:
       bits = (self.data \
         >> (self.get_numbits() - startbit - num + self.offset)) \
@@ -86,7 +87,7 @@ class data_field:
     #which reports itself as a short packet but of type long.
     #TODO: should find more productive way to throw this out
     except ValueError:
-      bits = 0
+      print "Short packet received for long packet type: %x" % self.data
     return bits
 
 class bds09_reply(data_field):

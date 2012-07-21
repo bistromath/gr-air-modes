@@ -153,7 +153,7 @@ const unsigned int modes_crc_table[112] =
 
 int modes_check_crc(unsigned char data[], int length)
 {
-	int crc, i;
+	int crc=0, i;
 	for(i = 0; i < length; i++)
 	{
 		if(data[i/8] & (1 << (7-(i%8))))

@@ -36,11 +36,10 @@ class modes_output_print(modes_parse.modes_parse):
     reference = float(reference)
     timestamp = float(timestamp)
 
-    #TODO this is suspect
     if reference == 0.0:
       refdb = -150.0
     else:
-      refdb = 10.0*math.log10(reference)
+      refdb = 20.0*math.log10(reference)
     output = "(%.0f %.10f) " % (refdb, timestamp);
 
     try:

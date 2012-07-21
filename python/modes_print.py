@@ -194,7 +194,7 @@ class modes_output_print(modes_parse.modes_parse):
     elif bds1 == 2:
       retstr = "Type 20 identification from %x with text %s" % (ecc, self.parseMB_id(data))
     elif bds2 == 3:
-      retstr = "TCAS report from %x: " % ecc
+      retstr = "Type 20 TCAS report from %x: " % ecc
       tti = data["tti"]
       if tti == 1:
         (resolutions, complements, rat, mte, threat_id) = self.parseMB_TCAS_threatid(data)

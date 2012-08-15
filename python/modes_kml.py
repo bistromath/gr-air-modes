@@ -73,7 +73,7 @@ class modes_kml(threading.Thread, modes_output_sql):
             bearing = i*(2*math.pi/steps) #in radians
             lat_out = math.degrees(math.asin(math.sin(lat_rad)*math.cos(tmp0) + math.cos(lat_rad)*math.sin(tmp0)*math.cos(bearing)))
             lon_out = center_lon + math.degrees(math.atan2(math.sin(bearing)*math.sin(tmp0)*math.cos(lat_rad), math.cos(tmp0)-math.sin(lat_rad)*math.sin(math.radians(lat_out))))
-            retstr += " %.8f, %.8f, 0" % (lon_out, lat_out,)
+            retstr += " %.8f,%.8f, 0" % (lon_out, lat_out,)
 
         retstr = string.lstrip(retstr)
         return retstr

@@ -157,7 +157,7 @@ int air_modes_preamble::general_work(int noutput_items,
 
 			//be sure we've got enough room in the input buffer to copy out a whole packet
 			if(ninputs-i < 240*d_samples_per_chip) {
-				consume_each(i-1);
+				consume_each(std::max(i-1,0));
 				return 0;
 			}
 

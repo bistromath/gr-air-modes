@@ -36,11 +36,10 @@ class output_print(air_modes.parse):
     reference = float(reference)
     timestamp = float(timestamp)
 
-    #TODO this is suspect
     if reference == 0.0:
       refdb = -150.0
     else:
-      refdb = 10.0*math.log10(reference)
+      refdb = 20.0*math.log10(reference)
     output = "(%.0f %.10f) " % (refdb, timestamp);
 
     try:
@@ -161,10 +160,18 @@ class output_print(air_modes.parse):
 
     elif bdsreg == 0x09:
       subtype = data["bds09"].get_type()
-      if subtype == 0 or subtype == 1:
-        parser = self.parseBDS09_0 if subtype == 0 else self.parseBDS09_1
-        [velocity, heading, vert_spd] = parser(data)
+      if subtype == 0:
+        [velocity, heading, vert_spd, turnrate] = self.parseBDS09_0(data)
+        retstr = "Type 17 BDS0,9-%i (track report) from %x with velocity %.0fkt heading %.0f VS %.0f turn rate %.0f" \
+                 % (subtype, icao24, velocity, heading, vert_spd, turnrate)
+      elif subtype == 1:
+        [velocity, heading, vert_spd] = self.parseBDS09_1(data)
         retstr = "Type 17 BDS0,9-%i (track report) from %x with velocity %.0fkt heading %.0f VS %.0f" % (subtype, icao24, velocity, heading, vert_spd)
+      elif subtype == 3:
+        [mag_hdg, vel_src, vel, vert_spd, geo_diff] = self.parseBDS09_3(data)
+        retstr = "Type 17 BDS0,9-%i (air course report) from %x with %s %.0fkt magnetic heading %.0f VS %.0f geo. diff. from baro. alt. %.0fft" \
+                 % (subtype, icao24, vel_src, vel, mag_hdg, vert_spd, geo_diff)
+    
       else:
         retstr = "Type 17 BDS0,9-%i from %x not implemented" % (subtype, icao24)
 

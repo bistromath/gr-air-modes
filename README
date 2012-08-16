@@ -65,7 +65,7 @@ Implementation of ADS-B is mandatory in European airspace as well as
 in Australia. North American implementation is still voluntary, with
 a mandate arriving in 2020 via the FAA's "NextGen" program.
 
-The receiver uhd_modes.py is written for use with Ettus Research USRP
+The receiver modes_rx is written for use with Ettus Research USRP
 devices, although the "RTLSDR" receivers are also supported via the
 Osmocom driver. In theory, any receiver which outputs complex samples at
 at least 2Msps should work via the file input or UDP input options, or
@@ -122,10 +122,10 @@ install it on your system, generally in /usr/local/bin.
 ========================================================================
 USAGE
 
-The main application is uhd_modes.py. For a complete list of options,
+The main application is modes_rx. For a complete list of options,
 run:
 
-$ uhd_modes.py --help
+$ modes_rx --help
 
 For use with Ettus UHD-compatible devices, the defaults should suffice
 to receive reports and print to the screen. Use the -d option to look
@@ -141,7 +141,7 @@ FILES
 
 Interesting files and libraries included with the package:
 
-* apps/uhd_modes.py: The main application.
+* apps/modes_rx: The main application.
 * apps/get_correlated_records.py: Demonstration program for computing
   multilaterated time error for two unsynchronized receiver stations.
 * lib/air_modes_int_and_dump.cc: Unused integrate-and-dump filter for

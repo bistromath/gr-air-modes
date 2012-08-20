@@ -1,17 +1,17 @@
 # Copyright 2010-2011 Free Software Foundation, Inc.
-# 
+#
 # This file is part of GNU Radio
-# 
+#
 # GNU Radio is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 3, or (at your option)
 # any later version.
-# 
+#
 # GNU Radio is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with GNU Radio; see the file COPYING.  If not, write to
 # the Free Software Foundation, Inc., 51 Franklin Street,
@@ -33,7 +33,6 @@ set(__INCLUDED_GR_TEST_CMAKE TRUE)
 ########################################################################
 function(GR_ADD_TEST test_name)
 
-    if(WIN32)
         #Ensure that the build exe also appears in the PATH.
         list(APPEND GR_TEST_TARGET_DEPS ${ARGN})
 
@@ -50,6 +49,7 @@ function(GR_ADD_TEST test_name)
             endif(location)
         endforeach(target)
 
+    if(WIN32)
         #SWIG generates the python library files into a subdirectory.
         #Therefore, we must append this subdirectory into PYTHONPATH.
         #Only do this for the python directories matching the following:
@@ -74,15 +74,19 @@ function(GR_ADD_TEST test_name)
     #SET_TESTS_PROPERTIES(${test_name} PROPERTIES ENVIRONMENT "${environs}")
 
     if(UNIX)
+        set(LD_PATH_VAR "LD_LIBRARY_PATH")
+        if(APPLE)
+            set(LD_PATH_VAR "DYLD_LIBRARY_PATH")
+        endif()
+
         set(binpath "${CMAKE_CURRENT_BINARY_DIR}:$PATH")
-        #set both LD and DYLD paths to cover multiple UNIX OS library paths
-        list(APPEND libpath "$LD_LIBRARY_PATH" "$DYLD_LIBRARY_PATH")
+        list(APPEND libpath "$${LD_PATH_VAR}")
         list(APPEND pypath "$PYTHONPATH")
 
         #replace list separator with the path separator
         string(REPLACE ";" ":" libpath "${libpath}")
         string(REPLACE ";" ":" pypath "${pypath}")
-        list(APPEND environs "PATH=${binpath}" "LD_LIBRARY_PATH=${libpath}" "DYLD_LIBRARY_PATH=${libpath}" "PYTHONPATH=${pypath}")
+        list(APPEND environs "PATH=${binpath}" "${LD_PATH_VAR}=${libpath}" "PYTHONPATH=${pypath}")
 
         #generate a bat file that sets the environment and runs the test
         find_program(SHELL sh)

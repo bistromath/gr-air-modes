@@ -90,7 +90,7 @@ static double tag_to_timestamp(gr_tag_t tstamp, uint64_t abs_sample_cnt, double 
 	ts_sample = tstamp.offset;
 	
 	double tstime = double(abs_sample_cnt * secs_per_sample) + last_whole_stamp + last_frac_stamp;
-	//std::cout << "HEY WE GOT A STAMP AT " << tstime << " TICKS AT SAMPLE " << ts_sample << " ABS SAMPLE CNT IS " << abs_sample_cnt << std::endl;
+	if(0) std::cout << "HEY WE GOT A STAMP AT " << tstime << " TICKS AT SAMPLE " << ts_sample << " ABS SAMPLE CNT IS " << abs_sample_cnt << std::endl;
 	return tstime;
 }
 
@@ -103,6 +103,8 @@ int air_modes_preamble::general_work(int noutput_items,
 	const float *inavg = (const float *) input_items[1];
 	const int ninputs = std::min(ninput_items[0], ninput_items[1]); //just in case
 	float *out = (float *) output_items[0];
+
+	if(0) std::cout << "Preamble called with " << ninputs << " samples" << std::endl;
 
 	//fixme move into .h
 	const int pulse_offsets[4] = {    0,
@@ -187,13 +189,15 @@ int air_modes_preamble::general_work(int noutput_items,
 					 
 			//std::cout << "PREAMBLE" << std::endl;
 			
-			//produce only one output per work call
+			//produce only one output per work call -- TODO this should probably change
+			if(0) std::cout << "Preamble consumed " << i+240*d_samples_per_chip << ", returned 240" << std::endl;
 			consume_each(i+240*d_samples_per_chip);
 			return 240;
 		}
 	}
 	
 	//didn't get anything this time
+	if(0) std::cout << "Preamble consumed " << ninputs << ", returned 0" << std::endl;
 	consume_each(ninputs);
 	return 0;
 }

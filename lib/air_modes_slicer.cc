@@ -56,7 +56,7 @@ air_modes_slicer::air_modes_slicer(int channel_rate, gr_msg_queue_sptr queue) :
 	d_check_width = 120 * d_samples_per_symbol; //how far you will have to look ahead
 	d_queue = queue;
 
-	set_output_multiple(1+d_check_width); //how do you specify buffer size for sinks?
+	set_output_multiple(d_check_width*2); //how do you specify buffer size for sinks?
 }
 
 //this slicer is courtesy of Lincoln Labs. supposedly it is more resistant to mode A/C FRUIT.
@@ -102,6 +102,8 @@ int air_modes_slicer::work(int noutput_items,
 {
 	const float *in = (const float *) input_items[0];
 	int size = noutput_items - d_check_width; //since it's a sync block, i assume that it runs with ninput_items = noutput_items
+
+	if(0) std::cout << "Slicer called with " << size << " samples" << std::endl;
 	
 	std::vector<gr_tag_t> tags;
 	uint64_t abs_sample_cnt = nitems_read(0);
@@ -188,6 +190,6 @@ int air_modes_slicer::work(int noutput_items,
 			gr_message_sptr msg = gr_make_message_from_string(std::string(d_payload.str()));
 		d_queue->handle(msg);
 	}
-
+	if(0) std::cout << "Slicer consumed " << size << ", returned " << size << std::endl;
 	return size;
 }

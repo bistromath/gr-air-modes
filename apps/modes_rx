@@ -82,7 +82,7 @@ class adsb_rx_block (gr.top_block):
     elif options.rtlsdr: #RTLSDR dongle
         import osmosdr
         self.u = osmosdr.source_c(options.args)
-        self.u.set_sample_rate(2.4e6) #fixed for RTL dongles
+        self.u.set_sample_rate(3.2e6) #fixed for RTL dongles
         if not self.u.set_center_freq(options.freq):
             print "Failed to set initial frequency"
 
@@ -118,8 +118,8 @@ class adsb_rx_block (gr.top_block):
     self.slicer = air_modes.modes_slicer(rate, queue)
 
     if use_resampler:
-        self.lpfiltcoeffs = gr.firdes.low_pass(1, 5*2.4e6, 1.2e6, 300e3)
-        self.resample = blks2.rational_resampler_ccf(interpolation=5, decimation=3, taps=self.lpfiltcoeffs)
+        self.lpfiltcoeffs = gr.firdes.low_pass(1, 5*3.2e6, 1.6e6, 300e3)
+        self.resample = blks2.rational_resampler_ccf(interpolation=5, decimation=4, taps=self.lpfiltcoeffs)
         self.connect(self.u, self.resample, self.demod)
     else:
         self.connect(self.u, self.demod)

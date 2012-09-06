@@ -23,6 +23,8 @@
 ########################################################################
 cmake_minimum_required(VERSION 2.6)
 project(gr-gr-air-modes CXX)
+set(gr-gr-air-modes_VERSION_MAJOR 0)
+set(gr-gr-air-modes_VERSION_MINOR 0)
 enable_testing()
 
 #select the release build type by default to get optimization flags

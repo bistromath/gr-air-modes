@@ -53,7 +53,7 @@ air_modes_preamble::air_modes_preamble(int channel_rate, float threshold_db) :
 	str << name() << unique_id();
 	d_me = pmt::pmt_string_to_symbol(str.str());
 	d_key = pmt::pmt_string_to_symbol("preamble_found");
-	set_history(d_check_width);
+	set_history(d_samples_per_symbol);
 }
 
 static void integrate_and_dump(float *out, const float *in, int chips, int samps_per_chip) {
@@ -101,7 +101,13 @@ int air_modes_preamble::general_work(int noutput_items,
 {
 	const float *in = (const float *) input_items[0];
 	const float *inavg = (const float *) input_items[1];
-	const int ninputs = std::min(ninput_items[0], ninput_items[1]); //just in case
+
+	int mininputs = std::min(ninput_items[0], ninput_items[1]); //they should be matched but let's be safe
+	//round number of input samples down to nearest d_samples_per_chip
+	//we also subtract off d_samples_per_chip to allow the bit center finder some leeway
+	const int ninputs = std::max(mininputs - (mininputs % d_samples_per_chip) - d_samples_per_chip, 0);
+	if (ninputs <= 0) { consume_each(0); return 0; }
+	
 	float *out = (float *) output_items[0];
 
 	if(0) std::cout << "Preamble called with " << ninputs << " samples" << std::endl;
@@ -132,15 +138,18 @@ int air_modes_preamble::general_work(int noutput_items,
 
 			//get a more accurate bit center by finding the correlation peak across all four preamble bits
 			bool late, early;
+			int how_late = 0;
 			do {
 				double now_corr = correlate_preamble(in+i, d_samples_per_chip);
 				double late_corr = correlate_preamble(in+i+1, d_samples_per_chip);
 				double early_corr = correlate_preamble(in+i-1, d_samples_per_chip);
 				late = (late_corr > now_corr);
 				//early = (early_corr > now_corr);
-				if(late) i++;
+				if(late) { i++; how_late++; }
 				//if(early && i>0) { std::cout << "EARLY " << i << std::endl; i--; }
-			} while(late);// xor early);
+			} while(late and how_late < d_samples_per_chip);// xor early);
+
+			if(0) std::cout << "We were " << how_late << " samples late" << std::endl;
 
 			//now check to see that the non-peak symbols in the preamble
 			//are below the peaks by threshold dB
@@ -160,6 +169,7 @@ int air_modes_preamble::general_work(int noutput_items,
 			//be sure we've got enough room in the input buffer to copy out a whole packet
 			if(ninputs-i < 240*d_samples_per_chip) {
 				consume_each(std::max(i-1,0));
+				if(0) std::cout << "Preamble consumed " << std::max(i-1,0) << ", returned 0 (no room)" << std::endl;
 				return 0;
 			}
 
@@ -190,7 +200,7 @@ int air_modes_preamble::general_work(int noutput_items,
 			//std::cout << "PREAMBLE" << std::endl;
 			
 			//produce only one output per work call -- TODO this should probably change
-			if(0) std::cout << "Preamble consumed " << i+240*d_samples_per_chip << ", returned 240" << std::endl;
+			if(0) std::cout << "Preamble consumed " << i+240*d_samples_per_chip << "with i=" << i << ", returned 240" << std::endl;
 			consume_each(i+240*d_samples_per_chip);
 			return 240;
 		}

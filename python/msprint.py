@@ -180,7 +180,7 @@ class output_print(air_modes.parse):
       retstr = "Type 17 BDS6,2 (emergency) from %x type %s" % (icao24, emerg_str)
       
     else:
-      retstr = "Type 17 subtype %i from %x not implemented" % (subtype, icao24)
+      retstr = "Type 17 with FTC=%i from %x not implemented" % (data["ftc"], icao24)
 
     return retstr
 

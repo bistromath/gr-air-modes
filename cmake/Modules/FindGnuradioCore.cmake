@@ -5,7 +5,7 @@ FIND_PATH(
     GNURADIO_CORE_INCLUDE_DIRS
     NAMES gr_random.h
     HINTS $ENV{GNURADIO_CORE_DIR}/include/gnuradio
-        ${PC_GNURADIO_CORE_INCLUDE_DIR}
+        ${PC_GNURADIO_CORE_INCLUDEDIR}
     PATHS /usr/local/include/gnuradio
           /usr/include/gnuradio
 )

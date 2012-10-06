@@ -19,7 +19,7 @@
 # Boston, MA 02110-1301, USA.
 # 
 
-import time, os, sys
+import time, os, sys, threading
 from string import split, join
 import modes_parse
 import sqlite3
@@ -28,6 +28,8 @@ from modes_exceptions import *
 class modes_output_sql(modes_parse.modes_parse):
   def __init__(self, mypos, filename):
     modes_parse.modes_parse.__init__(self, mypos)
+
+    self._lock = threading.Lock()
     #create the database
     self.db = sqlite3.connect(filename)
     #now execute a schema to create the tables you need
@@ -39,7 +41,7 @@ class modes_output_sql(modes_parse.modes_parse):
                 "lat"  REAL,
                 "lon"  REAL
             );"""
-    c.execute(query)
+    self.locked_execute(c, query)
     query = """CREATE TABLE IF NOT EXISTS "vectors" (
                 "icao"     INTEGER KEY NOT NULL,
                 "seen"     TEXT NOT NULL,
@@ -47,26 +49,31 @@ class modes_output_sql(modes_parse.modes_parse):
                 "heading"  REAL,
                 "vertical" REAL
             );"""
-    c.execute(query)
+    self.locked_execute(c, query)
     query = """CREATE TABLE IF NOT EXISTS "ident" (
                 "icao"     INTEGER PRIMARY KEY NOT NULL,
                 "ident"    TEXT NOT NULL
             );"""
-    c.execute(query)
+    self.locked_execute(c, query)
     c.close()
     self.db.commit()
 
   def __del__(self):
     self.db.close()
 
+  def locked_execute(self, c, query):
+    with self._lock:
+      c.execute(query)
+
   def output(self, message):
     try:
       query = self.make_insert_query(message)
       if query is not None:
-        c = self.db.cursor()
-        c.execute(query)
-        c.close()
-        self.db.commit()
+        with self._lock:
+          c = self.db.cursor()
+          c.execute(query)
+          c.close()
+          self.db.commit()
     except ADSBError:
       pass
 

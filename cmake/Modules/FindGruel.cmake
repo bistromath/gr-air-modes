@@ -1,11 +1,11 @@
 INCLUDE(FindPkgConfig)
-PKG_CHECK_MODULES(PC_GRUEL gnuradio-core QUIET)
+PKG_CHECK_MODULES(PC_GRUEL gnuradio-core)
 
 FIND_PATH(
     GRUEL_INCLUDE_DIRS
     NAMES gruel/attributes.h
     HINTS $ENV{GRUEL_DIR}/include
-        ${PC_GRUEL_INCLUDE_DIR}
+        ${PC_GRUEL_INCLUDEDIR}
     PATHS /usr/local/include
           /usr/include
 )

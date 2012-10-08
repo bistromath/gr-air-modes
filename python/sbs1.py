@@ -131,9 +131,9 @@ class output_sbs1(air_modes.parse):
     aircraft_id = self.get_aircraft_id(ecc)
     retstr = "MSG,7,0,%i,%06X,%i,%s,%s,%s,%s,,%s,,,,,,,,,," % (aircraft_id, ecc, aircraft_id+100, datestr, timestr, datestr, timestr, altitude)
     if vs:
-      retstr += "1\n"
+      retstr += "1\r\n"
     else:
-      retstr += "0\n"
+      retstr += "0\r\n"
     return retstr
 
   def pp4(self, shortdata, ecc):
@@ -141,7 +141,7 @@ class output_sbs1(air_modes.parse):
     [fs, dr, um, altitude] = self.parse4(shortdata)
     aircraft_id = self.get_aircraft_id(ecc)
     retstr = "MSG,5,0,%i,%06X,%i,%s,%s,%s,%s,,%s,,,,,,," % (aircraft_id, ecc, aircraft_id+100, datestr, timestr, datestr, timestr, altitude)
-    return retstr + self.decode_fs(fs) + "\n"
+    return retstr + self.decode_fs(fs) + "\r\n"
 
   def pp5(self, shortdata, ecc):
     # I'm not sure what to do with the identiifcation shortdata & 0x1FFF
@@ -149,13 +149,13 @@ class output_sbs1(air_modes.parse):
     [fs, dr, um, ident] = self.parse5(shortdata)
     aircraft_id = self.get_aircraft_id(ecc)
     retstr = "MSG,6,0,%i,%06X,%i,%s,%s,%s,%s,,,,,,,,," % (aircraft_id, ecc, aircraft_id+100, datestr, timestr, datestr, timestr)
-    return retstr + self.decode_fs(fs) + "\n"
+    return retstr + self.decode_fs(fs) + "\r\n"
 
   def pp11(self, shortdata, ecc):
     [datestr, timestr] = self.current_time()
     [icao24, interrogator, ca] = self.parse11(shortdata, ecc)
     aircraft_id = self.get_aircraft_id(icao24)
-    return "MSG,8,0,%i,%06X,%i,%s,%s,%s,%s,,,,,,,,,,,,\n" % (aircraft_id, icao24, aircraft_id+100, datestr, timestr, datestr, timestr)
+    return "MSG,8,0,%i,%06X,%i,%s,%s,%s,%s,,,,,,,,,,,,\r\n" % (aircraft_id, icao24, aircraft_id+100, datestr, timestr, datestr, timestr)
 
   def pp17(self, data):
     icao24 = data["aa"]
@@ -170,7 +170,7 @@ class output_sbs1(air_modes.parse):
     if bdsreg == 0x08:
       # Aircraft Identification
       (msg, typestring) = self.parseBDS08(data)
-      retstr = "MSG,1,0,%i,%06X,%i,%s,%s,%s,%s,%s,,,,,,,,,,,\n" % (aircraft_id, icao24, aircraft_id+100, datestr, timestr, datestr, timestr, msg)
+      retstr = "MSG,1,0,%i,%06X,%i,%s,%s,%s,%s,%s,,,,,,,,,,,\r\n" % (aircraft_id, icao24, aircraft_id+100, datestr, timestr, datestr, timestr, msg)
 
     elif bdsreg == 0x06:
       # Surface position measurement
@@ -179,7 +179,7 @@ class output_sbs1(air_modes.parse):
       if decoded_lat is None: #no unambiguously valid position available
         retstr = None
       else:
-        retstr = "MSG,2,0,%i,%06X,%i,%s,%s,%s,%s,,%i,,,%.5f,%.5f,,,,0,0,0\n" % (aircraft_id, icao24, aircraft_id+100, datestr, timestr, datestr, timestr, altitude, decoded_lat, decoded_lon)
+        retstr = "MSG,2,0,%i,%06X,%i,%s,%s,%s,%s,,%i,,,%.5f,%.5f,,,,0,0,0\r\n" % (aircraft_id, icao24, aircraft_id+100, datestr, timestr, datestr, timestr, altitude, decoded_lat, decoded_lon)
 
     elif bdsreg == 0x05:
       # Airborne position measurements
@@ -188,7 +188,7 @@ class output_sbs1(air_modes.parse):
       if decoded_lat is None: #no unambiguously valid position available
         retstr = None
       else:
-        retstr = "MSG,3,0,%i,%06X,%i,%s,%s,%s,%s,,%i,,,%.5f,%.5f,,,,0,0,0\n" % (aircraft_id, icao24, aircraft_id+100, datestr, timestr, datestr, timestr, altitude, decoded_lat, decoded_lon)
+        retstr = "MSG,3,0,%i,%06X,%i,%s,%s,%s,%s,,%i,,,%.5f,%.5f,,,,0,0,0\r\n" % (aircraft_id, icao24, aircraft_id+100, datestr, timestr, datestr, timestr, altitude, decoded_lat, decoded_lon)
 
     elif bdsreg == 0x09:
       # Airborne velocity measurements
@@ -197,6 +197,6 @@ class output_sbs1(air_modes.parse):
       if subtype == 0 or subtype == 1:
         parser = self.parseBDS09_0 if subtype == 0 else self.parseBDS09_1
         [velocity, heading, vert_spd] = parser(data)
-        retstr = "MSG,4,0,%i,%06X,%i,%s,%s,%s,%s,,,%.1f,%.1f,,,%i,,,,,\n" % (aircraft_id, icao24, aircraft_id+100, datestr, timestr, datestr, timestr, velocity, heading, vert_spd)
+        retstr = "MSG,4,0,%i,%06X,%i,%s,%s,%s,%s,,,%.1f,%.1f,,,%i,,,,,\r\n" % (aircraft_id, icao24, aircraft_id+100, datestr, timestr, datestr, timestr, velocity, heading, vert_spd)
 
     return retstr

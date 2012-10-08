@@ -19,7 +19,7 @@
 # Boston, MA 02110-1301, USA.
 # 
 
-import time, os, sys
+import time, os, sys, threading
 from string import split, join
 import air_modes
 import sqlite3
@@ -28,6 +28,9 @@ from air_modes.exceptions import *
 class output_sql(air_modes.parse):
   def __init__(self, mypos, filename):
     air_modes.parse.__init__(self, mypos)
+
+    self._lock = threading.Lock()
+
     #create the database
     self.filename = filename
     self.db = sqlite3.connect(filename)
@@ -40,7 +43,7 @@ class output_sql(air_modes.parse):
                 "lat"  REAL,
                 "lon"  REAL
             );"""
-    c.execute(query)
+    self.locked_execute(c, query)
     query = """CREATE TABLE IF NOT EXISTS "vectors" (
                 "icao"     INTEGER KEY NOT NULL,
                 "seen"     TEXT NOT NULL,
@@ -48,12 +51,12 @@ class output_sql(air_modes.parse):
                 "heading"  REAL,
                 "vertical" REAL
             );"""
-    c.execute(query)
+    self.locked_execute(c, query)
     query = """CREATE TABLE IF NOT EXISTS "ident" (
                 "icao"     INTEGER PRIMARY KEY NOT NULL,
                 "ident"    TEXT NOT NULL
             );"""
-    c.execute(query)
+    self.locked_execute(c, query)
     c.close()
     self.db.commit()
     #we close the db conn now to reopen it in the output() thread context.
@@ -62,6 +65,10 @@ class output_sql(air_modes.parse):
 
   def __del__(self):
     self.db = None
+
+  def locked_execute(self, c, query):
+    with self._lock:
+      c.execute(query)
 
   def output(self, message):
     try:
@@ -74,10 +81,12 @@ class output_sql(air_modes.parse):
           
       query = self.make_insert_query(message)
       if query is not None:
-        c = self.db.cursor()
-        c.execute(query)
-        c.close()
-        self.db.commit() #don't know if this is necessary
+        with self._lock:
+          c = self.db.cursor()
+          c.execute(query)
+          c.close()
+          self.db.commit()
+
     except ADSBError:
       pass
 

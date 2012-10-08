@@ -93,14 +93,14 @@ class output_kml(threading.Thread):
         #read the database and add KML
         q = "select distinct icao from positions where seen > datetime('now', '-5 minute')"
         c = self._db.cursor()
-        c.execute(q)
+        self.locked_execute(c, q)
         icaolist = c.fetchall()
         #now we have a list icaolist of all ICAOs seen in the last 5 minutes
 
         for icao in icaolist:
             #print "ICAO: %x" % icao
             q = "select * from positions where icao=%i and seen > datetime('now', '-2 hour') ORDER BY seen DESC" % icao
-            c.execute(q)
+            self.locked_execute(c, q)
             track = c.fetchall()
             #print "Track length: %i" % len(track)
             if len(track) != 0:
@@ -128,7 +128,7 @@ class output_kml(threading.Thread):
 
             #now get metadata
             q = "select ident from ident where icao=%i" % icao
-            c.execute(q)
+            self.locked_execute(c, q)
             r = c.fetchall()
             if len(r) != 0:
                 ident = r[0][0]
@@ -136,7 +136,7 @@ class output_kml(threading.Thread):
             #if ident is None: ident = ""
             #get most recent speed/heading/vertical
             q = "select seen, speed, heading, vertical from vectors where icao=%i order by seen desc limit 1" % icao
-            c.execute(q)
+            self.locked_execute(c, q)
             r = c.fetchall()
             if len(r) != 0:
                 seen = r[0][0]

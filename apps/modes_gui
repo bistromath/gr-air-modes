@@ -252,11 +252,12 @@ class mainwindow(QtGui.QMainWindow):
 
             self.outputs = [self.datamodelout.output]
             self.updates = []
+            self.lock = threading.Lock() #grab a lock to ensure sql and kml don't step on each other
 
             #output options to populate outputs, updates
             if self.ui.check_kml.checkState():
                 #we spawn a thread to run every 30 seconds (or whatever) to generate KML
-                self.kmlgen = air_modes.output_kml(self.ui.line_kmlfilename.text(), self.dbname, my_position) #create a KML generating thread
+                self.kmlgen = air_modes.output_kml(self.ui.line_kmlfilename.text(), self.dbname, my_position, self.lock) #create a KML generating thread
 
             if self.ui.check_sbs1.checkState():
                 sbs1port = int(self.ui.line_sbs1port.text())
@@ -281,7 +282,7 @@ class mainwindow(QtGui.QMainWindow):
             self.outputs.append(self.output_live_data)
 
             #create SQL database for KML and dashboard displays
-            self.dbwriter = air_modes.output_sql(my_position, self.dbname)
+            self.dbwriter = air_modes.output_sql(my_position, self.dbname, self.lock)
             self.outputs.append(self.dbwriter.output) #now the db will update itself
 
             #output to update reports/sec widget

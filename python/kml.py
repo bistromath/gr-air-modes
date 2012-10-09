@@ -23,12 +23,13 @@ import sqlite3
 import string, math, threading, time
 
 class output_kml(threading.Thread):
-    def __init__(self, filename, dbname, localpos, timeout=5):
+    def __init__(self, filename, dbname, localpos, lock, timeout=5):
         threading.Thread.__init__(self)
         self._dbname = dbname
         self._filename = filename
         self.my_coords = localpos
         self._timeout = timeout
+        self._lock = lock
         
         self.done = False
         self.setDaemon(1)
@@ -50,6 +51,10 @@ class output_kml(threading.Thread):
             f = open(self._filename, 'w')
             f.write(kmlstr)
             f.close()
+
+    def locked_execute(self, c, query):
+        with self._lock:
+            c.execute(query)
     
     def draw_circle(self, center, rng):
         retstr = ""

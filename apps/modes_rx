@@ -194,8 +194,9 @@ if __name__ == '__main__':
   if options.kml is not None:
     #we spawn a thread to run every 30 seconds (or whatever) to generate KML
     dbname = 'adsb.db'
-    sqldb = air_modes.output_sql(my_position, dbname) #input into the db
-    kmlgen = air_modes.output_kml(options.kml, dbname, my_position) #create a KML generating thread to read from the db
+    lock = threading.Lock()
+    sqldb = air_modes.output_sql(my_position, dbname, lock) #input into the db
+    kmlgen = air_modes.output_kml(options.kml, dbname, my_position, lock) #create a KML generating thread to read from the db
     outputs.append(sqldb.output)
 
   if options.sbs1 is True:

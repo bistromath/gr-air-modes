@@ -26,69 +26,65 @@ import sqlite3
 from air_modes.exceptions import *
 
 class output_sql(air_modes.parse):
-  def __init__(self, mypos, filename):
+  def __init__(self, mypos, filename, lock):
     air_modes.parse.__init__(self, mypos)
 
-    self._lock = threading.Lock()
-
-    #create the database
-    self.filename = filename
-    self.db = sqlite3.connect(filename)
-    #now execute a schema to create the tables you need
-    c = self.db.cursor()
-    query = """CREATE TABLE IF NOT EXISTS "positions" (
+    self._lock = lock
+    with self._lock:
+      #create the database
+      self.filename = filename
+      self.db = sqlite3.connect(filename)
+      #now execute a schema to create the tables you need
+      c = self.db.cursor()
+      query = """CREATE TABLE IF NOT EXISTS "positions" (
                 "icao" INTEGER KEY NOT NULL,
                 "seen" TEXT NOT NULL,
                 "alt"  INTEGER,
                 "lat"  REAL,
                 "lon"  REAL
             );"""
-    self.locked_execute(c, query)
-    query = """CREATE TABLE IF NOT EXISTS "vectors" (
+      self.execute(c, query)
+      query = """CREATE TABLE IF NOT EXISTS "vectors" (
                 "icao"     INTEGER KEY NOT NULL,
                 "seen"     TEXT NOT NULL,
                 "speed"    REAL,
                 "heading"  REAL,
                 "vertical" REAL
             );"""
-    self.locked_execute(c, query)
-    query = """CREATE TABLE IF NOT EXISTS "ident" (
+      self.execute(c, query)
+      query = """CREATE TABLE IF NOT EXISTS "ident" (
                 "icao"     INTEGER PRIMARY KEY NOT NULL,
                 "ident"    TEXT NOT NULL
             );"""
-    self.locked_execute(c, query)
-    c.close()
-    self.db.commit()
-    #we close the db conn now to reopen it in the output() thread context.
-    self.db.close()
-    self.db = None
+      self.execute(c, query)
+      c.close()
+      self.db.commit()
+      #we close the db conn now to reopen it in the output() thread context.
+      self.db.close()
+      self.db = None
 
   def __del__(self):
     self.db = None
 
-  def locked_execute(self, c, query):
-    with self._lock:
-      c.execute(query)
-
   def output(self, message):
-    try:
-      #we're checking to see if the db is empty, and creating the db object
-      #if it is. the reason for this is so that the db writing is done within
-      #the thread context of output(), rather than the thread context of the
-      #constructor. that way you can spawn a thread to do output().
-      if self.db is None:
-        self.db = sqlite3.connect(self.filename)
+    with self._lock:
+      try:
+        #we're checking to see if the db is empty, and creating the db object
+        #if it is. the reason for this is so that the db writing is done within
+        #the thread context of output(), rather than the thread context of the
+        #constructor. that way you can spawn a thread to do output().
+        if self.db is None:
+          self.db = sqlite3.connect(self.filename)
           
-      query = self.make_insert_query(message)
-      if query is not None:
-        with self._lock:
-          c = self.db.cursor()
-          c.execute(query)
-          c.close()
-          self.db.commit()
+        query = self.make_insert_query(message)
+        if query is not None:
+            c = self.db.cursor()
+            c.execute(query)
+            c.close()
+            self.db.commit()
 
-    except ADSBError:
-      pass
+      except ADSBError:
+        pass
 
   def make_insert_query(self, message):
     #assembles a SQL query tailored to our database

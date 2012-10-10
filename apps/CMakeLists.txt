@@ -23,5 +23,6 @@ GR_PYTHON_INSTALL(
     PROGRAMS
     modes_rx
     modes_gui
+    uhd_modes.py
     DESTINATION bin
 )

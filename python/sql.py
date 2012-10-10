@@ -43,7 +43,7 @@ class output_sql(air_modes.parse):
                 "lat"  REAL,
                 "lon"  REAL
             );"""
-      self.execute(c, query)
+      c.execute(query)
       query = """CREATE TABLE IF NOT EXISTS "vectors" (
                 "icao"     INTEGER KEY NOT NULL,
                 "seen"     TEXT NOT NULL,
@@ -51,12 +51,12 @@ class output_sql(air_modes.parse):
                 "heading"  REAL,
                 "vertical" REAL
             );"""
-      self.execute(c, query)
+      c.execute(query)
       query = """CREATE TABLE IF NOT EXISTS "ident" (
                 "icao"     INTEGER PRIMARY KEY NOT NULL,
                 "ident"    TEXT NOT NULL
             );"""
-      self.execute(c, query)
+      c.execute(query)
       c.close()
       self.db.commit()
       #we close the db conn now to reopen it in the output() thread context.

@@ -175,6 +175,7 @@ class az_map_output(air_modes.parse):
     def __init__(self, mypos, model):
         air_modes.parse.__init__(self, mypos)
         self.model = model
+        
     def output(self, msg):
         [data, ecc, reference, timestamp] = msg.split()
         data = air_modes.modes_reply(long(data, 16))
@@ -213,9 +214,9 @@ class model_updater(threading.Thread):
         for i in range(az_map_model.npoints):
             time.sleep(0.05)
             if(self.model):
-                self.model.addRecord(i*360./az_map_model.npoints, 2000, 80)#random.randint(0,400)/4)
-                self.model.addRecord(i*360./az_map_model.npoints, 10000, 210) #random.randint(0,400)/2)
-                self.model.addRecord(i*360./az_map_model.npoints, 30000, 350)#random.randint(0,400))
+                self.model.addRecord(i*360./az_map_model.npoints, 2000, random.randint(0,400)/4)
+                self.model.addRecord(i*360./az_map_model.npoints, 10000, random.randint(0,400)/2)
+                self.model.addRecord(i*360./az_map_model.npoints, 30000, random.randint(0,400))
             else:
                 self.stop()
         

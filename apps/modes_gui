@@ -296,18 +296,23 @@ class mainwindow(QtGui.QMainWindow):
 
     def on_quit(self):
         if self.runner is not None:
-            self.output_handler.done = True
+            try:
+                self.output_handler.done = True
+            except:
+                pass
             self.output_handler = None
             self.outputs = []
             self.updates = []
             self.fg.stop()
             self.runner = None
             self.fg = None
-            if self.kmlgen is not None:
+            try:
                 self.kmlgen.done = True
                 #TODO FIXME need a way to kill kmlgen safely without delay
                 #self.kmlgen.join()
                 #self.kmlgen = None
+            except:
+                pass
 
     #slot to catch signal emitted by output_live_data (necessary for
     #thread safety since output_live_data is called by another thread)

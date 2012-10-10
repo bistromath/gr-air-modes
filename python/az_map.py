@@ -57,15 +57,22 @@ class az_map_model(QtCore.QObject):
         with self.lock:
             #round up to nearest altitude in altitudes list
             #there's probably another way to do it
-            col = self._altitudes.index(min([alt for alt in self._altitudes if alt >= altitude]))
+            if altitude >= max(self._altitudes):
+                col = self.columnCount()-1
+            else:
+                col = self._altitudes.index(min([alt for alt in self._altitudes if alt >= altitude]))
+
             #find which bearing row we sit in
             row = int(bearing+(180/az_map_model.npoints)) / (360/az_map_model.npoints)
             #set max range for all alts >= the ac alt
             #this expresses the assumption that higher ac can be heard further
+            update = False
             for i in range(col, len(self._altitudes)):
                 if distance > self._data[row][i]:
                     self._data[row][i] = distance
-                    self.dataChanged.emit()
+                    update = True
+            if update:
+                self.dataChanged.emit()
 
     def reset(self):
         with self.lock:
@@ -81,12 +88,14 @@ class az_map(QtGui.QWidget):
     ringsize = 100
     bgcolor = QtCore.Qt.black
     ringpen =  QtGui.QPen(QtGui.QColor(0,   96,  127, 255), 1.3)
-    rangepen = QtGui.QPen(QtGui.QColor(255, 255, 0,   255), 1.0)
+    #rangepen = QtGui.QPen(QtGui.QColor(255, 255, 0,   255), 1.0)
     
     def __init__(self, parent=None):
         super(az_map, self).__init__(parent)
         self._model = None
-        self._path = QtGui.QPainterPath()
+        self._paths = []
+        self.maxrange = az_map.maxrange
+        self.ringsize = az_map.ringsize
 
     def minimumSizeHint(self):
         return QtCore.QSize(50, 50)
@@ -96,49 +105,71 @@ class az_map(QtGui.QWidget):
 
     def setModel(self, model):
         self._model = model
-        self._model.dataChanged.connect(self.drawPath)
+        self._model.dataChanged.connect(self.update)
+
+    def update(self):
+        self.drawPaths()
+        self.repaint()
 
     def paintEvent(self, event):
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QtGui.QPainter.Antialiasing)
+        #TODO: make it not have to redraw paths EVERY repaint
+        self.drawPaths()
 
         #set background
         painter.fillRect(event.rect(), QtGui.QBrush(az_map.bgcolor))
         
         #draw the range rings
         self.drawRangeRings(painter)
-        #self.drawPath()
+        #painter.setPen(az_map.rangepen)
+        for i in range(len(self._paths)):
+            alpha = 230 * (i+1) / (len(self._paths)) + 25
+            painter.setPen(QtGui.QPen(QtGui.QColor(alpha,alpha,0,255), 1.0))
+            painter.drawPath(self._paths[i])
 
-        painter.setPen(az_map.rangepen)
-        painter.drawPath(self._path)
-
-    def drawPath(self):
-        self._path = QtGui.QPainterPath()
+    def drawPaths(self):
+        self._paths = []
         if(self._model):
-            for i in range(az_map_model.npoints-1,-1,-1):
-                #bearing is to start point of arc (clockwise) 
-                bearing = (i+0.5) * 360./az_map_model.npoints
-                distance = self._model._data[i][self._model.columnCount()-1]
-                #convert bearing,distance to x,y
-                radius = min(self.width(), self.height()) / 2.0
-                xpts = (radius * distance / az_map.maxrange) * math.sin(bearing * math.pi / 180)
-                ypts = (radius * distance / az_map.maxrange) * math.cos(bearing * math.pi / 180)
-                #get the bounding rectangle of the arc
-                arcscale = radius * distance / az_map.maxrange
-                arcrect = QtCore.QRectF(QtCore.QPointF(0-arcscale, 0-arcscale),
-                                        QtCore.QPointF(arcscale, arcscale))
-                
-                self._path.lineTo(xpts,0-ypts)
-                self._path.arcTo(arcrect, 90-bearing, 360./az_map_model.npoints)
-        self.repaint()
+            for alt in range(0, self._model.columnCount()):
+                path = QtGui.QPainterPath()
+                for i in range(az_map_model.npoints-1,-1,-1):
+                    #bearing is to start point of arc (clockwise) 
+                    bearing = (i+0.5) * 360./az_map_model.npoints
+                    distance = self._model._data[i][alt]
+                    radius = min(self.width(), self.height()) / 2.0
+                    scale = radius * distance / self.maxrange
+                    #convert bearing,distance to x,y
+                    xpts = scale * math.sin(bearing * math.pi / 180)
+                    ypts = scale * math.cos(bearing * math.pi / 180)
+                    #get the bounding rectangle of the arc
+                    
+                    arcrect = QtCore.QRectF(QtCore.QPointF(0-scale, 0-scale),
+                                            QtCore.QPointF(scale, scale))
+
+                    if path.isEmpty():
+                        path.moveTo(xpts, 0-ypts) #so we don't get a line from 0,0 to the first point
+                    else:
+                        path.lineTo(xpts, 0-ypts)
+                    path.arcTo(arcrect, 90-bearing, 360./az_map_model.npoints)
+
+                self._paths.append(path)
 
     def drawRangeRings(self, painter):
         painter.translate(self.width()/2, self.height()/2)
         painter.setPen(az_map.ringpen)
-        for i in range(0, az_map.maxrange, az_map.ringsize):
+        for i in range(0, self.maxrange, self.ringsize):
             diameter = (float(i) / az_map.maxrange) * min(self.width(), self.height())
             painter.drawEllipse(QtCore.QRectF(-diameter / 2.0,
                                 -diameter / 2.0, diameter, diameter))
+
+    def setMaxRange(self, maxrange):
+        self.maxrange = maxrange
+        self.drawPath()
+
+    def setRingSize(self, ringsize):
+        self.ringsize = ringsize
+        self.drawPath()
 
 class az_map_output(air_modes.parse):
     def __init__(self, mypos, model):
@@ -180,9 +211,11 @@ class model_updater(threading.Thread):
 
     def run(self):
         for i in range(az_map_model.npoints):
-            time.sleep(0.1)
+            time.sleep(0.05)
             if(self.model):
-                self.model.addRecord(i*360./az_map_model.npoints, 30000, random.randint(0,400))
+                self.model.addRecord(i*360./az_map_model.npoints, 2000, 80)#random.randint(0,400)/4)
+                self.model.addRecord(i*360./az_map_model.npoints, 10000, 210) #random.randint(0,400)/2)
+                self.model.addRecord(i*360./az_map_model.npoints, 30000, 350)#random.randint(0,400))
             else:
                 self.stop()
         

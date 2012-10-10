@@ -32,6 +32,7 @@ GR_PYTHON_INSTALL(
     FILES
     __init__.py
     altitude.py
+    az_map.py
     cpr.py
     mlat.py
     exceptions.py

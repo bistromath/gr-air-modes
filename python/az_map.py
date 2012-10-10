@@ -95,6 +95,7 @@ class az_map(QtGui.QWidget):
 
     def setModel(self, model):
         self._model = model
+        self._model.dataChanged.connect(self.drawPath)
 
     def paintEvent(self, event):
         painter = QtGui.QPainter(self)
@@ -105,7 +106,7 @@ class az_map(QtGui.QWidget):
         
         #draw the range rings
         self.drawRangeRings(painter)
-        self.drawPath()
+        #self.drawPath()
 
         painter.setPen(az_map.rangepen)
         painter.drawPath(self._path)
@@ -128,6 +129,7 @@ class az_map(QtGui.QWidget):
                 
                 self._path.lineTo(xpts,0-ypts)
                 self._path.arcTo(arcrect, 90-bearing, 360./az_map_model.npoints)
+        #self.paintEvent(QtCore.QEvent())
 
     def drawRangeRings(self, painter):
         painter.translate(self.width()/2, self.height()/2)
@@ -137,18 +139,20 @@ class az_map(QtGui.QWidget):
             painter.drawEllipse(QtCore.QRectF(-diameter / 2.0,
                                 -diameter / 2.0, diameter, diameter))
 
-import random
+import random, time
 class Window(QtGui.QWidget):
     def __init__(self):
         super(Window, self).__init__()
         layout = QtGui.QGridLayout()
-        model = az_map_model()
-        for i in range(az_map_model.npoints):
-            model._data[i][model.columnCount()-1] = random.randint(0,400)
+        self.model = az_map_model()
         mymap = az_map(None)
-        mymap.setModel(model)
+        mymap.setModel(self.model)
         layout.addWidget(mymap, 0, 1)
         self.setLayout(layout)
+
+    def update(self):
+        for i in range(az_map_model.npoints):
+            self.model.addRecord(i*360./az_map_model.npoints, 30000, random.randint(0,400))
 
 
 if __name__ == '__main__':
@@ -158,4 +162,5 @@ if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)
     window = Window()
     window.show()
+    window.update()
     sys.exit(app.exec_())

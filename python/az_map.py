@@ -129,7 +129,7 @@ class az_map(QtGui.QWidget):
                 
                 self._path.lineTo(xpts,0-ypts)
                 self._path.arcTo(arcrect, 90-bearing, 360./az_map_model.npoints)
-        #self.paintEvent(QtCore.QEvent())
+        self.repaint()
 
     def drawRangeRings(self, painter):
         painter.translate(self.width()/2, self.height()/2)
@@ -140,6 +140,20 @@ class az_map(QtGui.QWidget):
                                 -diameter / 2.0, diameter, diameter))
 
 import random, time
+
+class model_updater(threading.Thread):
+    def __init__(self, model):
+        super(model_updater, self).__init__()
+        self.model = model
+        self.setDaemon(1)
+        self.done = False
+        self.start()
+
+    def run(self):
+        for i in range(az_map_model.npoints):
+            self.model.addRecord(i*360./az_map_model.npoints, 30000, random.randint(0,400))
+            time.sleep(0.1)
+        
 class Window(QtGui.QWidget):
     def __init__(self):
         super(Window, self).__init__()
@@ -147,13 +161,9 @@ class Window(QtGui.QWidget):
         self.model = az_map_model()
         mymap = az_map(None)
         mymap.setModel(self.model)
+        self.updater = model_updater(self.model)
         layout.addWidget(mymap, 0, 1)
         self.setLayout(layout)
-
-    def update(self):
-        for i in range(az_map_model.npoints):
-            self.model.addRecord(i*360./az_map_model.npoints, 30000, random.randint(0,400))
-
 
 if __name__ == '__main__':
 

@@ -24,7 +24,7 @@
      </rect>
     </property>
     <property name="currentIndex">
-     <number>1</number>
+     <number>3</number>
     </property>
     <widget class="QWidget" name="tab">
      <attribute name="title">
@@ -234,10 +234,6 @@
           <string>Filename</string>
          </property>
         </widget>
-        <zorder>line_inputfile</zorder>
-        <zorder>label_13</zorder>
-        <zorder>combo_rate</zorder>
-        <zorder>label_27</zorder>
        </widget>
       </widget>
      </widget>
@@ -847,6 +843,21 @@
       <string>Data browser</string>
      </attribute>
     </widget>
+    <widget class="QWidget" name="azimuth_tab">
+     <attribute name="title">
+      <string>Azimuth map</string>
+     </attribute>
+     <widget class="az_map" name="azimuth_map" native="true">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>10</y>
+        <width>245</width>
+        <height>245</height>
+       </rect>
+      </property>
+     </widget>
+    </widget>
     <widget class="QWidget" name="livedatatab">
      <attribute name="title">
       <string>Live data</string>
@@ -970,6 +981,12 @@
    <class>QwtDial</class>
    <extends>QWidget</extends>
    <header>qwt_dial.h</header>
+  </customwidget>
+  <customwidget>
+   <class>az_map</class>
+   <extends>QWidget</extends>
+   <header location="global">air_modes/az_map</header>
+   <container>1</container>
   </customwidget>
  </customwidgets>
  <resources/>

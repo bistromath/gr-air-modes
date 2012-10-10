@@ -85,6 +85,9 @@ class mainwindow(QtGui.QMainWindow):
         self.ui.list_aircraft.setModel(self.datamodel)
         self.ui.list_aircraft.setModelColumn(0)
 
+        self.az_model = air_modes.az_map_model(None)
+        self.ui.azimuth_map.setModel(self.az_model)
+
         #set up dashboard views
         self.icaodelegate = ICAOViewDelegate()
         self.ui.list_aircraft.setItemDelegate(self.icaodelegate)
@@ -276,9 +279,13 @@ class mainwindow(QtGui.QMainWindow):
                 self.outputs.append(rawport.output)
                 self.updates.append(rawport.add_pending_conns)
 
+            #add azimuth map output and hook it up
+            if my_position is not None:
+                self.az_map_output = air_modes.az_map_output(my_position, self.az_model)
+                self.outputs.append(self.az_map_output.output)
+
             self.livedata = air_modes.output_print(my_position)
             #add output for live data box
-            #TODO: this doesn't handle large volumes of data well; i get segfaults.
             self.outputs.append(self.output_live_data)
 
             #create SQL database for KML and dashboard displays
@@ -291,7 +298,7 @@ class mainwindow(QtGui.QMainWindow):
 
             #create output handler thread
             self.output_handler = output_handler(self.outputs, self.updates, self.queue)
-            
+
             self.ui.button_start.setText("Stop")
 
     def on_quit(self):

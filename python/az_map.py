@@ -25,6 +25,7 @@
 from PyQt4 import QtCore, QtGui
 import threading
 import math
+import air_modes
 
 
 # model has max range vs. azimuth in n-degree increments
@@ -76,8 +77,8 @@ class az_map_model(QtCore.QObject):
 
 # the azimuth map widget
 class az_map(QtGui.QWidget):
-    maxrange = 450
-    ringsize = 100
+    maxrange = 45
+    ringsize = 10
     bgcolor = QtCore.Qt.black
     ringpen =  QtGui.QPen(QtGui.QColor(0,   96,  127, 255), 1.3)
     rangepen = QtGui.QPen(QtGui.QColor(255, 255, 0,   255), 1.0)
@@ -139,6 +140,34 @@ class az_map(QtGui.QWidget):
             painter.drawEllipse(QtCore.QRectF(-diameter / 2.0,
                                 -diameter / 2.0, diameter, diameter))
 
+class az_map_output(air_modes.parse):
+    def __init__(self, mypos, model):
+        air_modes.parse.__init__(self, mypos)
+        self.model = model
+    def output(self, msg):
+        [data, ecc, reference, timestamp] = msg.split()
+        data = air_modes.modes_reply(long(data, 16))
+        ecc = long(ecc, 16)
+        rssi = 10.*math.log10(float(reference))
+        msgtype = data["df"]
+        now = time.time()
+        
+        if msgtype == 17:
+            icao = data["aa"]
+            subtype = data["ftc"]
+            distance, altitude, bearing = [0,0,0]
+            if 5 <= subtype <= 8:
+                (ground_track, decoded_lat, decoded_lon, distance, bearing) = self.parseBDS06(data)
+                altitude = 0
+            elif 9 <= subtype <= 18:
+                (altitude, decoded_lat, decoded_lon, distance, bearing) = self.parseBDS05(data)
+
+            self.model.addRecord(bearing, altitude, distance)
+
+
+##############################
+# Test stuff
+##############################
 import random, time
 
 class model_updater(threading.Thread):
@@ -151,8 +180,11 @@ class model_updater(threading.Thread):
 
     def run(self):
         for i in range(az_map_model.npoints):
-            self.model.addRecord(i*360./az_map_model.npoints, 30000, random.randint(0,400))
             time.sleep(0.1)
+            if(self.model):
+                self.model.addRecord(i*360./az_map_model.npoints, 30000, random.randint(0,400))
+            else:
+                self.stop()
         
 class Window(QtGui.QWidget):
     def __init__(self):

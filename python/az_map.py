@@ -77,8 +77,8 @@ class az_map_model(QtCore.QObject):
 
 # the azimuth map widget
 class az_map(QtGui.QWidget):
-    maxrange = 45
-    ringsize = 10
+    maxrange = 450
+    ringsize = 100
     bgcolor = QtCore.Qt.black
     ringpen =  QtGui.QPen(QtGui.QColor(0,   96,  127, 255), 1.3)
     rangepen = QtGui.QPen(QtGui.QColor(255, 255, 0,   255), 1.0)

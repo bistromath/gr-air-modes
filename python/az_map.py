@@ -214,11 +214,9 @@ class model_updater(threading.Thread):
         for i in range(az_map_model.npoints):
             time.sleep(0.05)
             if(self.model):
-                self.model.addRecord(i*360./az_map_model.npoints, 2000, random.randint(0,400)/4)
-                self.model.addRecord(i*360./az_map_model.npoints, 10000, random.randint(0,400)/2)
-                self.model.addRecord(i*360./az_map_model.npoints, 30000, random.randint(0,400))
-            else:
-                self.stop()
+                for alt in self.model._altitudes:
+                    self.model.addRecord(i*360./az_map_model.npoints, alt, random.randint(0,az_map.maxrange)*alt / max(self.model._altitudes))
+        self.done = True
         
 class Window(QtGui.QWidget):
     def __init__(self):

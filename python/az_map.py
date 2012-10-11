@@ -63,7 +63,7 @@ class az_map_model(QtCore.QObject):
                 col = self._altitudes.index(min([alt for alt in self._altitudes if alt >= altitude]))
 
             #find which bearing row we sit in
-            row = int(bearing+(180/az_map_model.npoints)) / (360/az_map_model.npoints)
+            row = int(int(bearing+(180./az_map_model.npoints)) / (360./az_map_model.npoints)) % az_map_model.npoints
             #set max range for all alts >= the ac alt
             #this expresses the assumption that higher ac can be heard further
             update = False

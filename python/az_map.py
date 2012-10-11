@@ -71,15 +71,15 @@ class az_map_model(QtCore.QObject):
                 if distance > self._data[row][i]:
                     self._data[row][i] = distance
                     update = True
-            if update:
-                self.dataChanged.emit()
+        if update:
+            self.dataChanged.emit()
 
     def reset(self):
         with self.lock:
             self._data = []
             for i in range(0,az_map_model.npoints):
                 self._data.append([0] * len(self._altitudes))
-                self.dataChanged.emit()
+        self.dataChanged.emit()
 
 
 # the azimuth map widget
@@ -105,16 +105,14 @@ class az_map(QtGui.QWidget):
 
     def setModel(self, model):
         self._model = model
-        self._model.dataChanged.connect(self.update)
-
-    def update(self):
-        self.drawPaths()
-        self.repaint()
+        self._model.dataChanged.connect(self.repaint)
 
     def paintEvent(self, event):
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QtGui.QPainter.Antialiasing)
         #TODO: make it not have to redraw paths EVERY repaint
+        #drawing paths is VERY SLOW
+        #maybe use a QTimer to limit repaints
         self.drawPaths()
 
         #set background
@@ -122,7 +120,6 @@ class az_map(QtGui.QWidget):
         
         #draw the range rings
         self.drawRangeRings(painter)
-        #painter.setPen(az_map.rangepen)
         for i in range(len(self._paths)):
             alpha = 230 * (i+1) / (len(self._paths)) + 25
             painter.setPen(QtGui.QPen(QtGui.QColor(alpha,alpha,0,255), 1.0))
@@ -212,7 +209,7 @@ class model_updater(threading.Thread):
 
     def run(self):
         for i in range(az_map_model.npoints):
-            time.sleep(0.05)
+            time.sleep(0.005)
             if(self.model):
                 for alt in self.model._altitudes:
                     self.model.addRecord(i*360./az_map_model.npoints, alt, random.randint(0,az_map.maxrange)*alt / max(self.model._altitudes))

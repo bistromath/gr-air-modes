@@ -324,6 +324,13 @@ class mainwindow(QtGui.QMainWindow):
     #slot to catch signal emitted by output_live_data (necessary for
     #thread safety since output_live_data is called by another thread)
     def on_append_live_data(self, msgstr):
+        #limit scrollback buffer size -- is there a faster way?
+        if(self.ui.text_livedata.document().lineCount() > 500):
+            cursor = self.ui.text_livedata.textCursor()
+            cursor.movePosition(QtGui.QTextCursor.Start)
+            cursor.select(QtGui.QTextCursor.LineUnderCursor)
+            cursor.removeSelectedText()
+            
         self.ui.text_livedata.append(msgstr)
         self.ui.text_livedata.verticalScrollBar().setSliderPosition(self.ui.text_livedata.verticalScrollBar().maximum())
 

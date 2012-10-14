@@ -151,7 +151,7 @@ if __name__ == '__main__':
                       help="set RF gain", metavar="dB")
   parser.add_option("-r", "--rate", type="eng_float", default=4000000,
                       help="set ADC sample rate [default=%default]")
-  parser.add_option("-T", "--threshold", type="eng_float", default=3.0,
+  parser.add_option("-T", "--threshold", type="eng_float", default=5.0,
                       help="set pulse detection threshold above noise in dB [default=%default]")
   parser.add_option("-a","--output-all", action="store_true", default=False,
                       help="output all frames")

@@ -41,6 +41,7 @@ GR_PYTHON_INSTALL(
     parse.py
     msprint.py
     raw_server.py
+    rx_path.py
     sbs1.py
     sql.py
     Quaternion.py

@@ -65,8 +65,8 @@ static slice_result_t slicer(const float bit0, const float bit1, const float ref
 	slice_result_t result;
 
 	//3dB limits for bit slicing and confidence measurement
-	float highlimit=ref*2;
-	float lowlimit=ref*0.5;
+	float highlimit=ref*1.414;
+	float lowlimit=ref*0.707;
 	
 	bool firstchip_inref  = ((bit0 > lowlimit) && (bit0 < highlimit));
 	bool secondchip_inref = ((bit1 > lowlimit) && (bit1 < highlimit));

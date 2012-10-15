@@ -45,7 +45,7 @@ air_modes_preamble::air_modes_preamble(int channel_rate, float threshold_db) :
 	d_samples_per_symbol = d_samples_per_chip * 2;
 	d_check_width = 120 * d_samples_per_symbol; //only search to this far from the end of the stream buffer
 	d_threshold_db = threshold_db;
-	d_threshold = powf(10., threshold_db/10.); //the level that the sample must be above the moving average in order to qualify as a pulse
+	d_threshold = powf(10., threshold_db/20.); //the level that the sample must be above the moving average in order to qualify as a pulse
 	d_secs_per_sample = 1.0 / channel_rate;
 	set_output_multiple(1+d_check_width*2);
 	

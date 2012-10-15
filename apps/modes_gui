@@ -48,8 +48,8 @@ class mainwindow(QtGui.QMainWindow):
         #should round to actual achieved gain
         self.ui.line_gain.insert("30")
 
-        #default to 3dB
-        self.ui.line_threshold.insert("3")
+        #default to 5dB
+        self.ui.line_threshold.insert("5")
 
         self.ui.prog_rssi.setMinimum(-40)
         self.ui.prog_rssi.setMaximum(0)

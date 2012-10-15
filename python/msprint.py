@@ -69,7 +69,9 @@ class output_print(air_modes.parse):
       pass
 
   def output(self, msg):
-      print self.parse(msg)
+      parsed = self.parse(msg)
+      if parsed is not None:
+          print self.parse(msg)
 
   def print0(self, shortdata, ecc):
     [vs, cc, sl, ri, altitude] = self.parse0(shortdata)

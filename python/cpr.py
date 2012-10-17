@@ -26,6 +26,8 @@ from air_modes.exceptions import *
 #the decoder is implemented as a class, cpr_decoder, which keeps state for local decoding.
 #the encoder is cpr_encode([lat, lon], type (even=0, odd=1), and surface (0 for surface, 1 for airborne))
 
+#TODO: remove range/bearing calc from CPR decoder class. you can do this outside of the decoder.
+
 latz = 15
 
 def nz(ctype):
@@ -46,18 +48,15 @@ def dlat(ctype, surface):
 def nl(declat_in):
 	if abs(declat_in) >= 87.0:
 		return 1.0
-	return math.floor( (2.0*math.pi) * pow(math.acos(1.0- (1.0-math.cos(math.pi/(2.0*latz))) / pow( math.cos( (math.pi/180.0)*abs(declat_in) ) ,2.0) ),-1.0))
+	return math.floor( (2.0*math.pi) * math.acos(1.0- (1.0-math.cos(math.pi/(2.0*latz))) / math.cos( (math.pi/180.0)*abs(declat_in) )**2 )**-1)
 
 def dlon(declat_in, ctype, surface):
-	if surface == 1:
+	if surface:
 		tmp = 90.0
 	else:
 		tmp = 360.0
-	nlcalc = nl(declat_in)-ctype
-	if nlcalc == 0:
-		return tmp
-	else:
-		return tmp / nlcalc
+	nlcalc = max(nl(declat_in)-ctype, 1)
+	return tmp / nlcalc
 
 def decode_lat(enclat, ctype, my_lat, surface):
 	tmp1 = dlat(ctype, surface)
@@ -120,29 +119,29 @@ def cpr_resolve_global(evenpos, oddpos, mypos, mostrecent, surface):
 			rlat -= 90
 
 	dl = dlon(rlat, mostrecent, surface)
-	nlthing = nl(rlat)
-	ni = nlthing - mostrecent
+	nl_rlat = nl(rlat)
 
-	#THIS COLLAPSES WHEN M IS NOT A FACTOR OF FOUR
-	m = math.floor(((evenpos[1]*(nlthing-1)-oddpos[1]*nlthing)/2**17)+0.5) #longitude index
-	if m%4:
-		print "IM GONNA DIE"
-
-	print "DL: %f nlthing: %f ni: %f m: %f" % (dl, nlthing, ni, m)
+	m = math.floor(((evenpos[1]*(nl_rlat-1)-oddpos[1]*nl_rlat)/2**17)+0.5) #longitude index
+	
+	#when surface positions straddle a disambiguation boundary (90 degrees),
+	#surface decoding will fail. this might never be a problem in real life, but it'll fail in the
+	#test case. the documentation doesn't mention it.
 
 	if mostrecent == 0:
 		enclon = evenpos[1]
 	else:
 		enclon = oddpos[1]
 
-	rlon = dl * ((m % ni)+enclon/2**17)
+	rlon = dl * ((m % max(nl_rlat-mostrecent,1)) + enclon/2.**17)
+
+	#print "DL: %f nl: %f m: %f rlon: %f" % (dl, nl_rlat, m, rlon)
+	#print "evenpos: %x, oddpos: %x, mostrecent: %i" % (evenpos[1], oddpos[1], mostrecent)
 
 	if surface:
 		#longitudes need to be resolved to the nearest 90 degree segment to the receiver.
 		wat = mypos[1]
 		if wat < 0:
 			wat += 360
-		print "mylon: %f mylon unwrapped: %f rlon raw: %f" % (mypos[1], wat, rlon)
 		zone = lambda lon: 90 * (int(lon) / 90)
 		rlon += (zone(wat) - zone(rlon))
 
@@ -226,58 +225,64 @@ class cpr_decoder:
 #encode CPR position
 def cpr_encode(lat, lon, ctype, surface):
 	if surface is True:
-		scalar = float(2**19)
+		scalar = 2.**19
 	else:
-		scalar = float(2**17)
+		scalar = 2.**17
 
-	dlati = float(dlat(ctype, False))
+	#encode using 360 constant for segment size.
+	dlati = dlat(ctype, False)
 	yz = math.floor(scalar * ((lat % dlati)/dlati) + 0.5)
 	rlat = dlati * ((yz / scalar) + math.floor(lat / dlati))
 
-	nleo = nl(rlat)-ctype
-	if nleo == 0:
-		dloni = 360.0
-	else:
-		dloni = 360.0 / nleo
-
+	#encode using 360 constant for segment size.
+	dloni = dlon(lat, ctype, False)
 	xz = math.floor(scalar * ((lon % dloni)/dloni) + 0.5)
 
-	yz = int(yz % scalar)
-	xz = int(xz % scalar)
+	yz = int(yz) & (2**17-1)
+	xz = int(xz) & (2**17-1)
 
 	return (yz, xz) #lat, lon
 
 if __name__ == '__main__':
 	import sys, random
-
-	rounds = 10000
+	
+	rounds = 10001
 	threshold = 1e-3 #0.001 deg lat/lon
 	#this accuracy is highly dependent on latitude, since at high
 	#latitudes the corresponding error in longitude is greater
 
 	bs = 0
-	surface = True
+	surface = False
+
+	lats = [i/(rounds/170.)-85 for i in range(0,rounds)]
+	lons = [i/(rounds/360.)-180 for i in range(0,rounds)]
 
 	for i in range(0, rounds):
-		even_lat = random.uniform(-85, 85)
-		even_lon = random.uniform(-180, 180)
-		odd_lat = even_lat + 1e-2
-		odd_lon = min(even_lon + 1e-2, 180)
+		even_lat = lats[i]
+		#even_lat = random.uniform(-85, 85)
+		even_lon = lons[i]
+		#even_lon = random.uniform(-180, 180)
+		odd_lat = even_lat + 1e-3
+		odd_lon = min(even_lon + 1e-3, 180)
 		decoder = cpr_decoder([odd_lat, odd_lon])
 
 		#encode that position
 		(evenenclat, evenenclon) = cpr_encode(even_lat, even_lon, False, surface)
 		(oddenclat, oddenclon)   = cpr_encode(odd_lat, odd_lon, True, surface)
 
-		#perform a global decode
+		#try to perform a global decode -- this should fail since the decoder
+		#only has heard one position. need two for global decoding.
 		icao = random.randint(0, 0xffffff)
 		try:
 			evenpos = decoder.decode(icao, evenenclat, evenenclon, False, surface)
-			#print "CPR global decode with only one report: %f %f" % (evenpos[0], evenpos[1])
 			raise Exception("CPR test failure: global decode with only one report")
 		except CPRNoPositionError:
 			pass
 
+		#now try to do a real decode with the last packet's odd complement
+		#watch for a boundary straddle -- this isn't fatal, it just indicates
+		#that the even and odd reports lie on either side of a longitudinal boundary
+		#and so you can't get a position
 		try:
 			(odddeclat, odddeclon, rng, brg) = decoder.decode(icao, oddenclat, oddenclon, True, surface)
 		except CPRBoundaryStraddleError:
@@ -290,20 +295,22 @@ if __name__ == '__main__':
 			print "F odddeclat: %f odd_lat: %f" % (odddeclat, odd_lat)
 			print "F odddeclon: %f odd_lon: %f" % (odddeclon, odd_lon)
 			raise Exception("CPR test failure: global decode error greater than threshold")
-		else:
-			print "S odddeclat: %f odd_lat: %f" % (odddeclat, odd_lat)
-			print "S odddeclon: %f odd_lon: %f" % (odddeclon, odd_lon)
+#		else:
+#			print "S odddeclat: %f odd_lat: %f" % (odddeclat, odd_lat)
+#			print "S odddeclon: %f odd_lon: %f" % (odddeclon, odd_lon)
 
-		nexteven_lat = odd_lat + 1e-2
-		nexteven_lon = min(odd_lon + 1e-2, 180)
+		nexteven_lat = odd_lat + 1e-3
+		nexteven_lon = min(odd_lon + 1e-3, 180)
 
 		(nexteven_enclat, nexteven_enclon) = cpr_encode(nexteven_lat, nexteven_lon, False, surface)
 
+		#try a locally-referenced decode
 		try:
 			(evendeclat, evendeclon) = cpr_resolve_local([even_lat, even_lon], [nexteven_enclat, nexteven_enclon], False, surface)
 		except CPRNoPositionError:
 			raise Exception("CPR test failure: local decode failure to resolve")
-		
+
+		#check to see if the positions were valid
 		if abs(evendeclat - nexteven_lat) > threshold or abs(evendeclon - nexteven_lon) > threshold:
 			print "F evendeclat: %f nexteven_lat: %f evenlat: %f" % (evendeclat, nexteven_lat, even_lat)
 			print "F evendeclon: %f nexteven_lon: %f evenlon: %f" % (evendeclon, nexteven_lon, even_lon)

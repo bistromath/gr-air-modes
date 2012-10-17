@@ -185,6 +185,8 @@ class cpr_decoder:
 		self.my_location = my_location
 		self.evenlist = {}
 		self.oddlist = {}
+		self.evenlist_sfc = {}
+		self.oddlist_sfc = {}
 
 	def set_location(new_location):
 		self.my_location = new_location
@@ -194,23 +196,34 @@ class cpr_decoder:
 			for key, item in poslist.items():
 				if time.time() - item[2] > 10:
 					del poslist[key]
+		for poslist in [self.evenlist_sfc, self.oddlist_sfc]:
+			for key, item in poslist.items():
+				if time.time() - item[2] > 25:
+					del poslist[key]
 
 	def decode(self, icao24, encoded_lat, encoded_lon, cpr_format, surface):
+		if surface:
+			oddlist = self.oddlist_sfc
+			evenlist = self.evenlist_sfc
+		else:
+			oddlist = self.oddlist
+			evenlist = self.evenlist
+
 		#add the info to the position reports list for global decoding
 		if cpr_format==1:
-			self.oddlist[icao24] = [encoded_lat, encoded_lon, time.time()]
+			oddlist[icao24] = [encoded_lat, encoded_lon, time.time()]
 		else:
-			self.evenlist[icao24] = [encoded_lat, encoded_lon, time.time()]
+			evenlist[icao24] = [encoded_lat, encoded_lon, time.time()]
 
 		[decoded_lat, decoded_lon] = [None, None]
 
 		#okay, let's traverse the lists and weed out those entries that are older than 10 seconds
 		self.weed_poslists()
 
-		if (icao24 in self.evenlist) \
-		  and (icao24 in self.oddlist):
-			newer = (self.oddlist[icao24][2] - self.evenlist[icao24][2]) > 0 #figure out which report is newer
-   			[decoded_lat, decoded_lon] = cpr_resolve_global(self.evenlist[icao24][0:2], self.oddlist[icao24][0:2], self.my_location, newer, surface) #do a global decode
+		if (icao24 in evenlist) \
+		  and (icao24 in oddlist):
+			newer = (oddlist[icao24][2] - evenlist[icao24][2]) > 0 #figure out which report is newer
+   			[decoded_lat, decoded_lon] = cpr_resolve_global(evenlist[icao24][0:2], oddlist[icao24][0:2], self.my_location, newer, surface) #do a global decode
 		else:
 			raise CPRNoPositionError
 

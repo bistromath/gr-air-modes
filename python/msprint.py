@@ -55,8 +55,8 @@ class output_print(air_modes.parse):
         output += self.print11(data, ecc)
       elif msgtype == 17:
         output += self.print17(data)
-      elif msgtype == 20 or msgtype == 21:
-        output += self.print20(data, ecc)
+      elif msgtype == 20 or msgtype == 21 or msgtype == 16:
+        output += self.printTCAS(data, ecc)
       else:
         output += "No handler for message type %i from %x (but it's in modes_parse)" % (msgtype, ecc)
       return output
@@ -184,14 +184,20 @@ class output_print(air_modes.parse):
 
     return retstr
 
-  def print20(self, data, ecc):
+  def printTCAS(self, data, ecc):
     msgtype = data["df"]
-    if(msgtype == 20):
+    if msgtype == 20 or msgtype == 16:
+      #type 16 does not have fs, dr, um but we get alt here
       [fs, dr, um, alt] = self.parse4(data)
-    else:
+    elif msgtype == 21:
       [fs, dr, um, ident] = self.parse5(data)
-    bds1 = data["bds1"]
-    bds2 = data["bds2"]
+
+    if msgtype == 16:
+      bds1 = data["vds1"]
+      bds2 = data["vds2"]
+    else:
+      bds1 = data["bds1"]
+      bds2 = data["bds2"]
 
     if bds2 != 0:
       retstr = "No handler in type %i for BDS2 == %i from %x" % (msgtype, bds2, ecc)
@@ -206,14 +212,18 @@ class output_print(air_modes.parse):
     elif bds1 == 3:
       retstr = "Type %i TCAS report from %x: " % (msgtype, ecc)
       tti = data["tti"]
-      if tti == 1:
-        (resolutions, complements, rat, mte, threat_id) = self.parseMB_TCAS_threatid(data)
-        retstr += "threat ID: %x advised: %s complement: %s" % (threat_id, resolutions, complements)
-      elif tti == 2:
-        (resolutions, complements, rat, mte, threat_alt, threat_range, threat_bearing) = self.parseMB_TCAS_threatloc(data)
-        retstr += "range: %i bearing: %i alt: %i advised: %s complement: %s" % (threat_range, threat_bearing, threat_alt, resolutions, complements)
+      if msgtype == 16:
+        (resolutions, complements, rat, mte) = self.parse_TCAS_CRM(data)
+        retstr += "advised: %s complement: %s" % (resolutions, complements)
       else:
-        retstr += " (no handler for TTI=%i)" % tti
+          if tti == 1:
+            (resolutions, complements, rat, mte, threat_id) = self.parseMB_TCAS_threatid(data)
+            retstr += "threat ID: %x advised: %s complement: %s" % (threat_id, resolutions, complements)
+          elif tti == 2:
+            (resolutions, complements, rat, mte, threat_alt, threat_range, threat_bearing) = self.parseMB_TCAS_threatloc(data)
+            retstr += "range: %i bearing: %i alt: %i advised: %s complement: %s" % (threat_range, threat_bearing, threat_alt, resolutions, complements)
+          else:
+            retstr += " (no handler for TTI=%i)" % tti
       if mte == 1:
         retstr += " (multiple threats)"
       if rat == 1:
@@ -221,7 +231,7 @@ class output_print(air_modes.parse):
     else:
       retstr = "No handler for BDS1 == %i from %x" % (bds1, ecc)
 
-    if(msgtype == 20):
+    if(msgtype == 20 or msgtype == 16):
       retstr += " at %ift" % alt
     else:
       retstr += " ident %x" % ident

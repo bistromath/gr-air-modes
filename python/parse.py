@@ -395,6 +395,7 @@ class parse:
                    53: "DON'T TURN LEFT", 54: "DON'T TURN RIGHT"}
     rac_bits    = {55: "DON'T DESCEND", 56: "DON'T CLIMB", 57: "DON'T TURN LEFT", 58: "DON'T TURN RIGHT"}
     ara = data["ara"]
+    rac = data["rac"]
     #check to see which bits are set
     resolutions = ""
     for bit in ara_bits:

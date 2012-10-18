@@ -397,13 +397,13 @@ class parse:
     ara = data["ara"]
     #check to see which bits are set
     resolutions = ""
-    for bit, name in ara_bits:
+    for bit in ara_bits:
       if ara & (1 << (54-bit)):
-        resolutions += " " + name
+        resolutions += " " + ara_bits[bit]
     complements = ""
-    for bit, name in rac_bits:
+    for bit in rac_bits:
       if rac & (1 << (58-bit)):
-        complements += " " + name
+        complements += " " + rac_bits[bit]
     return (resolutions, complements)
 
   #rat is 1 if resolution advisory terminated <18s ago

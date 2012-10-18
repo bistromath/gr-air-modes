@@ -225,6 +225,8 @@ class output_print(air_modes.parse):
             (resolutions, complements, rat, mte, threat_alt, threat_range, threat_bearing) = self.parseMB_TCAS_threatloc(data)
             retstr += "range: %i bearing: %i alt: %i advised: %s complement: %s" % (threat_range, threat_bearing, threat_alt, resolutions, complements)
           else:
+            rat = 0
+            mte = 0
             retstr += " (no handler for TTI=%i)" % tti
       if mte == 1:
         retstr += " (multiple threats)"

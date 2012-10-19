@@ -193,6 +193,22 @@ class mb_reply(data_field):
 #                "vds": (33,8),  "vds1": (33,4), "vds2": (37,4)
 #              }
 
+class mv_reply(data_field):
+  offset = 33
+  types = { "ara": (41,14), "mte": (60,1),  "rac": (55,4), "rat": (59,1),
+            "vds": (33,8),  "vds1": (33,4), "vds2": (37,4)
+          }
+
+  def get_type(self):
+    vds1 = self.get_bits(33,4)
+    vds2 = self.get_bits(37,4)
+    if vds1 not in (3,) or vds2 not in (0,):
+      raise NoHandlerError(bds1)
+    return int(vds1)
+
+  def get_numbits(self):
+    return 56
+
 #the whole Mode S packet type
 class modes_reply(data_field):
   types = { 0: {"df": (1,5), "vs": (6,1), "cc": (7,1), "sl": (9,3), "ri": (14,4), "ac": (20,13), "ap": (33,24)},
@@ -233,7 +249,7 @@ class parse:
 
   def parse11(self, data, ecc):
     interrogator = ecc & 0x0F
-    return [data["aa"], interrogator, data["ca"]]
+    return [data["aa"], interrogator, data["ca"]]    
 
   categories = [["NO INFO", "RESERVED", "RESERVED", "RESERVED", "RESERVED", "RESERVED", "RESERVED", "RESERVED"],\
                 ["NO INFO", "SURFACE EMERGENCY VEHICLE", "SURFACE SERVICE VEHICLE", "FIXED OBSTRUCTION", "CLUSTER OBSTRUCTION", "LINE OBSTRUCTION", "RESERVED"],\
@@ -379,15 +395,16 @@ class parse:
                    53: "DON'T TURN LEFT", 54: "DON'T TURN RIGHT"}
     rac_bits    = {55: "DON'T DESCEND", 56: "DON'T CLIMB", 57: "DON'T TURN LEFT", 58: "DON'T TURN RIGHT"}
     ara = data["ara"]
+    rac = data["rac"]
     #check to see which bits are set
     resolutions = ""
-    for bit, name in ara_bits:
+    for bit in ara_bits:
       if ara & (1 << (54-bit)):
-        resolutions += " " + name
+        resolutions += " " + ara_bits[bit]
     complements = ""
-    for bit, name in rac_bits:
+    for bit in rac_bits:
       if rac & (1 << (58-bit)):
-        complements += " " + name
+        complements += " " + rac_bits[bit]
     return (resolutions, complements)
 
   #rat is 1 if resolution advisory terminated <18s ago
@@ -404,3 +421,8 @@ class parse:
     (resolutions, complements) = self.parseMB_TCAS_resolutions(data)
     threat_alt = decode_alt(data["tida"], True)
     return (resolutions, complements, data["rat"], data["mte"], threat_alt, data["tidr"], data["tidb"])
+
+  #type 16 Coordination Reply Message
+  def parse_TCAS_CRM(self, data):
+    (resolutions, complements) = self.parseMB_TCAS_resolutions(data)
+    return (resolutions, complements, data["rat"], data["mte"])

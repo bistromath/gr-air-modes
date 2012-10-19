@@ -134,7 +134,7 @@ int air_modes_slicer::work(int noutput_items,
 			slice_result_t slice_result = slicer(in[i+j*2], in[i+j*2+1], rx_packet.reference_level);
 			if(slice_result.decision) pkt_hdr += 1 << (4-j);
 		}
-		if(pkt_hdr == 17) rx_packet.type = Long_Packet;
+		if(pkt_hdr == 16 or pkt_hdr == 17 or pkt_hdr == 20 or pkt_hdr == 21) rx_packet.type = Long_Packet;
 		else rx_packet.type = Short_Packet;
 		int packet_length = (rx_packet.type == framer_packet_type(Short_Packet)) ? 56 : 112;
 

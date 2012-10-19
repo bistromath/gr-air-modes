@@ -117,6 +117,18 @@ set(GR_GR-AIR-MODES_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE INTER
 set(GR_GR-AIR-MODES_SWIG_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/swig CACHE INTERNAL "" FORCE)
 
 ########################################################################
+# Create uninstall target
+########################################################################
+configure_file(
+    ${CMAKE_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake
+@ONLY)
+
+add_custom_target(uninstall
+    ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake
+)
+
+########################################################################
 # Add subdirectories
 ########################################################################
 add_subdirectory(include)

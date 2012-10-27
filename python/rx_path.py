@@ -24,7 +24,7 @@ import air_modes_swig
 
 class rx_path(gr.hier_block2):
 
-    def __init__(self, rate, threshold, queue):
+    def __init__(self, rate, threshold, queue, use_pmf=False):
         gr.hier_block2.__init__(self, "modes_rx_path",
                                 gr.io_signature(1, 1, gr.sizeof_gr_complex),
                                 gr.io_signature(0,0,0))
@@ -32,12 +32,20 @@ class rx_path(gr.hier_block2):
         self._rate = int(rate)
         self._threshold = threshold
         self._queue = queue
+        self._spc = int(rate/2e6)
 
         # Convert incoming I/Q baseband to amplitude
         self._demod = gr.complex_to_mag()
+        self._bb = self._demod
+
+        # Pulse matched filter for 0.5us pulses
+        if use_pmf:
+            self._pmf = gr.moving_average_ff(self._spc, 1.0/self._spc, self._rate)
+            self.connect(self._demod, self._pmf)
+            self._bb = self._pmf
 
         # Establish baseline amplitude (noise, interference)
-        self._avg = gr.moving_average_ff(100, 1.0/100, 400) # FIXME
+        self._avg = gr.moving_average_ff(48*self._spc, 1.0/(48*self._spc), self._rate) # 3 preambles
 
         # Synchronize to Mode-S preamble
         self._sync = air_modes_swig.modes_preamble(self._rate, self._threshold)
@@ -45,6 +53,8 @@ class rx_path(gr.hier_block2):
         # Slice Mode-S bits and send to message queue
         self._slicer = air_modes_swig.modes_slicer(self._rate, self._queue)
 
-        self.connect(self, self._demod, (self._sync, 0))
-        self.connect(self._demod, self._avg, (self._sync, 1))
+        # Wire up the flowgraph
+        self.connect(self, self._demod)
+        self.connect(self._bb, (self._sync, 0))
+        self.connect(self._bb, self._avg, (self._sync, 1))
         self.connect(self._sync, self._slicer)

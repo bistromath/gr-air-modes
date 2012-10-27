@@ -242,6 +242,7 @@ class mainwindow(QtGui.QMainWindow):
             options["gain"] = float(self.ui.line_gain.text())
             options["threshold"] = float(self.ui.line_threshold.text())
             options["filename"] = str(self.ui.line_inputfile.text())
+            options["pmf"] = self.ui.check_pmf.checkState()
 
             self.fg = adsb_rx_block(options, self.queue) #create top RX block
             self.runner = top_block_runner(self.fg) #spawn new thread to do RX
@@ -423,7 +424,7 @@ class adsb_rx_block (gr.top_block):
         else:
             raise NotImplementedError
 
-        self.rx_path = air_modes.rx_path(rate, options["threshold"], queue)
+        self.rx_path = air_modes.rx_path(rate, options["threshold"], queue, options["pmf"])
 
         if use_resampler:
             self.lpfiltcoeffs = gr.firdes.low_pass(1, 5*3.2e6, 1.6e6, 300e3)

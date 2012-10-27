@@ -85,7 +85,7 @@
            </sizepolicy>
           </property>
           <property name="currentIndex">
-           <number>3</number>
+           <number>0</number>
           </property>
           <widget class="QWidget" name="setup">
            <property name="sizePolicy">
@@ -103,7 +103,7 @@
               <x>10</x>
               <y>20</y>
               <width>236</width>
-              <height>193</height>
+              <height>251</height>
              </rect>
             </property>
             <property name="title">
@@ -214,7 +214,7 @@
               </rect>
              </property>
              <property name="currentIndex">
-              <number>1</number>
+              <number>0</number>
              </property>
              <widget class="QWidget" name="page_rf">
               <widget class="QComboBox" name="combo_ant">
@@ -302,6 +302,19 @@
                </property>
               </widget>
              </widget>
+            </widget>
+            <widget class="QCheckBox" name="check_pmf">
+             <property name="geometry">
+              <rect>
+               <x>10</x>
+               <y>200</y>
+               <width>221</width>
+               <height>22</height>
+              </rect>
+             </property>
+             <property name="text">
+              <string>Use Pulse Matched Filtering</string>
+             </property>
             </widget>
            </widget>
            <widget class="QGroupBox" name="group_output">

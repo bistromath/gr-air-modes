@@ -59,6 +59,7 @@ from sbs1 import output_sbs1
 from kml import output_kml
 from raw_server import raw_server
 from exceptions import *
+from az_map import *
 #this is try/excepted in case the user doesn't have numpy installed
 try:
     from flightgear import output_flightgear

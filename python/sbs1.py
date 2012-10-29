@@ -52,11 +52,10 @@ class output_sbs1(air_modes.parse):
     # Checking to see if we need to clean up in the event that the
     # dictionary is getting too large.
     if len(self._aircraft_id_map) > 1e4:
-      minimum = ('', self._aircraft_id_count)
-      for pair in self._aircraft_id_map:
-        if pair[1] < minimum[1]:
-          minimum = pair
-      self._aircraft_id_map.pop(minimum[0])
+      earliest = len(self._aircraft_id_map) - 1e4
+      for icao, _id in self._aircraft_id_map:
+        if _id < earliest:
+            del self._aircraft_id_map[icao]
 
     # Finally return the new pair
     return self._aircraft_id_count

@@ -110,7 +110,7 @@ class adsb_rx_block (gr.top_block):
     if options.output_all :
       pass_all = 1
 
-    self.rx_path = air_modes.rx_path(rate, options.threshold, queue)
+    self.rx_path = air_modes.rx_path(rate, options.threshold, queue, options.pmf)
 
     if use_resampler:
         self.lpfiltcoeffs = gr.firdes.low_pass(1, 5*3.2e6, 1.6e6, 300e3)
@@ -163,6 +163,8 @@ if __name__ == '__main__':
                       help="FlightGear server to send aircraft data, in format host:port")
   parser.add_option("-d","--rtlsdr", action="store_true", default=False,
                       help="Use RTLSDR dongle instead of UHD source")
+  parser.add_option("-p","--pmf", action="store_true", default=False,
+                      help="Use pulse matched filtering")
                       
   (options, args) = parser.parse_args()
 

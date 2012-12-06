@@ -43,8 +43,8 @@ import bisect
 
 #change this to 0 for ASCII format for debugging. use HIGHEST_PROTOCOL
 #for actual use to keep the pickle size down.
-pickle_prot = 0
-#pickle_prot = pickle.HIGHEST_PROTOCOL
+#pickle_prot = 0
+pickle_prot = pickle.HIGHEST_PROTOCOL
 
 class rx_data:
     def __init__(self):
@@ -53,8 +53,8 @@ class rx_data:
         self.data = None
 
 class stamp:
-    def __init__(self, addr, secs, frac_secs):
-        self.addr = addr
+    def __init__(self, clientinfo, secs, frac_secs):
+        self.clientinfo = clientinfo
         self.secs = secs
         self.frac_secs = frac_secs
     def __lt__(self, other):
@@ -81,9 +81,7 @@ def ordered_insert(a, item):
 class client_info:
     def __init__(self):
         self.name = ""
-        self.latitude = 0.0
-        self.longitude = 0.0
-        self.altitude = 0.0
+        self.position = []
         self.offset_secs = 0
         self.offset_frac_secs = 0.0
 
@@ -117,51 +115,53 @@ class mlat_server:
             except socket.error:
                 self._conns.remove(conn)
             if not pkt: break
-            #try:
-            msglist = pickle.loads(pkt)
-            for msg in msglist:
-                #DEBUG: change conn.clientinfo.name to conn.addr for production
-                st = stamp(conn.clientinfo.name, msg.secs, msg.frac_secs)
-                if msg.data not in self._reports:
-                    self._reports[msg.data] = []
+            try:
+                msglist = pickle.loads(pkt)
+                for msg in msglist:
+                    st = stamp(conn.clientinfo, msg.secs, msg.frac_secs)
+                    if msg.data not in self._reports:
+                        self._reports[msg.data] = []
 
-                #ordered insert
-                ordered_insert(self._reports[msg.data], st)
-                self._lastreport = st.tofloat()
-#            for report in self._reports.values():
-#                for st in report:
-#                    print st.addr, st.secs, st.frac_secs
+                    #ordered insert
+                    ordered_insert(self._reports[msg.data], st)
+                    if st.tofloat() > self._lastreport:
+                        self._lastreport = st.tofloat()
 
-            #except Exception as e:
-            #    print "Invalid message from %s: %s" % (conn.addr, pkt)
-            #    print e
+            except Exception as e:
+                print "Invalid message from %s: %s" % (conn.addr, pkt)
+                print e
 
         #self.prune()
 
     #prune should delete all reports in self._reports older than 5s.
-    #how do we get the appropriate time? we either trust the reporting
-    #stations, or we use UTC.
-    #if we assume all stations are using UTC, we can prune on UTC, but
-    #this computer has to be closely synchronized as well
+    #not really tested well
     def prune(self):
-        for report in self._reports:
-            if self._reports[report][-1].tofloat() - self._lastreport > 5:
-                self._reports.remove(report)
+        for data, stamps in self._reports.iteritems():
+            #check the last stamp first so we don't iterate over
+            #the whole list if we don't have to
+            if self._lastreport - stamps[-1].tofloat() > 5:
+                del self._reports[data]
+            else:
+                for i,st in enumerate(stamps):
+                    if self._lastreport - st.tofloat() > 5:
+                        del self._reports[data][i]
+                if len(self._reports[data]) == 0:
+                    del self._reports[data]
 
     #return a list of eligible messages for multilateration
     #eligible reports are:
     #1. bit-identical
     #2. from distinct stations (at least 3)
-    #3. within 0.001 seconds of each other
+    #3. within 0.003 seconds of each other
     #traverse the reports for each data pkt (hash) looking for >3 reports
-    #within 0.001s, then check for unique IPs (this should pass 99% of the time)
+    #within 0.003s, then check for unique IPs (this should pass 99% of the time)
     #let's break a record for most nested loops. this one goes four deep.
     #it's loop-ception!
     def get_eligible_reports(self):
         groups = []
         for data,stamps in self._reports.iteritems():
             if len(stamps) > 2: #quick check before we do a set()
-                stations = set([st.addr for st in stamps])
+                stations = set([st.clientinfo for st in stamps])
                 if len(stations) > 2:
                     i=0
                     #it's O(n) since the list is already sorted
@@ -169,13 +169,13 @@ class mlat_server:
                     while(i < len(stamps)):
                         refstamp = stamps[i].tofloat()
                         reps = []
-                        while (i<len(stamps)) and (stamps[i].tofloat() < (refstamp + 0.001)):
+                        while (i<len(stamps)) and (stamps[i].tofloat() < (refstamp + 0.003)):
                             reps.append(stamps[i])
                             i+=1
                         deduped = []
-                        for addr in stations:
+                        for cinfo in stations:
                             for st in reps[::-1]:
-                                if st.addr == addr:
+                                if st.clientinfo == cinfo:
                                     deduped.append(st)
                                     break
                         if len(deduped) > 2:
@@ -220,6 +220,21 @@ class mlat_server:
             print "New connection from %s: %s" % (addr[0], clientinfo.name)
         except socket.error:
             pass
+            
+#retrieve altitude from a mode S packet or None if not available
+#returns alt in meters
+def get_modes_altitude(data):
+    df = data["df"] #reply type
+    f2m = 0.3048
+    if df == 0 or df == 4:
+        return air_modes.altitude.decode_alt(data["ac"], True)
+    elif df == 17:
+        bds = data["me"].get_type()
+        if bds == 0x05:
+            #return f2m*air_modes.altitude.decode_alt(data["me"]["alt"], False)
+            return 8000
+    else:
+        return None
 
 if __name__=="__main__":
     srv = mlat_server("nothin'", 31337)
@@ -232,6 +247,24 @@ if __name__=="__main__":
             for rep in reps:
                 print "Report with data %x" % rep["data"]
                 for st in rep["stamps"]:
-                    print "Stamp from %s: %f" % (st.addr, st.tofloat())
+                    print "Stamp from %s: %f" % (st.clientinfo.name, st.tofloat())
         srv.prune()
+
+        #now format the reports to get them ready for multilateration
+        #it's expecting a list of tuples [(station[], timestamp)...]
+        #also have to parse the data to pull altitude out of the mix
+        if reps:
+            for rep in reps:
+                alt = get_modes_altitude(air_modes.modes_reply(rep["data"]))
+                if (alt is None and len(rep["stamps"]) > 3) or alt is not None:
+                    mlat_list = [(st.clientinfo.position, st.tofloat()) for st in rep["stamps"]]
+                    print mlat_list
+                    #multilaterate!
+                    try:
+                        pos = air_modes.mlat.mlat(mlat_list, alt)
+                        if pos is not None:
+                            print pos
+                    except Exception as e:
+                        print e
+            
         time.sleep(0.3)

@@ -95,27 +95,29 @@ c = 299792458 / 1.0003 #modified for refractive index of air, why not
 #we use limit as a goal to stop solving when we get "close enough" (error magnitude in meters for that iteration)
 #basically 20 meters is way less than the anticipated error of the system so it doesn't make sense to continue
 #it's possible this could fail in situations where the solution converges slowly
-#TODO: this fails to converge for some seriously advantageous geometry
-def mlat_iter(rel_stations, nearest, prange_obs, xguess = [0,0,0], limit = 20, maxrounds = 100):
-    xerr = [1e9, 1e9, 1e9]
+#THIS WORKS PLEASE DON'T MESS WITH IT
+def mlat_iter(rel_stations, prange_obs, guess = [0,0,0], limit = 20, maxrounds = 100):
+    print prange_obs
+    xerr = [1e9, 1e9, 1e9, 1e9]
     rounds = 0
-    actual = numpy.array(llh2ecef([37.617175,-122.400843, testalt]))-nearest #DEBUG
-    while numpy.linalg.norm(xerr) > limit:
+    while numpy.linalg.norm(xerr[:3]) > limit:
         #get p_i, the estimated pseudoranges based on the latest position guess
-        prange_est = [[numpy.linalg.norm(station - xguess)] for station in rel_stations]
+        prange_est = [[numpy.linalg.norm(station - guess)] for station in rel_stations]
         #get the difference d_p^ between the observed and calculated pseudoranges
         dphat = prange_obs - prange_est
         #create a matrix of partial differentials to find the slope of the error in X,Y,Z directions
-        H = numpy.array([(numpy.array(-rel_stations[row,:])+xguess) / prange_est[row] for row in range(len(rel_stations))])
+        H = numpy.array([(numpy.array(-rel_stations[row,:])+guess) / prange_est[row] for row in range(len(rel_stations))])
+        H = numpy.append(H, numpy.ones(len(prange_obs)).reshape(len(prange_obs),1), axis=1)
+        print "H: ", H
         #now we have H, the Jacobian, and can solve for residual error
         xerr = numpy.linalg.lstsq(H, dphat)[0].flatten()
-        xguess += xerr
-        print "Estimated position and change: ", xguess, numpy.linalg.norm(xerr)
-        print "Actual error: ", numpy.linalg.norm(xguess - actual)
+        print "xerr: ", xerr
+        guess += xerr[:3] #we ignore the time error for xguess
+        print "Estimated position and change: ", guess, numpy.linalg.norm(xerr[:3])
         rounds += 1
         if rounds > maxrounds:
             raise Exception("Failed to converge!")
-    return xguess
+    return guess
 
 #gets the emulated Arne Saknussemm Memorial Radio Station report
 #here we calc the estimated pseudorange to the center of the earth, using station[0] as a reference point for the geoid
@@ -148,7 +150,7 @@ def mlat(replies, altitude):
     #add in a center-of-the-earth station if we have altitude
     if altitude is not None:
         rel_stations.append([0,0,0] - numpy.array(nearest_xyz))
-        
+
     rel_stations = numpy.array(rel_stations) #convert list of arrays to 2d array
 
     #get TDOA relative to station 0, multiply by c to get pseudorange
@@ -164,8 +166,8 @@ def mlat(replies, altitude):
     prange_obs = numpy.array(prange_obs)
 
     #initial guess is atop nearest station
-    xguess = numpy.array(llh2ecef([nearest_llh[0], nearest_llh[1], altguess])) - numpy.array(nearest_xyz)
-    xyzpos = mlat_iter(rel_stations, nearest_xyz, prange_obs, xguess)
+    #xguess = numpy.array(llh2ecef([nearest_llh[0], nearest_llh[1], altguess])) - numpy.array(nearest_xyz)
+    xyzpos = mlat_iter(rel_stations, prange_obs)
     llhpos = ecef2llh(xyzpos+nearest_xyz)
     
     #now, we could return llhpos right now and be done with it.
@@ -179,14 +181,6 @@ def mlat(replies, altitude):
         prange_obs[-1] = [numpy.linalg.norm(llh2ecef((llhpos[0], llhpos[1], altitude)))]
         xyzpos_corr = mlat_iter(rel_stations, prange_obs, xyzpos) #start off with a really close guess
         llhpos = ecef2llh(xyzpos_corr+nearest_xyz)
-
-    #and now, what the hell, let's try to get dilution of precision data
-    #avec is the unit vector of relative ranges to the aircraft from each of the stations
-#    for i in range(len(avec)):
-#        avec[i] = numpy.array(avec[i]) / numpy.linalg.norm(numpy.array(avec[i]))
-#    numpy.append(avec, [[-1],[-1],[-1],[-1]], 1) #must be # of stations
-#    doparray = numpy.linalg.inv(avec.T*avec)
-#the diagonal elements of doparray will be the x, y, z DOPs.
     
     return llhpos
 
@@ -203,13 +197,11 @@ if __name__ == '__main__':
                     10 + numpy.linalg.norm(testplane-numpy.array(llh2geoid(teststations[3]))) / c,
                 ]
 
-#    print teststamps
     print "Actual pranges: ", sorted([numpy.linalg.norm(testplane - numpy.array(llh2geoid(station))) for station in teststations])
 
     replies = []
     for i in range(0, len(teststations)):
         replies.append((teststations[i], teststamps[i]))
-#    print (replies, testalt)
     ans = mlat(replies, None)
     error = numpy.linalg.norm(numpy.array(llh2ecef(ans))-numpy.array(testplane))
     range = numpy.linalg.norm(llh2geoid(ans)-numpy.array(testme))

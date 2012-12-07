@@ -105,7 +105,7 @@ def mlat_iter(rel_stations, prange_obs, guess = [0,0,0], limit = 20, maxrounds =
         prange_est = [[numpy.linalg.norm(station - guess)] for station in rel_stations]
         #get the difference d_p^ between the observed and calculated pseudoranges
         dphat = prange_obs - prange_est
-        #create a matrix of partial differentials to find the slope of the error in X,Y,Z directions
+        #create a matrix of partial differentials to find the slope of the error in X,Y,Z,t directions
         H = numpy.array([(numpy.array(-rel_stations[row,:])+guess) / prange_est[row] for row in range(len(rel_stations))])
         H = numpy.append(H, numpy.ones(len(prange_obs)).reshape(len(prange_obs),1), axis=1)
         print "H: ", H
@@ -120,19 +120,20 @@ def mlat_iter(rel_stations, prange_obs, guess = [0,0,0], limit = 20, maxrounds =
     return guess
 
 #gets the emulated Arne Saknussemm Memorial Radio Station report
-#here we calc the estimated pseudorange to the center of the earth, using station[0] as a reference point for the geoid
+#here we calc the estimated pseudorange to the center of the earth, using station[0] as a reference point
 #in other words, we say "if the aircraft were directly overhead of me, this is the pseudorange to the center of the earth"
 #if the dang earth were actually round this wouldn't be an issue
 #this lets us use the altitude of the mode S reply as info to construct an additional reporting station
 #i haven't really thought about it but I think the geometry (re: *DOP) of this "station" is pretty lousy
 #but it lets us solve with 3 stations
-def get_fake_station(surface_position, altitude):
-    return [numpy.linalg.norm(llh2ecef((surface_position[0], surface_position[1], altitude)))] #use ECEF not geoid since alt is MSL not GPS
+def get_fake_prange(surface_position, altitude):
+    fake_xyz = numpy.array(llh2ecef((surface_position[0], surface_position[1], altitude)))
+    return [numpy.linalg.norm(fake_xyz)] #use ECEF not geoid since alt is MSL not GPS
 
 #func mlat:
 #uses a modified GPS pseudorange solver to locate aircraft by multilateration.
 #replies is a list of reports, in ([lat, lon, alt], timestamp) format
-#altitude is the barometric altitude of the aircraft as returned by the aircraft
+#altitude is the barometric altitude of the aircraft as returned by the aircraft, if any
 #returns the estimated position of the aircraft in (lat, lon, alt) geoid-corrected WGS84.
 #let's make it take a list of tuples so we can sort by them
 def mlat(replies, altitude):
@@ -142,31 +143,26 @@ def mlat(replies, altitude):
     timestamps = [sorted_reply[1] for sorted_reply in sorted_replies]
 
     nearest_llh = stations[0]
-    nearest_xyz = llh2geoid(stations[0])
-    
+    nearest_xyz = numpy.array(llh2geoid(stations[0]))
+
     #list of stations in XYZ relative to the closest station
-    rel_stations = [numpy.array(llh2geoid(station)) - numpy.array(nearest_xyz) for station in stations[1:]]
+    rel_stations = [numpy.array(llh2geoid(station)) - nearest_xyz for station in stations[1:]]
 
     #add in a center-of-the-earth station if we have altitude
     if altitude is not None:
-        rel_stations.append([0,0,0] - numpy.array(nearest_xyz))
+        rel_stations.append([0,0,0] - nearest_xyz)
 
     rel_stations = numpy.array(rel_stations) #convert list of arrays to 2d array
 
     #get TDOA relative to station 0, multiply by c to get pseudorange
     prange_obs = [[c*(stamp-timestamps[0])] for stamp in timestamps[1:]]
-    print "Initial pranges: ", prange_obs
 
     if altitude is not None:
-        prange_obs.append(get_fake_station(stations[0], altitude))
-        altguess = altitude
-    else:
-        altguess = nearest_llh[2]
+        prange_obs.append(get_fake_prange(nearest_llh, altitude))
+
+    print "Initial pranges: ", prange_obs
 
     prange_obs = numpy.array(prange_obs)
-
-    #initial guess is atop nearest station
-    #xguess = numpy.array(llh2ecef([nearest_llh[0], nearest_llh[1], altguess])) - numpy.array(nearest_xyz)
     xyzpos = mlat_iter(rel_stations, prange_obs)
     llhpos = ecef2llh(xyzpos+nearest_xyz)
     
@@ -191,11 +187,7 @@ if __name__ == '__main__':
     testalt      = 8000
     testplane    = numpy.array(llh2ecef([37.617175,-122.400843, testalt]))
     testme       = llh2geoid(teststations[0])
-    teststamps   = [10 + numpy.linalg.norm(testplane-numpy.array(llh2geoid(teststations[0]))) / c, 
-                    10 + numpy.linalg.norm(testplane-numpy.array(llh2geoid(teststations[1]))) / c,
-                    10 + numpy.linalg.norm(testplane-numpy.array(llh2geoid(teststations[2]))) / c,
-                    10 + numpy.linalg.norm(testplane-numpy.array(llh2geoid(teststations[3]))) / c,
-                ]
+    teststamps   = [10+numpy.linalg.norm(testplane-numpy.array(llh2geoid(station))) / c for station in teststations]
 
     print "Actual pranges: ", sorted([numpy.linalg.norm(testplane - numpy.array(llh2geoid(station))) for station in teststations])
 

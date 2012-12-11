@@ -107,29 +107,14 @@ def mlat_iter(stations, prange_obs, guess = [0,0,0], limit = 20, maxrounds = 100
         #create a matrix of partial differentials to find the slope of the error in X,Y,Z,t directions
         H = numpy.array([(numpy.array(-stations[row,:])+guess) / prange_est[row] for row in range(len(stations))])
         H = numpy.append(H, numpy.ones(len(prange_obs)).reshape(len(prange_obs),1)*c, axis=1)
-        #print "H: ", H
         #now we have H, the Jacobian, and can solve for residual error
         solved = numpy.linalg.lstsq(H, dphat)
         xerr = solved[0].flatten()
-        #print "s: ", solved[3]
-        #print "xerr: ", xerr
         guess += xerr[:3] #we ignore the time error for xguess
-        #print "Estimated position and change: ", guess, numpy.linalg.norm(xerr[:3])
         rounds += 1
         if rounds > maxrounds:
             raise Exception("Failed to converge!")
     return (guess, xerr[3])
-
-#gets the emulated Arne Saknussemm Memorial Radio Station report
-#here we calc the estimated pseudorange to the center of the earth, using station[0] as a reference point
-#in other words, we say "if the aircraft were directly overhead of me, this is the pseudorange to the center of the earth"
-#if the dang earth were actually round this wouldn't be an issue
-#this lets us use the altitude of the mode S reply as info to construct an additional reporting station
-#i haven't really thought about it but I think the geometry (re: *DOP) of this "station" is pretty lousy
-#but it lets us solve with 3 stations
-def get_fake_prange(surface_position, altitude):
-    fake_xyz = numpy.array(llh2ecef((surface_position[0], surface_position[1], altitude)))
-    return [numpy.linalg.norm(fake_xyz)-numpy.linalg.norm(llh2geoid(surface_position))] #use ECEF not geoid since alt is MSL not GPS
 
 #func mlat:
 #uses a modified GPS pseudorange solver to locate aircraft by multilateration.
@@ -142,57 +127,24 @@ def mlat(replies, altitude):
 
     stations = [sorted_reply[0] for sorted_reply in sorted_replies]
     timestamps = [sorted_reply[1] for sorted_reply in sorted_replies]
-    print "Timestamps: ", timestamps
-
     nearest_llh = stations[0]
-    #nearest_xyz = numpy.array(llh2geoid(stations[0]))
-    
-    stations_xyz = [numpy.array(llh2geoid(station)) for station in stations]
+    stations_xyz = numpy.array([llh2geoid(station) for station in stations])
 
-    #add in a center-of-the-earth station if we have altitude
-#    if altitude is not None:
-#        stations_xyz.append([0,0,0])
-
-    stations_xyz = numpy.array(stations_xyz) #convert list of arrays to 2d array
-
-    #get TDOA relative to station 0, multiply by c to get pseudorange
     #the absolute time shouldn't matter at all except perhaps in
     #maintaining floating-point precision; in other words you can
-    #add a constant here and it should fall out in the solver as time
-    #error
-    prange_obs = [[c*(stamp)] for stamp in timestamps]
+    #add a constant here and it should fall out in the solver as time error
+    prange_obs = [[c*stamp] for stamp in timestamps]
 
-#    if altitude is not None:
-#        prange_obs.append(get_fake_prange(stations[0], altitude))
-
-    #if no alt, use a very large number
-    #this guarantees monotonicity in the error function
+    #if no alt, use a reasonably large number (in meters)
     #since if all your stations lie in a plane (they basically will),
     #there's a reasonable solution at negative altitude as well
     if altitude is None:
         altitude = 20000
-
-    print "Initial pranges: ", prange_obs
-    print "Stations: ", stations_xyz
+    firstguess = numpy.array(llh2ecef((nearest_llh[0], nearest_llh[1], altitude)))
 
     prange_obs = numpy.array(prange_obs)
-    #use the nearest station (we sorted by timestamp earlier) as the initial guess
-    firstguess = numpy.array(llh2ecef((nearest_llh[0], nearest_llh[1], altitude)))
     xyzpos, time_offset = mlat_iter(stations_xyz, prange_obs, firstguess, maxrounds=100)
-    print "xyzpos: ", xyzpos
     llhpos = ecef2llh(xyzpos)
-    
-    #now, we could return llhpos right now and be done with it.
-    #but the assumption we made above, namely that the aircraft is directly above the
-    #nearest station, results in significant error due to the oblateness of the Earth's geometry.
-    #so now we solve AGAIN, but this time with the corrected pseudorange of the aircraft altitude
-    #this might not be really useful in practice but the sim shows >50m errors without it
-    #and <4cm errors with it, not that we'll get that close in reality but hey let's do it right
-
-#    if altitude is not None:
-#        prange_obs[-1] = [numpy.linalg.norm(llh2ecef((llhpos[0], llhpos[1], altitude)))]
-#        xyzpos_corr, time_offset = mlat_iter(stations, prange_obs, xyzpos) #start off with a really close guess
-#        llhpos = ecef2llh(xyzpos_corr+nearest_xyz)
     
     return (llhpos, time_offset)
 
@@ -235,7 +187,7 @@ if __name__ == '__main__':
 
     replies = [(station, stamp) for station,stamp in zip(teststations, teststamps)]
 
-    ans, offset = mlat(replies, None)
+    ans, offset = mlat(replies, testalt)
     error = numpy.linalg.norm(numpy.array(llh2ecef(ans))-numpy.array(testplane))
     rng = numpy.linalg.norm(llh2geoid(ans)-numpy.array(llh2geoid(teststations[0])))
     print "Resolved lat/lon/alt: ", ans

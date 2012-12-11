@@ -96,18 +96,17 @@ c = 299792458 / 1.0003 #modified for refractive index of air, why not
 #basically 20 meters is way less than the anticipated error of the system so it doesn't make sense to continue
 #it's possible this could fail in situations where the solution converges slowly
 #THIS WORKS PLEASE DON'T MESS WITH IT
-def mlat_iter(rel_stations, prange_obs, guess = [0,0,0], limit = 20, maxrounds = 100):
-    print prange_obs
+def mlat_iter(stations, prange_obs, guess = [0,0,0], limit = 20, maxrounds = 100):
     xerr = [1e9, 1e9, 1e9, 1e9]
     rounds = 0
     while numpy.linalg.norm(xerr[:3]) > limit:
         #get p_i, the estimated pseudoranges based on the latest position guess
-        prange_est = [[numpy.linalg.norm(station - guess)] for station in rel_stations]
+        prange_est = [[numpy.linalg.norm(station - guess)] for station in stations]
         #get the difference d_p^ between the observed and calculated pseudoranges
         dphat = prange_obs - prange_est
         #create a matrix of partial differentials to find the slope of the error in X,Y,Z,t directions
-        H = numpy.array([(numpy.array(-rel_stations[row,:])+guess) / prange_est[row] for row in range(len(rel_stations))])
-        H = numpy.append(H, numpy.ones(len(prange_obs)).reshape(len(prange_obs),1), axis=1)
+        H = numpy.array([(numpy.array(-stations[row,:])+guess) / prange_est[row] for row in range(len(stations))])
+        H = numpy.append(H, numpy.ones(len(prange_obs)).reshape(len(prange_obs),1)*c, axis=1)
         print "H: ", H
         #now we have H, the Jacobian, and can solve for residual error
         xerr = numpy.linalg.lstsq(H, dphat)[0].flatten()
@@ -117,7 +116,7 @@ def mlat_iter(rel_stations, prange_obs, guess = [0,0,0], limit = 20, maxrounds =
         rounds += 1
         if rounds > maxrounds:
             raise Exception("Failed to converge!")
-    return guess
+    return (guess, xerr[3])
 
 #gets the emulated Arne Saknussemm Memorial Radio Station report
 #here we calc the estimated pseudorange to the center of the earth, using station[0] as a reference point
@@ -128,7 +127,7 @@ def mlat_iter(rel_stations, prange_obs, guess = [0,0,0], limit = 20, maxrounds =
 #but it lets us solve with 3 stations
 def get_fake_prange(surface_position, altitude):
     fake_xyz = numpy.array(llh2ecef((surface_position[0], surface_position[1], altitude)))
-    return [numpy.linalg.norm(fake_xyz)] #use ECEF not geoid since alt is MSL not GPS
+    return [numpy.linalg.norm(fake_xyz)-numpy.linalg.norm(llh2geoid(surface_position))] #use ECEF not geoid since alt is MSL not GPS
 
 #func mlat:
 #uses a modified GPS pseudorange solver to locate aircraft by multilateration.
@@ -137,34 +136,40 @@ def get_fake_prange(surface_position, altitude):
 #returns the estimated position of the aircraft in (lat, lon, alt) geoid-corrected WGS84.
 #let's make it take a list of tuples so we can sort by them
 def mlat(replies, altitude):
-    sorted_replies = sorted(replies, key=lambda time: time[1])
+    sorted_replies = replies#sorted(replies, key=lambda time: time[1])
 
     stations = [sorted_reply[0] for sorted_reply in sorted_replies]
     timestamps = [sorted_reply[1] for sorted_reply in sorted_replies]
+    print "Timestamps: ", timestamps
 
-    nearest_llh = stations[0]
-    nearest_xyz = numpy.array(llh2geoid(stations[0]))
-
-    #list of stations in XYZ relative to the closest station
-    rel_stations = [numpy.array(llh2geoid(station)) - nearest_xyz for station in stations[1:]]
+    #nearest_llh = stations[0]
+    #nearest_xyz = numpy.array(llh2geoid(stations[0]))
+    
+    stations_xyz = [numpy.array(llh2geoid(station)) for station in stations]
 
     #add in a center-of-the-earth station if we have altitude
     if altitude is not None:
-        rel_stations.append([0,0,0] - nearest_xyz)
+        stations_xyz.append([0,0,0])
 
-    rel_stations = numpy.array(rel_stations) #convert list of arrays to 2d array
+    stations_xyz = numpy.array(stations_xyz) #convert list of arrays to 2d array
 
     #get TDOA relative to station 0, multiply by c to get pseudorange
-    prange_obs = [[c*(stamp-timestamps[0])] for stamp in timestamps[1:]]
+    #the absolute time shouldn't matter at all except perhaps in
+    #maintaining floating-point precision; in other words you can
+    #add a constant here and it should fall out in the solver as time
+    #error
+    prange_obs = [[c*(stamp)] for stamp in timestamps]
 
     if altitude is not None:
-        prange_obs.append(get_fake_prange(nearest_llh, altitude))
+        prange_obs.append(get_fake_prange(stations[0], altitude))
 
     print "Initial pranges: ", prange_obs
+    print "Stations: ", stations_xyz
 
     prange_obs = numpy.array(prange_obs)
-    xyzpos = mlat_iter(rel_stations, prange_obs)
-    llhpos = ecef2llh(xyzpos+nearest_xyz)
+    xyzpos, time_offset = mlat_iter(stations_xyz, prange_obs, maxrounds=10)
+    print "xyzpos: ", xyzpos
+    llhpos = ecef2llh(xyzpos)
     
     #now, we could return llhpos right now and be done with it.
     #but the assumption we made above, namely that the aircraft is directly above the
@@ -175,29 +180,55 @@ def mlat(replies, altitude):
 
     if altitude is not None:
         prange_obs[-1] = [numpy.linalg.norm(llh2ecef((llhpos[0], llhpos[1], altitude)))]
-        xyzpos_corr = mlat_iter(rel_stations, prange_obs, xyzpos) #start off with a really close guess
+        xyzpos_corr, time_offset = mlat_iter(rel_stations, prange_obs, xyzpos) #start off with a really close guess
         llhpos = ecef2llh(xyzpos_corr+nearest_xyz)
     
-    return llhpos
+    return (llhpos, time_offset)
 
+#tests the mlat_iter algorithm using sample data from Farrell & Barth (p.147)
+def farrell_barth_test():
+    pranges = numpy.array([[22228206.42],
+                           [24096139.11],
+                           [21729070.63],
+                           [21259581.09]])
+    svpos = numpy.array([[7766188.44, -21960535.34, 12522838.56],
+                         [-25922679.66, -6629461.28, 31864.37],
+                         [-5743774.02, -25828319.92, 1692757.72],
+                         [-2786005.69, -15900725.80, 21302003.49]])
+
+    #this is the "correct" resolved position, not the real receiver position
+    known_pos = numpy.array( [-2430745.0959362, -4702345.11359277, 3546568.70599656])
+
+    pos, time_offset = mlat_iter(svpos, pranges)
+    print "Position: ", pos
+    print "LLH: ", ecef2llh(pos)
+    error = numpy.linalg.norm(pos - known_pos)
+    print "Error: ", error
+    if error < 1e-3:
+        print "Farrell & Barth test OK"
+    else:
+        raise Exception("ERROR: Failed Farrell & Barth test")
 
 if __name__ == '__main__':
-    #here's some test data to validate the algorithm
+    #check to see that you haven't screwed up mlat_iter
+    farrell_barth_test()
+
+    #construct simulated returns from these stations
     teststations = [[37.76225, -122.44254, 100], [37.680016,-121.772461, 100], [37.385844,-122.083082, 100], [37.701207,-122.309418, 100]]
-    testalt      = 8000
+    testalt      = 4000000
     testplane    = numpy.array(llh2ecef([37.617175,-122.400843, testalt]))
-    testme       = llh2geoid(teststations[0])
-    teststamps   = [10+numpy.linalg.norm(testplane-numpy.array(llh2geoid(station))) / c for station in teststations]
+    tx_time      = 10 #time offset to apply to timestamps
+    teststamps   = [tx_time+numpy.linalg.norm(testplane-numpy.array(llh2geoid(station))) / c for station in teststations]
 
     print "Actual pranges: ", sorted([numpy.linalg.norm(testplane - numpy.array(llh2geoid(station))) for station in teststations])
 
-    replies = []
-    for i in range(0, len(teststations)):
-        replies.append((teststations[i], teststamps[i]))
-    ans = mlat(replies, None)
+    replies = [(station, stamp) for station,stamp in zip(teststations, teststamps)]
+
+    ans, offset = mlat(replies, None)
     error = numpy.linalg.norm(numpy.array(llh2ecef(ans))-numpy.array(testplane))
-    range = numpy.linalg.norm(llh2geoid(ans)-numpy.array(testme))
-    print testplane-testme
-    print ans
+    rng = numpy.linalg.norm(llh2geoid(ans)-numpy.array(llh2geoid(teststations[0])))
+    print "Resolved lat/lon/alt: ", ans
     print "Error: %.2fm" % (error)
-    print "Range: %.2fkm (from first station in list)" % (range/1000)
+    print "Range: %.2fkm (from first station in list)" % (rng/1000)
+    print "Local transmit time: %.8fs" % (offset)
+

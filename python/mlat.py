@@ -107,12 +107,14 @@ def mlat_iter(stations, prange_obs, guess = [0,0,0], limit = 20, maxrounds = 100
         #create a matrix of partial differentials to find the slope of the error in X,Y,Z,t directions
         H = numpy.array([(numpy.array(-stations[row,:])+guess) / prange_est[row] for row in range(len(stations))])
         H = numpy.append(H, numpy.ones(len(prange_obs)).reshape(len(prange_obs),1)*c, axis=1)
-        print "H: ", H
+        #print "H: ", H
         #now we have H, the Jacobian, and can solve for residual error
-        xerr = numpy.linalg.lstsq(H, dphat)[0].flatten()
-        print "xerr: ", xerr
+        solved = numpy.linalg.lstsq(H, dphat)
+        xerr = solved[0].flatten()
+        #print "s: ", solved[3]
+        #print "xerr: ", xerr
         guess += xerr[:3] #we ignore the time error for xguess
-        print "Estimated position and change: ", guess, numpy.linalg.norm(xerr[:3])
+        #print "Estimated position and change: ", guess, numpy.linalg.norm(xerr[:3])
         rounds += 1
         if rounds > maxrounds:
             raise Exception("Failed to converge!")
@@ -136,20 +138,20 @@ def get_fake_prange(surface_position, altitude):
 #returns the estimated position of the aircraft in (lat, lon, alt) geoid-corrected WGS84.
 #let's make it take a list of tuples so we can sort by them
 def mlat(replies, altitude):
-    sorted_replies = replies#sorted(replies, key=lambda time: time[1])
+    sorted_replies = sorted(replies, key=lambda time: time[1])
 
     stations = [sorted_reply[0] for sorted_reply in sorted_replies]
     timestamps = [sorted_reply[1] for sorted_reply in sorted_replies]
     print "Timestamps: ", timestamps
 
-    #nearest_llh = stations[0]
+    nearest_llh = stations[0]
     #nearest_xyz = numpy.array(llh2geoid(stations[0]))
     
     stations_xyz = [numpy.array(llh2geoid(station)) for station in stations]
 
     #add in a center-of-the-earth station if we have altitude
-    if altitude is not None:
-        stations_xyz.append([0,0,0])
+#    if altitude is not None:
+#        stations_xyz.append([0,0,0])
 
     stations_xyz = numpy.array(stations_xyz) #convert list of arrays to 2d array
 
@@ -160,14 +162,23 @@ def mlat(replies, altitude):
     #error
     prange_obs = [[c*(stamp)] for stamp in timestamps]
 
-    if altitude is not None:
-        prange_obs.append(get_fake_prange(stations[0], altitude))
+#    if altitude is not None:
+#        prange_obs.append(get_fake_prange(stations[0], altitude))
+
+    #if no alt, use a very large number
+    #this guarantees monotonicity in the error function
+    #since if all your stations lie in a plane (they basically will),
+    #there's a reasonable solution at negative altitude as well
+    if altitude is None:
+        altitude = 20000
 
     print "Initial pranges: ", prange_obs
     print "Stations: ", stations_xyz
 
     prange_obs = numpy.array(prange_obs)
-    xyzpos, time_offset = mlat_iter(stations_xyz, prange_obs, maxrounds=10)
+    #use the nearest station (we sorted by timestamp earlier) as the initial guess
+    firstguess = numpy.array(llh2ecef((nearest_llh[0], nearest_llh[1], altitude)))
+    xyzpos, time_offset = mlat_iter(stations_xyz, prange_obs, firstguess, maxrounds=100)
     print "xyzpos: ", xyzpos
     llhpos = ecef2llh(xyzpos)
     
@@ -178,10 +189,10 @@ def mlat(replies, altitude):
     #this might not be really useful in practice but the sim shows >50m errors without it
     #and <4cm errors with it, not that we'll get that close in reality but hey let's do it right
 
-    if altitude is not None:
-        prange_obs[-1] = [numpy.linalg.norm(llh2ecef((llhpos[0], llhpos[1], altitude)))]
-        xyzpos_corr, time_offset = mlat_iter(rel_stations, prange_obs, xyzpos) #start off with a really close guess
-        llhpos = ecef2llh(xyzpos_corr+nearest_xyz)
+#    if altitude is not None:
+#        prange_obs[-1] = [numpy.linalg.norm(llh2ecef((llhpos[0], llhpos[1], altitude)))]
+#        xyzpos_corr, time_offset = mlat_iter(stations, prange_obs, xyzpos) #start off with a really close guess
+#        llhpos = ecef2llh(xyzpos_corr+nearest_xyz)
     
     return (llhpos, time_offset)
 
@@ -215,7 +226,7 @@ if __name__ == '__main__':
 
     #construct simulated returns from these stations
     teststations = [[37.76225, -122.44254, 100], [37.680016,-121.772461, 100], [37.385844,-122.083082, 100], [37.701207,-122.309418, 100]]
-    testalt      = 4000000
+    testalt      = 8000
     testplane    = numpy.array(llh2ecef([37.617175,-122.400843, testalt]))
     tx_time      = 10 #time offset to apply to timestamps
     teststamps   = [tx_time+numpy.linalg.norm(testplane-numpy.array(llh2geoid(station))) / c for station in teststations]
@@ -230,5 +241,4 @@ if __name__ == '__main__':
     print "Resolved lat/lon/alt: ", ans
     print "Error: %.2fm" % (error)
     print "Range: %.2fkm (from first station in list)" % (rng/1000)
-    print "Local transmit time: %.8fs" % (offset)
-
+    print "Aircraft-local transmit time: %.8fs" % (offset)

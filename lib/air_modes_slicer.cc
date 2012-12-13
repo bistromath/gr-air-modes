@@ -112,84 +112,80 @@ int air_modes_slicer::work(int noutput_items,
 
 	for(tag_iter = tags.begin(); tag_iter != tags.end(); tag_iter++) {
 		uint64_t i = tag_iter->offset - abs_sample_cnt;
-		modes_packet rx_packet;
 
-		memset(&rx_packet.data, 0x00, 14 * sizeof(unsigned char));
-		memset(&rx_packet.lowconfbits, 0x00, 24 * sizeof(unsigned char));
-		rx_packet.numlowconf = 0;
+		memset(&d_data, 0x00, 14 * sizeof(unsigned char));
+		memset(&d_lowconfbits, 0x00, 24 * sizeof(unsigned char));
+		unsigned int numlowconf = 0;
 
 		//let's use the preamble to get a reference level for the packet
 		//fixme: a better thing to do is create a bi-level avg 1 and avg 0
 		//through simple statistics, then take the median for your slice level
 		//this won't improve decoding but will improve confidence
-		rx_packet.reference_level = (in[i]
-								   + in[i+2]
-								   + in[i+7]
-								   + in[i+9]) / 4.0;
+		double reference_level = (in[i]
+							    + in[i+2]
+							    + in[i+7]
+							    + in[i+9]) / 4.0;
 
 		i += 16; //move on up to the first bit of the packet data
 		//now let's slice the header so we can determine if it's a short pkt or a long pkt
 		unsigned char pkt_hdr = 0;
 		for(int j=0; j < 5; j++) {
-			slice_result_t slice_result = slicer(in[i+j*2], in[i+j*2+1], rx_packet.reference_level);
+			slice_result_t slice_result = slicer(in[i+j*2], in[i+j*2+1], reference_level);
 			if(slice_result.decision) pkt_hdr += 1 << (4-j);
 		}
-		if(pkt_hdr == 16 or pkt_hdr == 17 or pkt_hdr == 20 or pkt_hdr == 21) rx_packet.type = Long_Packet;
-		else rx_packet.type = Short_Packet;
-		int packet_length = (rx_packet.type == framer_packet_type(Short_Packet)) ? 56 : 112;
+		framer_packet_type type;
+		if(pkt_hdr == 16 or pkt_hdr == 17 or pkt_hdr == 20 or pkt_hdr == 21) type = Long_Packet;
+		else type = Short_Packet;
+		int packet_length = (type == Short_Packet) ? 56 : 112;
 
 		//it's slice time!
 		//TODO: don't repeat your work here, you already have the first 5 bits
+		slice_result_t slice_result;
 		for(int j = 0; j < packet_length; j++) {
-			slice_result_t slice_result = slicer(in[i+j*2], in[i+j*2+1], rx_packet.reference_level);
+			slice_result = slicer(in[i+j*2], in[i+j*2+1], reference_level);
 
 			//put the data into the packet
 			if(slice_result.decision) {
-				rx_packet.data[j/8] += 1 << (7-(j%8));
+				d_data[j/8] += 1 << (7-(j%8));
 			}
 			//put the confidence decision into the packet
 			if(slice_result.confidence) {
-				//rx_packet.confidence[j/8] += 1 << (7-(j%8));
+				//d_confidence[j/8] += 1 << (7-(j%8));
 			} else {
-				if(rx_packet.numlowconf < 24) rx_packet.lowconfbits[rx_packet.numlowconf++] = j;
+				if(numlowconf < 24) d_lowconfbits[numlowconf++] = j;
 			}
 		}
-			
-		/******************** BEGIN TIMESTAMP BS ******************/
-		rx_packet.timestamp = pmt_to_double(tag_iter->value);
-		/******************* END TIMESTAMP BS *********************/
-			
-		//increment for the next round
+
+		uint64_t timestamp_secs = pmt::pmt_to_uint64(pmt::pmt_tuple_ref(tag_iter->value, 0));
+		double timestamp_frac = pmt::pmt_to_double(pmt::pmt_tuple_ref(tag_iter->value, 1));
 
 		//here you might want to traverse the whole packet and if you find all 0's, just toss it. don't know why these packets turn up, but they pass ECC.
 		bool zeroes = 1;
 		for(int m = 0; m < 14; m++) {
-			if(rx_packet.data[m]) zeroes = 0;
+			if(d_data[m]) zeroes = 0;
 		}
 		if(zeroes) {continue;} //toss it
 
-		rx_packet.message_type = (rx_packet.data[0] >> 3) & 0x1F; //get the message type to make decisions on ECC methods
+		unsigned int message_type = (d_data[0] >> 3) & 0x1F; //get the message type to make decisions on ECC methods
 
-		if(rx_packet.type == Short_Packet && rx_packet.message_type != 11 && rx_packet.numlowconf > 0) {continue;}
-		if(rx_packet.message_type == 11 && rx_packet.numlowconf >= 10) {continue;}
+		if(type == Short_Packet && message_type != 11 && numlowconf > 0) {continue;}
+		if(message_type == 11 && numlowconf >= 10) {continue;}
 			
-		rx_packet.crc = modes_check_crc(rx_packet.data, packet_length);
+		unsigned long crc = modes_check_crc(d_data, packet_length);
 
 		//crc for packets that aren't type 11 or type 17 is encoded with the transponder ID, which we don't know
 		//therefore we toss 'em if there's syndrome
 		//crc for the other short packets is usually nonzero, so they can't really be trusted that far
-		if(rx_packet.crc && (rx_packet.message_type == 11 || rx_packet.message_type == 17)) {continue;}
-
-		d_payload.str("");
+		if(crc && (message_type == 11 || message_type == 17)) {continue;}
+		std::ostringstream payload;
 		for(int m = 0; m < packet_length/8; m++) {
-			d_payload << std::hex << std::setw(2) << std::setfill('0') << unsigned(rx_packet.data[m]);
+			payload << std::hex << std::setw(2) << std::setfill('0') << unsigned(d_data[m]);
 		}
 
-		d_payload << " " << std::setw(6) << rx_packet.crc << " " << std::dec << rx_packet.reference_level
-		          << " " << std::setprecision(10) << std::setw(10) << rx_packet.timestamp;
-			gr_message_sptr msg = gr_make_message_from_string(std::string(d_payload.str()));
+		payload << " " << std::setw(6) << crc << " " << std::dec << reference_level
+		          << " " << timestamp_secs << " " << std::setprecision(20) << timestamp_frac;
+			gr_message_sptr msg = gr_make_message_from_string(std::string(payload.str()));
 		d_queue->handle(msg);
 	}
-	if(0) std::cout << "Slicer consumed " << size << ", returned " << size << std::endl;
 	return size;
 }

@@ -78,20 +78,31 @@ static double correlate_preamble(const float *in, int samples_per_chip) {
 	return corr;
 }
 
-//todo: make it return a pair of some kind, otherwise you can lose precision
-static double tag_to_timestamp(gr_tag_t tstamp, uint64_t abs_sample_cnt, double secs_per_sample) {
+//takes an rx tag and issues a tag offset appropriately for the preamble
+static const pmt::pmt_t offset_stamp(const gr_tag_t &tstamp, const uint64_t abs_sample_cnt, const double secs_per_sample) {
 	uint64_t ts_sample, last_whole_stamp;
 	double last_frac_stamp;
 
-	if(tstamp.key == NULL || pmt::pmt_symbol_to_string(tstamp.key) != "rx_time") return 0;
-
-	last_whole_stamp = pmt::pmt_to_uint64(pmt::pmt_tuple_ref(tstamp.value, 0));
-	last_frac_stamp = pmt::pmt_to_double(pmt::pmt_tuple_ref(tstamp.value, 1));
-	ts_sample = tstamp.offset;
+	if(tstamp.key == NULL || pmt::pmt_symbol_to_string(tstamp.key) != "rx_time") {
+		last_whole_stamp = 0;
+		last_frac_stamp = 0;
+		ts_sample = 0;
+	} else {
+		last_whole_stamp = pmt::pmt_to_uint64(pmt::pmt_tuple_ref(tstamp.value, 0));
+		last_frac_stamp = pmt::pmt_to_double(pmt::pmt_tuple_ref(tstamp.value, 1));
+		ts_sample = tstamp.offset;
+	}
 	
-	double tstime = double(abs_sample_cnt * secs_per_sample) + last_whole_stamp + last_frac_stamp;
-	if(0) std::cout << "HEY WE GOT A STAMP AT " << tstime << " TICKS AT SAMPLE " << ts_sample << " ABS SAMPLE CNT IS " << abs_sample_cnt << std::endl;
-	return tstime;
+	double fractime = double(abs_sample_cnt * secs_per_sample) + last_frac_stamp;
+	last_whole_stamp += int(fractime);
+	fractime -= int(fractime);
+
+	const pmt::pmt_t newval = pmt::pmt_make_tuple(
+		pmt::pmt_from_uint64(last_whole_stamp),
+		pmt::pmt_from_double(fractime)
+	);
+
+	return newval;
 }
 
 int air_modes_preamble::general_work(int noutput_items,
@@ -186,16 +197,14 @@ int air_modes_preamble::general_work(int noutput_items,
 				integrate_and_dump(out, &in[i], 240, d_samples_per_chip);
 			}
 
-			//get the timestamp of the preamble
-			double tstamp = tag_to_timestamp(d_timestamp, abs_sample_cnt + i, d_secs_per_sample);
-
+			const pmt::pmt_t new_pmt = offset_stamp(d_timestamp, abs_sample_cnt + i, d_secs_per_sample);
 			//now tag the preamble
 			add_item_tag(0, //stream ID
-					 nitems_written(0), //sample
-					 d_key,      //frame_info
-			         pmt::pmt_from_double(tstamp),
-			         d_me        //block src id
-			        );
+					nitems_written(0), //sample
+					d_key,      //frame_info
+					new_pmt,
+					d_me        //block src id
+					);
 					 
 			//std::cout << "PREAMBLE" << std::endl;
 			

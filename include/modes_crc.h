@@ -24,7 +24,4 @@
 #define INCLUDED_MODES_CRC_H
 extern const unsigned int modes_crc_table[112];
 int modes_check_crc(unsigned char data[], int length);
-bruteResultTypeDef modes_ec_brute(modes_packet &err_packet);
-unsigned next_set_of_n_elements(unsigned x);
-
 #endif

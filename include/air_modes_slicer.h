@@ -47,7 +47,8 @@ private:
     int d_samples_per_chip;
     int d_samples_per_symbol;
     gr_msg_queue_sptr d_queue;
-    std::ostringstream d_payload;
+    unsigned char d_lowconfbits[24];
+    unsigned char d_data[14];
 
 public:
     int work (int noutput_items,

@@ -30,11 +30,11 @@ class output_print(air_modes.parse):
       air_modes.parse.__init__(self, mypos)
       
   def parse(self, message):
-    [data, ecc, reference, timestamp] = message.split()
+    [data, ecc, reference, timestamp_int, timestamp_frac] = message.split()
+    timestamp = int(timestamp_int) + float(timestamp_frac)
 
     ecc = long(ecc, 16)
     reference = float(reference)
-    timestamp = float(timestamp)
 
     if reference == 0.0:
       refdb = -150.0

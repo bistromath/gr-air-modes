@@ -89,7 +89,8 @@ class output_sql(air_modes.parse):
   def make_insert_query(self, message):
     #assembles a SQL query tailored to our database
     #this version ignores anything that isn't Type 17 for now, because we just don't care
-    [data, ecc, reference, timestamp] = message.split()
+    [data, ecc, reference, timestamp_int, timestamp_frac] = message.split()
+    timestamp = int(timestamp_int) + float(timestamp_frac)
 
     data = air_modes.modes_reply(long(data, 16))
     ecc = long(ecc, 16)

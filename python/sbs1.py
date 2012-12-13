@@ -103,7 +103,8 @@ class output_sbs1(air_modes.parse):
   def parse(self, message):
     #assembles a SBS-1-style output string from the received message
 
-    [data, ecc, reference, timestamp] = message.split()
+    [data, ecc, reference, timestamp_int, timestamp_frac] = message.split()
+    timestamp = int(timestamp_int) + float(timestamp_frac)
 
     data = air_modes.modes_reply(long(data, 16))
     ecc = long(ecc, 16)

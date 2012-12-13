@@ -28,7 +28,8 @@ class output_flightgear(air_modes.parse):
         self.sock.connect((self.hostname, self.port))
 
     def output(self, message):
-        [data, ecc, reference, timestamp] = message.split()
+        [data, ecc, reference, timestamp_int, timestamp_frac] = message.split()
+        timestamp = int(timestamp_int) + float(timestamp_frac)
         data = air_modes.modes_reply(long(data, 16))
         
         try:

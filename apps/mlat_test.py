@@ -36,13 +36,15 @@ def get_pos(time):
             ac_starting_pos[2]]
 
 def get_simulated_timestamp(time, position):
-    return time + numpy.linalg.norm(numpy.array(air_modes.mlat.llh2ecef(position))-numpy.array(air_modes.mlat.llh2geoid(info.position))) / air_modes.mlat.c
+    prange = numpy.linalg.norm(numpy.array(air_modes.mlat.llh2ecef(position))-numpy.array(air_modes.mlat.llh2geoid(info.position))) / air_modes.mlat.c
+    return time + prange + random.random()*60e-9 - 30e-9
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.setblocking(1)
-sock.connect(("localhost", 31337))
+sock.connect(("localhost", 19005))
 sock.send(pickle.dumps(info))
 print sock.recv(1024)
+sock.setblocking(0)
 ts = 0.0
 while 1:
     pos = get_pos(ts)
@@ -53,6 +55,11 @@ while 1:
     data1.frac_secs = float(stamp)
     data1.frac_secs -= int(data1.frac_secs)
     sock.send(pickle.dumps([data1]))
+    try:
+        positions = sock.recv(1024)
+    except:
+        pass
+    if positions: print positions
     ts+=1
     time.sleep(1)
 

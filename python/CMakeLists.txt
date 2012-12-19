@@ -35,6 +35,7 @@ GR_PYTHON_INSTALL(
     az_map.py
     cpr.py
     mlat.py
+    mlat_client.py
     exceptions.py
     flightgear.py
     gui_model.py

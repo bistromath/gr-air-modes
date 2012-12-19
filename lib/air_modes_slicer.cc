@@ -174,8 +174,7 @@ int air_modes_slicer::work(int noutput_items,
 		unsigned long crc = modes_check_crc(d_data, packet_length);
 
 		//crc for packets that aren't type 11 or type 17 is encoded with the transponder ID, which we don't know
-		//therefore we toss 'em if there's syndrome
-		//crc for the other short packets is usually nonzero, so they can't really be trusted that far
+		//we forward them if they have no low-confidence bits (see above), but this still lets some crap through.
 		if(crc && (message_type == 11 || message_type == 17)) {continue;}
 		std::ostringstream payload;
 		for(int m = 0; m < packet_length/8; m++) {

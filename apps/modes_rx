@@ -51,17 +51,22 @@ class adsb_rx_block (gr.top_block):
     self.args = args
     rate = int(options.rate)
     use_resampler = False
+    self.time_source = None
 
     if options.filename is None and options.udp is None and not options.rtlsdr:
       #UHD source by default
       from gnuradio import uhd
       self.u = uhd.single_usrp_source(options.args, uhd.io_type_t.COMPLEX_FLOAT32, 1)
-      time_spec = uhd.time_spec(0.0)
-      self.u.set_time_now(time_spec)
 
-      #if(options.rx_subdev_spec is None):
-      #  options.rx_subdev_spec = ""
-      #self.u.set_subdev_spec(options.rx_subdev_spec)
+      #check for GPSDO
+      #if you have a GPSDO, UHD will automatically set the timestamp to UTC time
+      #as well as automatically set the clock to lock to GPSDO.
+      if self.u.get_time_source(0) == 'gpsdo':
+        self.time_source = 'gpsdo'
+      else:
+        self.time_source = None
+        self.u.set_time_now(uhd.time_spec(0.0))
+
       if not options.antenna is None:
         self.u.set_antenna(options.antenna)
 
@@ -126,6 +131,11 @@ class adsb_rx_block (gr.top_block):
 def printraw(msg):
     print msg
 
+def printmlat(msg):
+    msglist = pickle.loads(msg)
+    for msg in msglist:
+        print "mlat message: %x at [%f, %f]" % (msg.data, msg.lat, msg.lon)
+
 if __name__ == '__main__':
   usage = "%prog: [options] output filename"
   parser = OptionParser(option_class=eng_option, usage=usage)
@@ -165,6 +175,8 @@ if __name__ == '__main__':
                       help="Use RTLSDR dongle instead of UHD source")
   parser.add_option("-p","--pmf", action="store_true", default=False,
                       help="Use pulse matched filtering")
+  parser.add_option("-s","--mlat-server", type="string", default=None,
+                      help="Use a multilateration server to track non-ADS-B aircraft")
                       
   (options, args) = parser.parse_args()
 
@@ -173,8 +185,10 @@ if __name__ == '__main__':
     my_position = reader.next()
 
   queue = gr.msg_queue()
+  mlat_queue = None
   
   outputs = [] #registry of plugin output functions
+  mlat_outputs = [] #registry of plugin mlat handling functions
   updates = [] #registry of plugin update functions
 
   if options.raw is True:
@@ -205,13 +219,21 @@ if __name__ == '__main__':
     outputs.append(fgout.output)
 
   fg = adsb_rx_block(options, args, queue)
+
+  if options.mlat_server is not None:
+    mlat_queue = gr.msg_queue()
+    mlat_client = air_modes.mlat_client(mlat_queue, my_position, options.mlat_server, fg.time_source)
+    outputs.append(mlat_client.output) #output to server when we get a report
+    updates.append(mlat_client.get_mlat_positions) #check for replies from the server
+    #note: this means that get_mlat_positions and printmlat execute in the same thread.
+    #you could just have mlat_client spawn a thread to check its socket. might make more sense to do this.
+    mlat_outputs.append(printmlat)
+  
   runner = top_block_runner(fg)
 
   while 1:
     try:
-      #the update registry is really for the SBS1 and raw server plugins -- we're looking for new TCP connections.
-      #i think we have to do this here rather than in the output handler because otherwise connections will stack up
-      #until the next output arrives
+      #handle the once-per-loop updates (check for mlat responses, add TCP conns to SBS-1 plugin, etc.)
       for update in updates:
         update()
       

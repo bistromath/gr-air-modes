@@ -21,6 +21,7 @@ include(GrPython)
 
 GR_PYTHON_INSTALL(
     PROGRAMS
+    mlat_server
     modes_rx
     modes_gui
     uhd_modes.py

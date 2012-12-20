@@ -30,6 +30,7 @@ import air_modes
 import gnuradio.gr.gr_threading as _threading
 import csv
 from air_modes.exceptions import *
+import pickle
 
 class top_block_runner(_threading.Thread):
     def __init__(self, tb):
@@ -132,9 +133,7 @@ def printraw(msg):
     print msg
 
 def printmlat(msg):
-    msglist = pickle.loads(msg)
-    for msg in msglist:
-        print "mlat message: %x at [%f, %f]" % (msg.data, msg.lat, msg.lon)
+    print "Mlat report: %s" % msg
 
 if __name__ == '__main__':
   usage = "%prog: [options] output filename"
@@ -241,14 +240,23 @@ if __name__ == '__main__':
       if not queue.empty_p() :
         while not queue.empty_p() :
           msg = queue.delete_head() #blocking read
-
           for out in outputs:
             try:
               out(msg.to_string())
             except air_modes.ADSBError:
               pass
 
-      elif runner.done:
+      if mlat_queue:
+        if not mlat_queue.empty_p():
+          while not mlat_queue.empty_p():
+            msg = mlat_queue.delete_head()
+            for out in mlat_outputs:
+              try:
+                out(msg.to_string())
+              except air_modes.ADSBError:
+                pass
+
+      if runner.done:
         raise KeyboardInterrupt
       else:
         time.sleep(0.1)

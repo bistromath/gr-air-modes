@@ -43,22 +43,6 @@ import bisect
 pickle_prot = 0
 #pickle_prot = pickle.HIGHEST_PROTOCOL
 
-class rx_data:
-    secs = 0
-    frac_secs = 0.0
-    data = None
-
-class mlat_data:
-    data = None
-    secs = 0
-    frac_secs = 0.0
-    numstations = 0
-    lat = 0
-    lon = 0
-    alt = 0
-    hdop = 0.0
-    vdop = 0.0  
-
 class stamp:
     def __init__(self, clientinfo, secs, frac_secs):
         self.clientinfo = clientinfo
@@ -116,14 +100,15 @@ class mlat_server:
         self._s.close()
 
     def get_messages(self):
+        num=0
         for conn in self._conns:
             pkt = None
             try:
-                pkt = conn.sock.recv(4096)
+                pkt = conn.sock.recv(16384)
             except socket.error:
+                print "%s disconnected" % conn.clientinfo.name
                 self._conns.remove(conn)
             if not pkt: break
-            #print "Received message from %s with length %i" % (conn.clientinfo.name, len(pkt))
             try:
                 for msg in pkt.splitlines(True):
                     if msg.endswith("\n"):
@@ -139,6 +124,7 @@ class mlat_server:
                         ordered_insert(self._reports[data], st)
                         if st.tofloat() > self._lastreport:
                             self._lastreport = st.tofloat()
+                        num += 1
                     else:
                         if self._remnant is not None:
                             raise Exception("Malformed data: " + msg)
@@ -150,6 +136,7 @@ class mlat_server:
                 print e
 
         #self.prune()
+        return num
 
     #prune should delete all reports in self._reports older than 5s.
     #not really tested well
@@ -205,15 +192,13 @@ class mlat_server:
         return None
 
     #issue multilaterated positions
-    def output(self, txlist):
-        #TODO: buffer this like the client does
-        msg = pickle.dumps(txlist, pickle_prot)
+    def output(self, msg):
         if msg is not None:
             try:
                 for conn in self._conns[:]: #iterate over a copy of the list
                     conn.sock.send(msg)
             except socket.error:
-                print "Client %s disconnected" % conn.clientinfo.name
+                print "%s disconnected" % conn.clientinfo.name
                 self._conns.remove(conn)
                 print "Connections: ", len(self._conns)
 
@@ -235,7 +220,6 @@ class mlat_server:
                 print "Invalid datatype received from client"
                 return
 
-            conn.send("OK")
             self._conns.append(connection(addr[0], conn, clientinfo))
             print "New connection from %s: %s" % (addr[0], clientinfo.name)
         except socket.error:
@@ -251,16 +235,18 @@ def get_modes_altitude(data):
     elif df == 17:
         bds = data["me"].get_type()
         if bds == 0x05:
-            #return f2m*air_modes.altitude.decode_alt(data["me"]["alt"], False)
-            return 8000
+            return f2m*air_modes.altitude.decode_alt(data["me"]["alt"], False)
     else:
         return None
 
+position = [37.76, -117.443, 100]
+
 if __name__=="__main__":
-    srv = mlat_server("nothin'", 19005)
+    srv = mlat_server(position, 19005)
     while 1:
-        #srv.output("Buttes")
-        srv.get_messages()
+        nummsgs = srv.get_messages()
+        if len(srv._conns) > 0:
+            print "Received %i messages" % nummsgs
         srv.add_pending_conns()
         reps = srv.get_eligible_reports()
         if reps:
@@ -274,7 +260,6 @@ if __name__=="__main__":
         #it's expecting a list of tuples [(station[], timestamp)...]
         #also have to parse the data to pull altitude out of the mix
         if reps:
-            txlist = []
             for rep in reps:
                 alt = get_modes_altitude(air_modes.modes_reply(rep["data"]))
                 if (alt is None and len(rep["stamps"]) > 3) or alt is not None:
@@ -285,22 +270,19 @@ if __name__=="__main__":
                         pos, senttime = air_modes.mlat.mlat(mlat_list, alt)
                         if pos is not None:
                             print "Resolved position: ", pos
-                            #add to message stack
-                            msg = mlat_data()
-                            msg.data = rep["data"]
-                            #TODO: fix loss of precision in mlat() timestamp output
-                            msg.secs = int(senttime)
-                            msg.frac_secs = float(senttime) - msg.secs
-                            msg.numstations = len(mlat_list)
-                            msg.lat = pos[0]
-                            msg.lon = pos[1]
-                            msg.alt = pos[2]
-                            msg.hdop = 0.0
-                            msg.vdop = 0.0
-                            txlist.append(msg)
+                            #send a report!
+                            msg = "%x %i %i %f %f %f %f %f %f\n" % \
+                                  (rep["data"], len(mlat_list), int(senttime), \
+                                   float(senttime) - int(senttime), \
+                                   pos[0], pos[1], pos[2], 0.0, 0.0)
+                            srv.output(msg)
 
-                    except Exception as e:
+                    except air_modes.exceptions.MlatNonConvergeError as e:
                         print e
-            srv.output(txlist)
+
+#DEBUG
+#        else:
+#            msg = "0921354 4 2 0.12345 36.671234 -112.342515 9028.1243 0.0 0.0\n"
+#            srv.output(msg)
             
         time.sleep(0.3)

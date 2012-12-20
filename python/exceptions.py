@@ -44,4 +44,3 @@ class CPRBoundaryStraddleError(CPRNoPositionError):
 class FieldNotInPacket(ParserError):
     def __init__(self, item):
         self.item = item
-

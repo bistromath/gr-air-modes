@@ -113,7 +113,7 @@ def mlat_iter(stations, prange_obs, guess = [0,0,0], limit = 20, maxrounds = 100
         guess += xerr[:3] #we ignore the time error for xguess
         rounds += 1
         if rounds > maxrounds:
-            raise Exception("Failed to converge!")
+            raise MlatNonConvergeError("Failed to converge!")
     return (guess, xerr[3])
 
 #func mlat:

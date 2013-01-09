@@ -231,6 +231,29 @@ class modes_reply(data_field):
   def get_type(self):
     return self.get_bits(1,5)
 
+#unscramble mode A/C-style squawk codes for type 5 replies below
+def decode_id(id):
+  
+  C1 = 0x1000
+  A1 = 0x0800
+  C2 = 0x0400
+  A2 = 0x0200	#this represents the order in which the bits come
+  C4 = 0x0100
+  A4 = 0x0080
+  B1 = 0x0020
+  D1 = 0x0010
+  B2 = 0x0008
+  D2 = 0x0004
+  B4 = 0x0002
+  D4 = 0x0001
+  
+  a = ((id & A1) >> 11) + ((id & A2) >> 8) + ((id & A4) >> 5)
+  b = ((id & B1) >> 5)  + ((id & B2) >> 2) + ((id & B4) << 1)
+  c = ((id & C1) >> 12) + ((id & C2) >> 9) + ((id & C4) >> 6)
+  d = ((id & D1) >> 2)  + ((id & D2) >> 1) + ((id & D4) << 2)
+   
+  return (a * 1000) + (b * 100) + (c * 10) + d
+
 class parse:
   def __init__(self, mypos):
       self.my_location = mypos
@@ -245,7 +268,8 @@ class parse:
     return [data["fs"], data["dr"], data["um"], altitude]
 
   def parse5(self, data):
-    return [data["fs"], data["dr"], data["um"], data["id"]]
+    squawk = decode_id(data["id"])
+    return [data["fs"], data["dr"], data["um"], squawk]
 
   def parse11(self, data, ecc):
     interrogator = ecc & 0x0F

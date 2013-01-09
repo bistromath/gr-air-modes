@@ -94,9 +94,9 @@ class output_sbs1(air_modes.parse):
     elif fs == 3:
       return "1,0,0,1"
     elif fs == 4:
-      return "1,0,0,"
+      return "1,0,1,"
     elif fs == 5:
-      return "0,0,0,"
+      return "0,0,1,"
     else:
       return ",,,"
 
@@ -143,11 +143,10 @@ class output_sbs1(air_modes.parse):
     return retstr + self.decode_fs(fs) + "\r\n"
 
   def pp5(self, shortdata, ecc):
-    # I'm not sure what to do with the identiifcation shortdata & 0x1FFF
     [datestr, timestr] = self.current_time()
     [fs, dr, um, ident] = self.parse5(shortdata)
     aircraft_id = self.get_aircraft_id(ecc)
-    retstr = "MSG,6,0,%i,%06X,%i,%s,%s,%s,%s,,,,,,,,," % (aircraft_id, ecc, aircraft_id+100, datestr, timestr, datestr, timestr)
+    retstr = "MSG,6,0,%i,%06X,%i,%s,%s,%s,%s,,,,,,,,%04i," % (aircraft_id, ecc, aircraft_id+100, datestr, timestr, datestr, timestr, ident)
     return retstr + self.decode_fs(fs) + "\r\n"
 
   def pp11(self, shortdata, ecc):

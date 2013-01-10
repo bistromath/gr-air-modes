@@ -61,6 +61,7 @@ from raw_server import raw_server
 from mlat_client import mlat_client
 from exceptions import *
 from az_map import *
+from types import *
 #this is try/excepted in case the user doesn't have numpy installed
 try:
     from flightgear import output_flightgear

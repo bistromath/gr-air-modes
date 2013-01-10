@@ -27,37 +27,34 @@ class output_flightgear(air_modes.parse):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.connect((self.hostname, self.port))
 
-    def output(self, message):
-        [data, ecc, reference, timestamp_int, timestamp_frac] = message.split()
-        timestamp = int(timestamp_int) + float(timestamp_frac)
-        data = air_modes.modes_reply(long(data, 16))
+    def output(self, msg):
         
         try:
-            msgtype = data["df"]
+            msgtype = msg.data["df"]
             if msgtype == 17: #ADS-B report
-                icao24 = data["aa"]
-                bdsreg = data["me"].get_type()
+                icao24 = msg.data["aa"]
+                bdsreg = msg.data["me"].get_type()
                 if bdsreg == 0x08: #ident packet
-                    (ident, actype) = self.parseBDS08(data)
+                    (ident, actype) = self.parseBDS08(msg.data)
                     #select model based on actype
                     self.callsigns[icao24] = [ident, actype]
                     
                 elif bdsreg == 0x06: #BDS0,6 pos
-                    [ground_track, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(data)
+                    [ground_track, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(msg.data)
                     self.positions[icao24] = [decoded_lat, decoded_lon, 0]
                     self.update(icao24)
 
                 elif bdsreg == 0x05: #BDS0,5 pos
-                    [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(data)
+                    [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(msg.data)
                     self.positions[icao24] = [decoded_lat, decoded_lon, altitude]
                     self.update(icao24)
 
                 elif bdsreg == 0x09: #velocity
                     subtype = data["bds09"].get_type()
                     if subtype == 0:
-                      [velocity, heading, vert_spd, turnrate] = self.parseBDS09_0(data)
+                      [velocity, heading, vert_spd, turnrate] = self.parseBDS09_0(msg.data)
                     elif subtype == 1:
-                      [velocity, heading, vert_spd] = self.parseBDS09_1(data)
+                      [velocity, heading, vert_spd] = self.parseBDS09_1(msg.data)
                       turnrate = 0
                     else:
                         return

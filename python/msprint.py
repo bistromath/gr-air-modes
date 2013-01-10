@@ -29,39 +29,33 @@ class output_print(air_modes.parse):
   def __init__(self, mypos):
       air_modes.parse.__init__(self, mypos)
       
-  def parse(self, message):
-    [data, ecc, reference, timestamp_int, timestamp_frac] = message.split()
-    timestamp = int(timestamp_int) + float(timestamp_frac)
+  def parse(self, msg):
 
-    ecc = long(ecc, 16)
-    reference = float(reference)
-
-    if reference == 0.0:
+    if msg.reference == 0.0:
       refdb = -150.0
     else:
-      refdb = 20.0*math.log10(reference)
-    output = "(%.0f %.10f) " % (refdb, timestamp);
+      refdb = 20.0*math.log10(msg.reference)
+    output = "(%.0f %.10f) " % (refdb, float(msg.timestamp));
 
     try:
-      data = air_modes.modes_reply(long(data, 16))
-      msgtype = data["df"]
+      msgtype = msg.data["df"]
       if msgtype == 0:
-        output += self.print0(data, ecc)
+        output += self.print0(msg.data, msg.ecc)
       elif msgtype == 4:
-        output += self.print4(data, ecc)
+        output += self.print4(msg.data, msg.ecc)
       elif msgtype == 5:
-        output += self.print5(data, ecc)
+        output += self.print5(msg.data, msg.ecc)
       elif msgtype == 11:
-        output += self.print11(data, ecc)
+        output += self.print11(msg.data, msg.ecc)
       elif msgtype == 17:
-        output += self.print17(data)
+        output += self.print17(msg.data)
       elif msgtype == 20 or msgtype == 21 or msgtype == 16:
-        output += self.printTCAS(data, ecc)
+        output += self.printTCAS(msg.data, msg.ecc)
       else:
-        output += "No handler for message type %i from %x (but it's in modes_parse)" % (msgtype, ecc)
+        output += "No handler for message type %i from %x (but it's in modes_parse)" % (msgtype, msg.ecc)
       return output
     except NoHandlerError as e:
-      output += "No handler for message type %s from %x" % (e.msgtype, ecc)
+      output += "No handler for message type %s from %x" % (e.msgtype, msg.ecc)
       return output
     except MetricAltError:
       pass

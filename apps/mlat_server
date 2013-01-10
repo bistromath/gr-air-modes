@@ -43,29 +43,6 @@ import bisect
 pickle_prot = 0
 #pickle_prot = pickle.HIGHEST_PROTOCOL
 
-class stamp:
-    def __init__(self, clientinfo, secs, frac_secs):
-        self.clientinfo = clientinfo
-        self.secs = secs
-        self.frac_secs = frac_secs
-    def __lt__(self, other):
-        if self.secs == other.secs:
-            return self.frac_secs < other.frac_secs
-        else:
-            return self.secs < other.secs
-    def __gt__(self, other):
-        if self.secs == other.secs:
-            return self.frac_secs > other.frac_secs
-        else:
-            return self.secs > other.secs
-    def __eq__(self, other):
-        return self.secs == other.secs and self.frac_secs == other.frac_secs
-    def __ne__(self, other):
-        return self.secs != other.secs or self.frac_secs != other.frac_secs
-    #good to within ms for comparison
-    def tofloat(self):
-        return self.secs + self.frac_secs
-
 def ordered_insert(a, item):
     a.insert(bisect.bisect_right(a, item), item)
 

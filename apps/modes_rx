@@ -27,6 +27,8 @@ from optparse import OptionParser
 import time, os, sys, threading
 from string import split, join
 import air_modes
+from air_modes.types import modes_report, stamp
+from air_modes.parse import modes_reply
 import gnuradio.gr.gr_threading as _threading
 import csv
 from air_modes.exceptions import *
@@ -240,9 +242,12 @@ if __name__ == '__main__':
       if not queue.empty_p() :
         while not queue.empty_p() :
           msg = queue.delete_head() #blocking read
+          [data, ecc, reference, timestamp_int, timestamp_frac] = msg.to_string().split()
+          #error handling? creating a modes_reply can throw NoHandlerError, but you really want that to be handled by the output plugin in question.
+          msg_tuple = modes_report(modes_reply(long(data, 16)), long(ecc, 16), float(reference), stamp(int(timestamp_int), float(timestamp_frac)))
           for out in outputs:
             try:
-              out(msg.to_string())
+              out(msg_tuple)
             except air_modes.ADSBError:
               pass
 

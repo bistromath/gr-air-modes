@@ -86,21 +86,13 @@ class output_sql(air_modes.parse):
       except ADSBError:
         pass
 
-  def make_insert_query(self, message):
+  def make_insert_query(self, msg):
     #assembles a SQL query tailored to our database
     #this version ignores anything that isn't Type 17 for now, because we just don't care
-    [data, ecc, reference, timestamp_int, timestamp_frac] = message.split()
-    timestamp = int(timestamp_int) + float(timestamp_frac)
-
-    data = air_modes.modes_reply(long(data, 16))
-    ecc = long(ecc, 16)
-#   reference = float(reference)
-
-
     query = None
-    msgtype = data["df"]
+    msgtype = msg.data["df"]
     if msgtype == 17:
-      query = self.sql17(data)
+      query = self.sql17(msg.data)
 
     return query
 

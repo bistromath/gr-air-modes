@@ -100,27 +100,21 @@ class output_sbs1(air_modes.parse):
     else:
       return ",,,"
 
-  def parse(self, message):
+  def parse(self, msg):
     #assembles a SBS-1-style output string from the received message
-
-    [data, ecc, reference, timestamp_int, timestamp_frac] = message.split()
-    timestamp = int(timestamp_int) + float(timestamp_frac)
-
-    data = air_modes.modes_reply(long(data, 16))
-    ecc = long(ecc, 16)
-    msgtype = data["df"]
+    msgtype = msg.data["df"]
     outmsg = None
 
     if msgtype == 0:
-      outmsg = self.pp0(data, ecc)
+      outmsg = self.pp0(msg.data, msg.ecc)
     elif msgtype == 4:
-      outmsg = self.pp4(data, ecc)
+      outmsg = self.pp4(msg.data, msg.ecc)
     elif msgtype == 5:
-      outmsg = self.pp5(data, ecc)
+      outmsg = self.pp5(msg.data, msg.ecc)
     elif msgtype == 11:
-      outmsg = self.pp11(data, ecc)
+      outmsg = self.pp11(msg.data, msg.ecc)
     elif msgtype == 17:
-      outmsg = self.pp17(data)
+      outmsg = self.pp17(msg.data)
     else:
       raise NoHandlerError(msgtype)
     return outmsg

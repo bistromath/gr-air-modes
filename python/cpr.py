@@ -188,7 +188,7 @@ class cpr_decoder:
 		self.evenlist_sfc = {}
 		self.oddlist_sfc = {}
 
-	def set_location(new_location):
+	def set_location(self, new_location):
 		self.my_location = new_location
 
 	def weed_poslists(self):

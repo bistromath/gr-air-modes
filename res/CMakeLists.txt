@@ -1,4 +1,4 @@
-# Copyright 2011 Free Software Foundation, Inc.
+# Copyright 2011,2013 Free Software Foundation, Inc.
 # 
 # This file is part of GNU Radio
 # 
@@ -31,14 +31,17 @@ if(NOT PYQT4_FOUND)
     return()
 endif()
 
+if(NOT PYUIC4_FOUND)
+    message(STATUS "pyuic4 not found, not installing GUI application")
+    return()
+endif()
+
 find_package(Qwt)
 if(NOT QWT_FOUND)
     message(STATUS "Qwt not found, not installing GUI application")
     return()
 endif()
 
-
-set(PYUIC4_COMPILE pyuic4)
 set(RX_UI_SRC ${CMAKE_CURRENT_SOURCE_DIR}/modes_rx.ui)
 set(RX_UI_PY_PRE_MASSAGE ${CMAKE_CURRENT_BINARY_DIR}/modes_rx_ui_borked.py)
 set(RX_UI_PY ${CMAKE_CURRENT_BINARY_DIR}/modes_rx_ui.py)
@@ -49,7 +52,7 @@ add_custom_target(rx_ui ALL
 )
 
 add_custom_command(OUTPUT ${RX_UI_PY_PRE_MASSAGE}
-    COMMAND ${PYUIC4_COMPILE} ${RX_UI_SRC} > ${RX_UI_PY_PRE_MASSAGE}
+    COMMAND ${PYUIC4_EXECUTABLE} ${RX_UI_SRC} > ${RX_UI_PY_PRE_MASSAGE}
     MAIN_DEPENDENCY ${RX_UI_SRC}
 )
 

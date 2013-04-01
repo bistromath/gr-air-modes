@@ -1,5 +1,6 @@
 /*
 # Copyright 2010 Nick Foster
+# Copyright 2013 Nicholas Corgan
 # 
 # This file is part of gr-air-modes
 # 
@@ -24,6 +25,7 @@
 #include "config.h"
 #endif
 
+#include <ciso646>
 #include <air_modes_slicer.h>
 #include <gr_io_signature.h>
 #include <air_modes_types.h>

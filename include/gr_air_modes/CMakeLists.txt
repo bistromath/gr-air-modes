@@ -25,5 +25,6 @@ install(FILES
     slicer.h
     types.h
     api.h
+    uplink.h
     DESTINATION include/gr_air_modes
 )

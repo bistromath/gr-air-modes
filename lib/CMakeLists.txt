@@ -26,6 +26,7 @@ add_library(air_modes SHARED
     preamble_impl.cc
     slicer_impl.cc
     modes_crc.cc
+    uplink_impl.cc
 )
 target_link_libraries(air_modes ${Boost_LIBRARIES} ${GNURADIO_RUNTIME_LIBRARIES})
 set_target_properties(air_modes PROPERTIES DEFINE_SYMBOL "AIR_MODES_EXPORTS")

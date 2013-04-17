@@ -51,7 +51,7 @@ from air_modes_swig import *
 
 # import any pure python here
 #
-from rx_path import rx_path
+from rx_path import rx_path, uplink_rx_path
 from zmq_socket import zmq_pubsub_iface
 from parse import *
 from msprint import output_print

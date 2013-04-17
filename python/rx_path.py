@@ -86,3 +86,46 @@ class rx_path(gr.hier_block2):
     def get_threshold(self, threshold):
         return self._sync.get_threshold()
 
+class uplink_rx_path(gr.hier_block2):
+    def __init__(self, rate, threshold, queue, use_pmf=False, use_dcblock=False):
+        gr.hier_block2.__init__(self, "modes_uplink_rx_path",
+                                gr.io_signature(1, 1, gr.sizeof_gr_complex),
+                                gr.io_signature(0,0,0))
+
+        self._rate = int(rate)
+        self._threshold = threshold
+        self._queue = queue
+        self._spc = int(rate/4e6)
+
+        #demodulate DPSK via delay
+        self._delay = gr.delay(gr.sizeof_gr_complex, self._spc)
+        self._mult = gr.multiply_cc()
+        self._conj = gr.conjugate_cc()
+        self._c2r = gr.complex_to_real()
+        #self._bb = self._demod
+
+        self.filesink = gr.file_sink(gr.sizeof_float, "wat.dat")
+
+        # Pulse matched filter for 0.25us pulses
+#        if use_pmf:
+#            self._pmf = gr.moving_average_ff(self._spc, 1.0/self._spc, self._rate)
+#            self.connect(self._demod, self._pmf)
+#            self._bb = self._pmf
+
+        # Establish baseline amplitude (noise, interference)
+        self._avg = gr.moving_average_ff(48*self._spc, 1.0/(48*self._spc), self._rate) # 3 preambles
+
+        # Synchronize to uplink preamble
+        self._sync = air_modes_swig.modes_uplink(self._rate, self._threshold)
+
+        # Slice Mode-S bits and send to message queue
+#        self._slicer = air_modes_swig.modes_slicer(self._rate, self._queue)
+
+        # Wire up the flowgraph
+        self.connect(self, (self._mult, 0))
+        self.connect(self, self._delay, self._conj, (self._mult, 1))
+        self.connect(self._mult, self._c2r)
+        self.connect(self._c2r, (self._sync, 0))
+        self.connect(self._c2r, self._avg, (self._sync, 1))
+#        self.connect(self._sync, self._slicer)
+        self.connect(self._sync, self.filesink)

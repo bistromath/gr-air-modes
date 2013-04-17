@@ -93,7 +93,7 @@ def main():
 
   if options.kml is not None:
     kmlgen.close()
-    
+
 
 if __name__ == '__main__':
   main()

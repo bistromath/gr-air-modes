@@ -58,6 +58,7 @@ from sql import output_sql
 from sbs1 import output_sbs1
 from kml import output_kml
 from raw_server import raw_server
+from radio import modes_radio
 from exceptions import *
 from az_map import *
 #this is try/excepted in case the user doesn't have numpy installed

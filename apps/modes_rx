@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright 2010 Nick Foster
+# Copyright 2010, 2013 Nick Foster
 # 
 # This file is part of gr-air-modes
 # 
@@ -21,107 +21,13 @@
 
 my_position = None
 
-from gnuradio import gr, gru, optfir, eng_notation, blks2
 from gnuradio.eng_option import eng_option
 from optparse import OptionParser
 import time, os, sys, threading
 from string import split, join
 import air_modes
-import gnuradio.gr.gr_threading as _threading
 import csv
 from air_modes.exceptions import *
-
-class top_block_runner(_threading.Thread):
-    def __init__(self, tb):
-        _threading.Thread.__init__(self)
-        self.setDaemon(1)
-        self.tb = tb
-        self.done = False
-        self.start()
-
-    def run(self):
-        self.tb.run()
-        self.done = True
-
-class adsb_rx_block (gr.top_block):
-  def __init__(self, options, args, queue):
-    gr.top_block.__init__(self)
-
-    self.options = options
-    self.args = args
-    rate = int(options.rate)
-    use_resampler = False
-
-    if options.filename is None and options.udp is None and not options.rtlsdr:
-      #UHD source by default
-      from gnuradio import uhd
-      self.u = uhd.single_usrp_source(options.args, uhd.io_type_t.COMPLEX_FLOAT32, 1)
-      time_spec = uhd.time_spec(0.0)
-      self.u.set_time_now(time_spec)
-
-      #if(options.rx_subdev_spec is None):
-      #  options.rx_subdev_spec = ""
-      #self.u.set_subdev_spec(options.rx_subdev_spec)
-      if not options.antenna is None:
-        self.u.set_antenna(options.antenna)
-
-      self.u.set_samp_rate(rate)
-      rate = int(self.u.get_samp_rate()) #retrieve actual
-
-      if options.gain is None: #set to halfway
-        g = self.u.get_gain_range()
-        options.gain = (g.start()+g.stop()) / 2.0
-
-      if not(self.tune(options.freq)):
-        print "Failed to set initial frequency"
-
-      print "Setting gain to %i" % options.gain
-      self.u.set_gain(options.gain)
-      print "Gain is %i" % self.u.get_gain()
-      
-    elif options.rtlsdr: #RTLSDR dongle
-        import osmosdr
-        self.u = osmosdr.source_c(options.args)
-        self.u.set_sample_rate(3.2e6) #fixed for RTL dongles
-        if not self.u.set_center_freq(options.freq):
-            print "Failed to set initial frequency"
-
-        self.u.set_gain_mode(0) #manual gain mode
-        if options.gain is None:
-            options.gain = 34
-            
-        self.u.set_gain(options.gain)
-        print "Gain is %i" % self.u.get_gain()
-
-        use_resampler = True
-                
-    else:
-      if options.filename is not None:
-        self.u = gr.file_source(gr.sizeof_gr_complex, options.filename)
-      elif options.udp is not None:
-        self.u = gr.udp_source(gr.sizeof_gr_complex, "localhost", options.udp)
-      else:
-        raise Exception("No valid source selected")
-        
-
-    print "Rate is %i" % (rate,)
-
-    pass_all = 0
-    if options.output_all :
-      pass_all = 1
-
-    self.rx_path = air_modes.rx_path(rate, options.threshold, queue, options.pmf)
-
-    if use_resampler:
-        self.lpfiltcoeffs = gr.firdes.low_pass(1, 5*3.2e6, 1.6e6, 300e3)
-        self.resample = blks2.rational_resampler_ccf(interpolation=5, decimation=4, taps=self.lpfiltcoeffs)
-        self.connect(self.u, self.resample, self.rx_path)
-    else:
-        self.connect(self.u, self.rx_path)
-
-  def tune(self, freq):
-    result = self.u.set_center_freq(freq, 0)
-    return result
 
 def printraw(msg):
     print msg
@@ -129,12 +35,12 @@ def printraw(msg):
 if __name__ == '__main__':
   usage = "%prog: [options] output filename"
   parser = OptionParser(option_class=eng_option, usage=usage)
-  parser.add_option("-R", "--rx-subdev-spec", type="string",
-          help="select USRP Rx side A or B", metavar="SUBDEV")
+  parser.add_option("-R", "--subdev", type="string",
+                      help="select USRP Rx side A or B", metavar="SUBDEV")
   parser.add_option("-A", "--antenna", type="string",
-          help="select which antenna to use on daughterboard")
+                      help="select which antenna to use on daughterboard")
   parser.add_option("-D", "--args", type="string",
-          help="arguments to pass to UHD/RTL constructor", default="")
+                      help="arguments to pass to radio constructor", default="")
   parser.add_option("-f", "--freq", type="eng_float", default=1090e6,
                       help="set receive frequency in Hz [default=%default]", metavar="FREQ")
   parser.add_option("-g", "--gain", type="int", default=None,
@@ -146,7 +52,7 @@ if __name__ == '__main__':
   parser.add_option("-a","--output-all", action="store_true", default=False,
                       help="output all frames")
   parser.add_option("-F","--filename", type="string", default=None,
-            help="read data from file instead of USRP")
+                      help="read data from file instead of USRP")
   parser.add_option("-K","--kml", type="string", default=None,
                       help="filename for Google Earth KML output")
   parser.add_option("-P","--sbs1", action="store_true", default=False,
@@ -168,19 +74,18 @@ if __name__ == '__main__':
                       
   (options, args) = parser.parse_args()
 
+  tb = air_modes.modes_radio(options)
+
+  updates = []
+
   if options.location is not None:
     reader = csv.reader([options.location], quoting=csv.QUOTE_NONNUMERIC)
     my_position = reader.next()
 
-  queue = gr.msg_queue()
-  
-  outputs = [] #registry of plugin output functions
-  updates = [] #registry of plugin update functions
-
   if options.raw is True:
     rawport = air_modes.raw_server(9988) #port
-    outputs.append(rawport.output)
-    outputs.append(printraw)
+    tb.subscribe('dl_data', rawport.output)
+    tb.subscribe('dl_data', printraw)
     updates.append(rawport.add_pending_conns)
 
   if options.kml is not None:
@@ -189,23 +94,22 @@ if __name__ == '__main__':
     lock = threading.Lock()
     sqldb = air_modes.output_sql(my_position, dbname, lock) #input into the db
     kmlgen = air_modes.output_kml(options.kml, dbname, my_position, lock) #create a KML generating thread to read from the db
-    outputs.append(sqldb.output)
+    tb.subscribe('dl_data', sqldb.output)
 
   if options.sbs1 is True:
     sbs1port = air_modes.output_sbs1(my_position, 30003)
-    outputs.append(sbs1port.output)
+    tb.subscribe('dl_data', sbs1port.output)
     updates.append(sbs1port.add_pending_conns)
     
   if options.no_print is not True:
-    outputs.append(air_modes.output_print(my_position).output)
+    tb.subscribe('dl_data', air_modes.output_print(my_position).output)
 
   if options.multiplayer is not None:
     [fghost, fgport] = options.multiplayer.split(':')
     fgout = air_modes.output_flightgear(my_position, fghost, int(fgport))
-    outputs.append(fgout.output)
+    tb.subscribe('dl_data', fgout.output)
 
-  fg = adsb_rx_block(options, args, queue)
-  runner = top_block_runner(fg)
+  tb.start()
 
   while 1:
     try:
@@ -214,26 +118,14 @@ if __name__ == '__main__':
       #until the next output arrives
       for update in updates:
         update()
+      time.sleep(0.1)
       
-      #main message handler
-      if not queue.empty_p() :
-        while not queue.empty_p() :
-          msg = queue.delete_head() #blocking read
-
-          for out in outputs:
-            try:
-              out(msg.to_string())
-            except air_modes.ADSBError:
-              pass
-
-      elif runner.done:
-        raise KeyboardInterrupt
-      else:
-        time.sleep(0.1)
-
     except KeyboardInterrupt:
-      fg.stop()
-      runner = None
-      if options.kml is not None:
-          kmlgen.done = True
       break
+
+  tb.stop()
+  tb.wait()
+  if options.kml is not None:
+    kmlgen.done = True
+
+  

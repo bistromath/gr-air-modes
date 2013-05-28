@@ -41,6 +41,7 @@ GR_PYTHON_INSTALL(
     kml.py
     parse.py
     msprint.py
+    radio.py
     raw_server.py
     rx_path.py
     sbs1.py

@@ -81,6 +81,14 @@ if(NOT GNURADIO_CORE_FOUND)
 endif()
 
 ########################################################################
+# Find 0MQ networking library
+########################################################################
+find_package(ZeroMQ)
+if(NOT ZEROMQ_FOUND)
+    message(FATAL_ERROR "Could not find required library libzmq (ZeroMQ).")
+endif()
+
+########################################################################
 # Setup the include and linker paths
 ########################################################################
 include_directories(

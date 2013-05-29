@@ -19,8 +19,6 @@
 # Boston, MA 02110-1301, USA.
 # 
 
-my_position = None
-
 from gnuradio.eng_option import eng_option
 from optparse import OptionParser
 import time, os, sys, threading
@@ -28,11 +26,33 @@ from string import split, join
 import air_modes
 import csv
 from air_modes.exceptions import *
+import zmq
 
-def printraw(msg):
-    print msg
+class screen_printer(threading.Thread):
+    def __init__(self, position, context):
+        threading.Thread.__init__(self)
+        self._subscriber = context.socket(zmq.SUB)
+        self._subscriber.connect("inproc://modes-radio-pub")
+        self._subscriber.setsockopt(zmq.SUBSCRIBE, "dl_data")
 
-if __name__ == '__main__':
+        self._printer = air_modes.output_print(position)
+        self.done = False
+        self.setDaemon(True)
+        self.start()
+
+    def run(self):
+        while not self.done:
+            [address, msg] = self._subscriber.recv_multipart() #blocking
+            try:
+                self._printer.output(msg)
+            except ADSBError:
+                pass
+
+        self._subscriber.close()
+        
+
+def main():
+  my_position = None
   usage = "%prog: [options] output filename"
   parser = OptionParser(option_class=eng_option, usage=usage)
   parser.add_option("-R", "--subdev", type="string",
@@ -49,8 +69,6 @@ if __name__ == '__main__':
                       help="set ADC sample rate [default=%default]")
   parser.add_option("-T", "--threshold", type="eng_float", default=5.0,
                       help="set pulse detection threshold above noise in dB [default=%default]")
-  parser.add_option("-a","--output-all", action="store_true", default=False,
-                      help="output all frames")
   parser.add_option("-F","--filename", type="string", default=None,
                       help="read data from file instead of USRP")
   parser.add_option("-K","--kml", type="string", default=None,
@@ -67,65 +85,64 @@ if __name__ == '__main__':
                       help="Use UDP source on specified port")
   parser.add_option("-m","--multiplayer", type="string", default=None,
                       help="FlightGear server to send aircraft data, in format host:port")
-  parser.add_option("-d","--rtlsdr", action="store_true", default=False,
-                      help="Use RTLSDR dongle instead of UHD source")
+  parser.add_option("-o","--osmocom", action="store_true", default=False,
+                      help="Use gr-osmocom source (RTLSDR or HackRF) instead of UHD source")
   parser.add_option("-p","--pmf", action="store_true", default=False,
                       help="Use pulse matched filtering")
-                      
+
   (options, args) = parser.parse_args()
 
-  tb = air_modes.modes_radio(options)
-
-  updates = []
+  #construct the radio
+  context = zmq.Context(1)
+  tb = air_modes.modes_radio(options, context)
+  tb.start()
+  #tb will publish via ZMQ on the "radio-pub" feed
+  #clients connect to tb socket and do things.
+  #the radio-pub feed is channelized into "dl_data" and (not yet)
+  #"ul_data" which correspond to downlink and uplink data
 
   if options.location is not None:
     reader = csv.reader([options.location], quoting=csv.QUOTE_NONNUMERIC)
     my_position = reader.next()
 
-  if options.raw is True:
-    rawport = air_modes.raw_server(9988) #port
-    tb.subscribe('dl_data', rawport.output)
-    tb.subscribe('dl_data', printraw)
-    updates.append(rawport.add_pending_conns)
-
   if options.kml is not None:
     #we spawn a thread to run every 30 seconds (or whatever) to generate KML
     dbname = 'adsb.db'
-    lock = threading.Lock()
-    sqldb = air_modes.output_sql(my_position, dbname, lock) #input into the db
-    kmlgen = air_modes.output_kml(options.kml, dbname, my_position, lock) #create a KML generating thread to read from the db
-    tb.subscribe('dl_data', sqldb.output)
+    sqldb = air_modes.output_sql(my_position, dbname, context) #input into the db
+    #kmlgen = air_modes.output_kml(options.kml, dbname, my_position, lock) #create a KML generating thread to read from the db
+    #tb.subscribe('dl_data', sqldb.output)
 
-  if options.sbs1 is True:
-    sbs1port = air_modes.output_sbs1(my_position, 30003)
-    tb.subscribe('dl_data', sbs1port.output)
-    updates.append(sbs1port.add_pending_conns)
-    
+#  if options.sbs1 is True:
+#    sbs1port = air_modes.output_sbs1(my_position, 30003)
+#    tb.subscribe('dl_data', sbs1port.output)
+    #updates.append(sbs1port.add_pending_conns)
+
+  printer = None
   if options.no_print is not True:
-    tb.subscribe('dl_data', air_modes.output_print(my_position).output)
+    printer = screen_printer(my_position, context)
 
-  if options.multiplayer is not None:
-    [fghost, fgport] = options.multiplayer.split(':')
-    fgout = air_modes.output_flightgear(my_position, fghost, int(fgport))
-    tb.subscribe('dl_data', fgout.output)
+#  if options.multiplayer is not None:
+#    [fghost, fgport] = options.multiplayer.split(':')
+#    fgout = air_modes.output_flightgear(my_position, fghost, int(fgport))
+#    tb.subscribe('dl_data', fgout.output)
 
-  tb.start()
-
-  while 1:
-    try:
-      #the update registry is really for the SBS1 and raw server plugins -- we're looking for new TCP connections.
-      #i think we have to do this here rather than in the output handler because otherwise connections will stack up
-      #until the next output arrives
-      for update in updates:
-        update()
-      time.sleep(0.1)
-      
-    except KeyboardInterrupt:
-      break
-
-  tb.stop()
-  tb.wait()
-  if options.kml is not None:
-    kmlgen.done = True
-
+  #start an updater thread to handle adding/removing TCP connections
+  #TODO this can be removed when we start using 0MQ
+#  updater = threading.Thread(target=timed_callback, args=(updates,))
+#  updater.setDaemon(True)
+#  updater.start()
   
+  tb.wait()
+
+  if printer is not None:
+    printer.done = True
+    #printer.join()
+  if options.kml is not None:
+    sqldb.done = True
+    #sqldb.join()
+
+  time.sleep(0.1)
+
+
+if __name__ == '__main__':
+  main()

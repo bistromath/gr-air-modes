@@ -39,7 +39,7 @@ class output_kml(threading.Thread):
         self._db = sqlite3.connect(self._dbname) #read from the db
         while self.done is False:
             self.writekml()
-            time.sleep(self._timeout) 
+            time.sleep(self._timeout)
                 
         self.done = True
         self._db.close()

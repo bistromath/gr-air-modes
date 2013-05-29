@@ -25,15 +25,39 @@
 
 from gnuradio import gr, gru, optfir, eng_notation, blks2
 from gnuradio.eng_option import eng_option
-from gnuradio.gr.pubsub import pubsub
 import air_modes
+import zmq
+import threading
+import time
 
-DOWNLINK_DATA_TYPE = 'dl_data'
+DOWNLINK_DATA_TYPE = "dl_data"
 
-class modes_radio (gr.top_block, pubsub):
-  def __init__(self, options):
+#ZMQ message publisher.
+#TODO: limit high water mark
+#TODO: limit number of subscribers
+class radio_publisher(threading.Thread):
+  def __init__(self, port, context, queue):
+    threading.Thread.__init__(self)
+    self._queue = queue
+    self._publisher = context.socket(zmq.PUB)
+    if port is None:
+      self._publisher.bind("inproc://modes-radio-pub")
+    else:
+      self._publisher.bind("tcp://*:%i" % port)
+
+    self.setDaemon(True)
+    self.done = False
+
+  def run(self):
+    while self.done is False:
+      while not self._queue.empty_p():
+        self._publisher.send_multipart([DOWNLINK_DATA_TYPE, self._queue.delete_head().to_string()])
+      time.sleep(0.1) #can use time.sleep(0) to yield, but it'll suck a whole CPU
+      
+
+class modes_radio (gr.top_block):
+  def __init__(self, options, context):
     gr.top_block.__init__(self)
-    pubsub.__init__(self)
     self._options = options
     self._queue = gr.msg_queue()
     
@@ -42,14 +66,6 @@ class modes_radio (gr.top_block, pubsub):
     self.time_source = None
 
     self._setup_source(options)
-
-    self.subscribe('gain', self.set_gain)
-    self.subscribe('freq', self.set_freq)
-
-    self['gain'] = options.gain
-    self['freq'] = options.freq
-    self['rate'] = options.rate
-    self['filename'] = options.filename
 
     #TODO allow setting rate, threshold (drill down into slicer & preamble)
 
@@ -63,10 +79,8 @@ class modes_radio (gr.top_block, pubsub):
         self.connect(self._u, self.rx_path)
 
     #Publish messages when they come back off the queue
-    self._async_rcv = gru.msgq_runner(self._queue, self.async_callback)
-
-  def async_callback(self, msg):
-    self[DOWNLINK_DATA_TYPE] = msg.to_string()
+    self._pubsub = radio_publisher(None, context, self._queue)
+    self._pubsub.start()
 
   #these are wrapped with try/except because file sources and udp sources
   #don't have set_center_freq/set_gain functions. this should check to see
@@ -85,7 +99,7 @@ class modes_radio (gr.top_block, pubsub):
         pass
 
   def _setup_source(self, options):
-    if options.filename is None and options.udp is None and options.rtlsdr is None:
+    if options.filename is None and options.udp is None and options.osmocom is None:
       #UHD source by default
       from gnuradio import uhd
       self._u = uhd.single_usrp_source(options.args, uhd.io_type_t.COMPLEX_FLOAT32, 1)
@@ -105,8 +119,8 @@ class modes_radio (gr.top_block, pubsub):
       if options.antenna is not None:
         self._u.set_antenna(options.antenna)
 
-      self._u.set_samp_rate(rate)
-      rate = int(self._u.get_samp_rate()) #retrieve actual
+      self._u.set_samp_rate(options.rate)
+      options.rate = int(self._u.get_samp_rate()) #retrieve actual
 
       if options.gain is None: #set to halfway
         g = self._u.get_gain_range()
@@ -115,18 +129,26 @@ class modes_radio (gr.top_block, pubsub):
       print "Setting gain to %i" % options.gain
       self._u.set_gain(options.gain)
       print "Gain is %i" % self._u.get_gain()
-      
-    elif options.rtlsdr: #RTLSDR dongle
+
+    #TODO: detect if you're using an RTLSDR or Jawbreaker
+    #and set up accordingly.
+    #ALSO TODO: Actually set gain appropriately using gain bins in HackRF driver.
+    elif options.osmocom: #RTLSDR dongle or HackRF Jawbreaker
         import osmosdr
         self._u = osmosdr.source_c(options.args)
-        self._u.set_sample_rate(3.2e6) #fixed for RTL dongles
+#        self._u.set_sample_rate(3.2e6) #fixed for RTL dongles
+        self._u.set_sample_rate(options.rate)
         if not self._u.set_center_freq(options.freq):
             print "Failed to set initial frequency"
 
         self._u.set_gain_mode(0) #manual gain mode
         if options.gain is None:
             options.gain = 34
-            
+###DO NOT COMMIT
+        self._u.set_gain(14, "RF", 0)
+        self._u.set_gain(40, "IF", 0)
+        self._u.set_gain(14, "RF", 0)
+###DO NOT COMMIT
         self._u.set_gain(options.gain)
         print "Gain is %i" % self._u.get_gain()
 

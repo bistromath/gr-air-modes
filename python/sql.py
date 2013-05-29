@@ -24,18 +24,25 @@ from string import split, join
 import air_modes
 import sqlite3
 from air_modes.exceptions import *
+import zmq
 
-class output_sql(air_modes.parse):
-  def __init__(self, mypos, filename, lock):
+class output_sql(air_modes.parse, threading.Thread):
+  def __init__(self, mypos, filename, context):
+    threading.Thread.__init__(self)
     air_modes.parse.__init__(self, mypos)
 
-    self._lock = lock
+    #init socket
+    self._subscriber = context.socket(zmq.SUB)
+    self._subscriber.connect("inproc://modes-radio-pub") #TODO allow spec addr
+    self._subscriber.setsockopt(zmq.SUBSCRIBE, "dl_data")
+
+    self._lock = threading.Lock()
     with self._lock:
       #create the database
       self.filename = filename
-      self.db = sqlite3.connect(filename)
+      self._db = sqlite3.connect(filename)
       #now execute a schema to create the tables you need
-      c = self.db.cursor()
+      c = self._db.cursor()
       query = """CREATE TABLE IF NOT EXISTS "positions" (
                 "icao" INTEGER KEY NOT NULL,
                 "seen" TEXT NOT NULL,
@@ -58,30 +65,42 @@ class output_sql(air_modes.parse):
             );"""
       c.execute(query)
       c.close()
-      self.db.commit()
+      self._db.commit()
       #we close the db conn now to reopen it in the output() thread context.
-      self.db.close()
-      self.db = None
+      self._db.close()
+      self._db = None
 
-  def __del__(self):
-    self.db = None
+      self.setDaemon(True)
+      self.done = False
+      self.start()
 
-  def output(self, message):
+  def run(self):
+    while not self.done:
+        [address, msg] = self._subscriber.recv_multipart() #blocking
+        try:
+            self.insert(msg)
+        except ADSBError:
+            pass
+
+    self._subscriber.close()
+    self._db = None
+
+  def insert(self, message):
     with self._lock:
       try:
         #we're checking to see if the db is empty, and creating the db object
         #if it is. the reason for this is so that the db writing is done within
         #the thread context of output(), rather than the thread context of the
-        #constructor. that way you can spawn a thread to do output().
-        if self.db is None:
-          self.db = sqlite3.connect(self.filename)
+        #constructor.
+        if self._db is None:
+          self._db = sqlite3.connect(self.filename)
           
         query = self.make_insert_query(message)
         if query is not None:
-            c = self.db.cursor()
+            c = self._db.cursor()
             c.execute(query)
             c.close()
-            self.db.commit()
+            self._db.commit()
 
       except ADSBError:
         pass

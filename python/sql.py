@@ -27,52 +27,54 @@ from air_modes.exceptions import *
 import zmq
 
 class output_sql(air_modes.parse, threading.Thread):
-  def __init__(self, mypos, filename, context):
+  def __init__(self, mypos, filename, context, addr=None):
     threading.Thread.__init__(self)
     air_modes.parse.__init__(self, mypos)
 
     #init socket
     self._subscriber = context.socket(zmq.SUB)
-    self._subscriber.connect("inproc://modes-radio-pub") #TODO allow spec addr
+    if addr is not None:
+        self._subscriber.connect("tcp://%s" % addr)
+    else:
+        self._subscriber.connect("inproc://modes-radio-pub")
     self._subscriber.setsockopt(zmq.SUBSCRIBE, "dl_data")
 
     self._lock = threading.Lock()
-    with self._lock:
-      #create the database
-      self.filename = filename
-      self._db = sqlite3.connect(filename)
-      #now execute a schema to create the tables you need
-      c = self._db.cursor()
-      query = """CREATE TABLE IF NOT EXISTS "positions" (
-                "icao" INTEGER KEY NOT NULL,
-                "seen" TEXT NOT NULL,
-                "alt"  INTEGER,
-                "lat"  REAL,
-                "lon"  REAL
-            );"""
-      c.execute(query)
-      query = """CREATE TABLE IF NOT EXISTS "vectors" (
-                "icao"     INTEGER KEY NOT NULL,
-                "seen"     TEXT NOT NULL,
-                "speed"    REAL,
-                "heading"  REAL,
-                "vertical" REAL
-            );"""
-      c.execute(query)
-      query = """CREATE TABLE IF NOT EXISTS "ident" (
-                "icao"     INTEGER PRIMARY KEY NOT NULL,
-                "ident"    TEXT NOT NULL
-            );"""
-      c.execute(query)
-      c.close()
-      self._db.commit()
-      #we close the db conn now to reopen it in the output() thread context.
-      self._db.close()
-      self._db = None
+    #create the database
+    self.filename = filename
+    self._db = sqlite3.connect(filename)
+    #now execute a schema to create the tables you need
+    c = self._db.cursor()
+    query = """CREATE TABLE IF NOT EXISTS "positions" (
+              "icao" INTEGER KEY NOT NULL,
+              "seen" TEXT NOT NULL,
+              "alt"  INTEGER,
+              "lat"  REAL,
+              "lon"  REAL
+          );"""
+    c.execute(query)
+    query = """CREATE TABLE IF NOT EXISTS "vectors" (
+              "icao"     INTEGER KEY NOT NULL,
+              "seen"     TEXT NOT NULL,
+              "speed"    REAL,
+              "heading"  REAL,
+              "vertical" REAL
+          );"""
+    c.execute(query)
+    query = """CREATE TABLE IF NOT EXISTS "ident" (
+              "icao"     INTEGER PRIMARY KEY NOT NULL,
+              "ident"    TEXT NOT NULL
+          );"""
+    c.execute(query)
+    c.close()
+    self._db.commit()
+    #we close the db conn now to reopen it in the output() thread context.
+    self._db.close()
+    self._db = None
 
-      self.setDaemon(True)
-      self.done = False
-      self.start()
+    self.setDaemon(True)
+    self.done = False
+    self.start()
 
   def run(self):
     while not self.done:

@@ -25,6 +25,7 @@
 
 from gnuradio import gr, gru, optfir, eng_notation, blks2
 from gnuradio.eng_option import eng_option
+from optparse import OptionParser
 import air_modes
 import zmq
 import threading
@@ -46,13 +47,20 @@ class radio_publisher(threading.Thread):
       self._publisher.bind("tcp://*:%i" % port)
 
     self.setDaemon(True)
-    self.done = False
+    self.done = threading.Event()
+    self.finished = threading.Event()
+    self.start()
 
   def run(self):
-    while self.done is False:
+    done_yet = False
+    while not self.done.is_set() and not done_yet:
+      if self.done.is_set(): #gives it another round after done is set
+        done_yet = True      #so we can clean up the last of the queue
       while not self._queue.empty_p():
         self._publisher.send_multipart([DOWNLINK_DATA_TYPE, self._queue.delete_head().to_string()])
       time.sleep(0.1) #can use time.sleep(0) to yield, but it'll suck a whole CPU
+    self._publisher.close()
+    self.finished.set()
       
 
 class modes_radio (gr.top_block):
@@ -80,7 +88,30 @@ class modes_radio (gr.top_block):
 
     #Publish messages when they come back off the queue
     self._pubsub = radio_publisher(None, context, self._queue)
-    self._pubsub.start()
+
+  @staticmethod
+  def add_radio_options(parser):
+    parser.add_option("-R", "--subdev", type="string",
+                      help="select USRP Rx side A or B", metavar="SUBDEV")
+    parser.add_option("-A", "--antenna", type="string",
+                      help="select which antenna to use on daughterboard")
+    parser.add_option("-D", "--args", type="string",
+                      help="arguments to pass to radio constructor", default="")
+    parser.add_option("-f", "--freq", type="eng_float", default=1090e6,
+                      help="set receive frequency in Hz [default=%default]", metavar="FREQ")
+    parser.add_option("-g", "--gain", type="int", default=None,
+                      help="set RF gain", metavar="dB")
+    parser.add_option("-r", "--rate", type="eng_float", default=4000000,
+                      help="set ADC sample rate [default=%default]")
+    parser.add_option("-T", "--threshold", type="eng_float", default=5.0,
+                      help="set pulse detection threshold above noise in dB [default=%default]")
+    parser.add_option("-F","--filename", type="string", default=None,
+                      help="read data from file instead of radio")
+    parser.add_option("-o","--osmocom", action="store_true", default=False,
+                      help="Use gr-osmocom source (RTLSDR or HackRF) instead of UHD source")
+    parser.add_option("-p","--pmf", action="store_true", default=False,
+                      help="Use pulse matched filtering")
+
 
   #these are wrapped with try/except because file sources and udp sources
   #don't have set_center_freq/set_gain functions. this should check to see
@@ -90,7 +121,7 @@ class modes_radio (gr.top_block):
         result = self._u.set_center_freq(freq, 0)
         return result
     except:
-        pass
+        return 0
 
   def set_gain(self, gain):
     try:
@@ -106,6 +137,9 @@ class modes_radio (gr.top_block):
 
       if(options.subdev):
         self._u.set_subdev_spec(options.subdev, 0)
+
+      if not self._u.set_center_freq(options.freq):
+        print "Failed to set initial frequency"
 
       #check for GPSDO
       #if you have a GPSDO, UHD will automatically set the timestamp to UTC time

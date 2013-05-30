@@ -115,8 +115,6 @@ class output_sql(air_modes.parse, threading.Thread):
     data = air_modes.modes_reply(long(data, 16))
     ecc = long(ecc, 16)
 #   reference = float(reference)
-
-
     query = None
     msgtype = data["df"]
     if msgtype == 17:
@@ -128,36 +126,29 @@ class output_sql(air_modes.parse, threading.Thread):
     icao24 = data["aa"]
     bdsreg = data["me"].get_type()
 
-    retstr = None
-
     if bdsreg == 0x08:
       (msg, typename) = self.parseBDS08(data)
-      retstr = "INSERT OR REPLACE INTO ident (icao, ident) VALUES (" + "%i" % icao24 + ", '" + msg + "')"
-
+      return "INSERT OR REPLACE INTO ident (icao, ident) VALUES (" + "%i" % icao24 + ", '" + msg + "')"
     elif bdsreg == 0x06:
       [ground_track, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(data)
       altitude = 0
       if decoded_lat is None: #no unambiguously valid position available
-        retstr = None
+        raise CPRNoPositionError
       else:
-        retstr = "INSERT INTO positions (icao, seen, alt, lat, lon) VALUES (" + "%i" % icao24 + ", datetime('now'), " + str(altitude) + ", " + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
-
+        return "INSERT INTO positions (icao, seen, alt, lat, lon) VALUES (" + "%i" % icao24 + ", datetime('now'), " + str(altitude) + ", " + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
     elif bdsreg == 0x05:
       [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(data)
       if decoded_lat is None: #no unambiguously valid position available
-        retstr = None
+        raise CPRNoPositionError
       else:
-        retstr = "INSERT INTO positions (icao, seen, alt, lat, lon) VALUES (" + "%i" % icao24 + ", datetime('now'), " + str(altitude) + ", " + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
-
+        return "INSERT INTO positions (icao, seen, alt, lat, lon) VALUES (" + "%i" % icao24 + ", datetime('now'), " + str(altitude) + ", " + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
     elif bdsreg == 0x09:
       subtype = data["bds09"].get_type()
       if subtype == 0:
         [velocity, heading, vert_spd, turnrate] = self.parseBDS09_0(data)
-        retstr = "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")"
+        return "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")"
       elif subtype == 1:
         [velocity, heading, vert_spd] = self.parseBDS09_1(data)  
-        retstr = "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")"
+        return "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")"
       else:
-        retstr = None
-        
-    return retstr
+        raise NoHandlerError

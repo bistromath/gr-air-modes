@@ -198,3 +198,7 @@ class modes_radio (gr.top_block):
         
 
     print "Rate is %i" % (options.rate,)
+
+  def cleanup(self):
+    self._pubsub.done.set()
+    self._pubsub.finished.wait(0.2)

@@ -107,8 +107,7 @@ def main():
     #updates.append(sbs1port.add_pending_conns)
 
   tb.run()
-  tb._pubsub.done.set()
-  tb._pubsub.finished.wait(0.2)
+  tb.cleanup()
 
   if printer is not None:
     printer.done.set()
@@ -116,7 +115,6 @@ def main():
   if options.kml is not None:
     sqldb.done = True
     #sqldb.join()
-
 
 if __name__ == '__main__':
   main()

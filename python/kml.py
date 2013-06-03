@@ -31,19 +31,28 @@ class output_kml(threading.Thread):
         self._timeout = timeout
         self._lock = lock
         
-        self.done = False
+        self.shutdown = threading.Event()
+        self.finished = threading.Event()
         self.setDaemon(1)
         self.start()
 
     def run(self):
         self._db = sqlite3.connect(self._dbname) #read from the db
-        while self.done is False:
+        while self.shutdown.is_set() is False:
             self.writekml()
             time.sleep(self._timeout)
                 
-        self.done = True
         self._db.close()
         self._db = None
+        self.finished.set()
+
+    def close(self):
+        self.shutdown.set()
+        self.finished.wait(0.2)
+        #there's a bug here where self._timeout is long and close() has
+        #to wait for the sleep to expire before closing. we just bail
+        #instead with the 0.2 param above.
+        
         
     def writekml(self):
         kmlstr = self.genkml()

@@ -26,20 +26,11 @@ import sqlite3
 from air_modes.exceptions import *
 import zmq
 
-class output_sql(air_modes.parse, threading.Thread):
-  def __init__(self, mypos, filename, context, addr=None, port=None):
-    threading.Thread.__init__(self)
+class output_sql(air_modes.parse):
+  def __init__(self, mypos, filename, lock, addr=None):
     air_modes.parse.__init__(self, mypos)
 
-    #init socket
-    self._subscriber = context.socket(zmq.SUB)
-    if addr is not None:
-        self._subscriber.connect("tcp://%s:%i" % (addr, port))
-    else:
-        self._subscriber.connect("inproc://modes-radio-pub")
-    self._subscriber.setsockopt(zmq.SUBSCRIBE, "dl_data")
-
-    self._lock = threading.Lock()
+    self._lock = lock;
     #create the database
     self.filename = filename
     self._db = sqlite3.connect(filename)
@@ -72,21 +63,6 @@ class output_sql(air_modes.parse, threading.Thread):
     self._db.close()
     self._db = None
 
-    self.setDaemon(True)
-    self.done = False
-    self.start()
-
-  def run(self):
-    while not self.done:
-        [address, msg] = self._subscriber.recv_multipart() #blocking
-        try:
-            self.insert(msg)
-        except ADSBError:
-            pass
-
-    self._subscriber.close()
-    self._db = None
-
   def insert(self, message):
     with self._lock:
       try:
@@ -102,7 +78,7 @@ class output_sql(air_modes.parse, threading.Thread):
             c = self._db.cursor()
             c.execute(query)
             c.close()
-            self._db.commit()
+#            self._db.commit()
 
       except ADSBError:
         pass

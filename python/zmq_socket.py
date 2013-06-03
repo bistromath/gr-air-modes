@@ -40,8 +40,6 @@ class zmq_pubsub_iface(threading.Thread):
         self._subaddr = subaddr
         self._pubaddr = pubaddr
         self._sub_connected = False
-        #self._pub_connected = False
-        self._publock = threading.Lock()
         self._pubsub = pubsub()
         if pubaddr is not None:
             self._pubsocket.bind(pubaddr)
@@ -77,9 +75,8 @@ class zmq_pubsub_iface(threading.Thread):
     def __setitem__(self, key, val):
         if not self._pubaddr:
             raise Exception("No publisher address set")
-        with self._publock:
-            if not self.shutdown.is_set():
-                self._queue.put([key, val.to_string()]) #TODO FIXME MSGQ
+        if not self.shutdown.is_set():
+            self._queue.put([key, val.to_string()]) #TODO FIXME MSGQ
 
     def __getitem__(self, key):
         return self._pubsub[key]

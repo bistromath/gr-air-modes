@@ -93,6 +93,7 @@ class zmq_pubsub_iface(threading.Thread):
                 and socks[self._subsocket] == zmq.POLLIN:
                     [address, msg] = self._subsocket.recv_multipart()
                     self._pubsub[address] = msg
+                    socks = dict(self._poller.poll(timeout=0))
             #snooze
             time.sleep(0.1)
 

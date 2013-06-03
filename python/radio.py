@@ -92,8 +92,8 @@ class modes_radio (gr.top_block):
     self._sender = air_modes.zmq_pubsub_iface(context, subaddr=None, pubaddr="inproc://modes-radio-pub")
     self._async_sender = gru.msgq_runner(self._queue, self.send)
 
-  def send(self, data):
-    self._sender["dl_data"] = data
+  def send(self, msg):
+    self._sender["dl_data"] = msg.to_string()
 
   @staticmethod
   def add_radio_options(parser):

@@ -76,7 +76,7 @@ class zmq_pubsub_iface(threading.Thread):
         if not self._pubaddr:
             raise Exception("No publisher address set")
         if not self.shutdown.is_set():
-            self._queue.put([key, val.to_string()]) #TODO FIXME MSGQ
+            self._queue.put([key, val])
 
     def __getitem__(self, key):
         return self._pubsub[key]
@@ -97,9 +97,9 @@ class zmq_pubsub_iface(threading.Thread):
             #snooze
             time.sleep(0.1)
 
+        #one more send loop to clean up on shutdown
         while not self._queue.empty():
             self._pubsocket.send_multipart(self._queue.get())
-                
 
         self._subsocket.close()
         self._pubsocket.close()

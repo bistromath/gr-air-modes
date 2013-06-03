@@ -52,6 +52,7 @@ from air_modes_swig import *
 # import any pure python here
 #
 from rx_path import rx_path
+from zmq_socket import zmq_pubsub_iface
 from parse import parse,modes_reply
 from msprint import output_print
 from sql import output_sql

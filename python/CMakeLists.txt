@@ -46,6 +46,7 @@ GR_PYTHON_INSTALL(
     rx_path.py
     sbs1.py
     sql.py
+    zmq_socket.py
     Quaternion.py
     DESTINATION ${GR_PYTHON_DIR}/air_modes
 )

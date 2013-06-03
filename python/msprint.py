@@ -69,9 +69,12 @@ class output_print(air_modes.parse):
       pass
 
   def output(self, msg):
-      parsed = self.parse(msg)
-      if parsed is not None:
+      try:
+        parsed = self.parse(msg)
+        if parsed is not None:
           print self.parse(msg)
+      except ADSBError:
+        pass
 
   def print0(self, shortdata, ecc):
     [vs, cc, sl, ri, altitude] = self.parse0(shortdata)

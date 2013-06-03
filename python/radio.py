@@ -47,14 +47,14 @@ class radio_publisher(threading.Thread):
       self._publisher.bind("tcp://*:%i" % port)
 
     self.setDaemon(True)
-    self.done = threading.Event()
+    self.shutdown = threading.Event()
     self.finished = threading.Event()
     self.start()
 
   def run(self):
     done_yet = False
-    while not self.done.is_set() and not done_yet:
-      if self.done.is_set(): #gives it another round after done is set
+    while not self.shutdown.is_set() and not done_yet:
+      if self.shutdown.is_set(): #gives it another round after done is set
         done_yet = True      #so we can clean up the last of the queue
       while not self._queue.empty_p():
         self._publisher.send_multipart([DOWNLINK_DATA_TYPE, self._queue.delete_head().to_string()])
@@ -87,7 +87,13 @@ class modes_radio (gr.top_block):
         self.connect(self._u, self.rx_path)
 
     #Publish messages when they come back off the queue
-    self._pubsub = radio_publisher(None, context, self._queue)
+    #self._sender = radio_publisher(None, context, self._queue)
+    #TODO use address
+    self._sender = air_modes.zmq_pubsub_iface(context, subaddr=None, pubaddr="inproc://modes-radio-pub")
+    self._async_sender = gru.msgq_runner(self._queue, self.send)
+
+  def send(self, data):
+    self._sender["dl_data"] = data
 
   @staticmethod
   def add_radio_options(parser):
@@ -200,5 +206,4 @@ class modes_radio (gr.top_block):
     print "Rate is %i" % (options.rate,)
 
   def cleanup(self):
-    self._pubsub.done.set()
-    self._pubsub.finished.wait(0.2)
+    self._sender.close()

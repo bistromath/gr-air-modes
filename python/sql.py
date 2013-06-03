@@ -27,14 +27,14 @@ from air_modes.exceptions import *
 import zmq
 
 class output_sql(air_modes.parse, threading.Thread):
-  def __init__(self, mypos, filename, context, addr=None):
+  def __init__(self, mypos, filename, context, addr=None, port=None):
     threading.Thread.__init__(self)
     air_modes.parse.__init__(self, mypos)
 
     #init socket
     self._subscriber = context.socket(zmq.SUB)
     if addr is not None:
-        self._subscriber.connect("tcp://%s" % addr)
+        self._subscriber.connect("tcp://%s:%i" % (addr, port))
     else:
         self._subscriber.connect("inproc://modes-radio-pub")
     self._subscriber.setsockopt(zmq.SUBSCRIBE, "dl_data")

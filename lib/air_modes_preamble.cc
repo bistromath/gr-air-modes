@@ -184,7 +184,7 @@ int air_modes_preamble::general_work(int noutput_items,
 			if(!valid_preamble) continue;
 
 			//be sure we've got enough room in the input buffer to copy out a whole packet
-			if(ninputs-i < d_check_width) {
+			if(ninputs-i < 240*d_samples_per_chip) {
 				consume_each(std::max(i-1,0));
 				if(0) std::cout << "Preamble consumed " << std::max(i-1,0) << ", returned 0 (no room)" << std::endl;
 				return 0;

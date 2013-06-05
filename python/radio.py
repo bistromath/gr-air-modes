@@ -80,18 +80,18 @@ class modes_radio (gr.top_block, pubsub):
     self.rx_path = air_modes.rx_path(rate, options.threshold, self._queue, options.pmf)
 
     #now subscribe to set various options via pubsub
-    self.subscribe("FREQ", self.set_freq)
-    self.subscribe("GAIN", self.set_gain)
-    self.subscribe("RATE", self.set_rate)
-    self.subscribe("RATE", self.rx_path.set_rate)
-    self.subscribe("THRESHOLD", self.rx_path.set_threshold)
-    self.subscribe("PMF", self.rx_path.set_pmf)
+    #self.subscribe("freq", self.set_freq)
+    #self.subscribe("gain", self.set_gain)
+    #self.subscribe("rate", self.set_rate)
+    #self.subscribe("rate", self.rx_path.set_rate)
+    #self.subscribe("threshold", self.rx_path.set_threshold)
+    #self.subscribe("pmf", self.rx_path.set_pmf)
 
-    self.publish("FREQ", self.get_freq)
-    self.publish("GAIN", self.get_gain)
-    self.publish("RATE", self.get_rate)
-    self.publish("THRESHOLD", self.rx_path.get_threshold)
-    self.publish("PMF", self.rx_path.get_pmf)
+    #self.publish("freq", self.get_freq)
+    #self.publish("gain", self.get_gain)
+    #self.publish("rate", self.get_rate)
+    #self.publish("threshold", self.rx_path.get_threshold)
+    #self.publish("pmf", self.rx_path.get_pmf)
 
     if use_resampler:
         self.lpfiltcoeffs = gr.firdes.low_pass(1, 5*3.2e6, 1.6e6, 300e3)

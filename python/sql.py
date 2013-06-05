@@ -25,10 +25,12 @@ import air_modes
 import sqlite3
 from air_modes.exceptions import *
 import zmq
+from gnuradio.gr.pubsub import pubsub
 
-class output_sql(air_modes.parse):
+class output_sql(air_modes.parse, pubsub):
   def __init__(self, mypos, filename, lock, addr=None):
     air_modes.parse.__init__(self, mypos)
+    pubsub.__init__(self)
 
     self._lock = lock;
     #create the database
@@ -95,6 +97,7 @@ class output_sql(air_modes.parse):
     msgtype = data["df"]
     if msgtype == 17:
       query = self.sql17(data)
+      self["new_adsb"] = data["aa"] #publish change notification
 
     return query
 
@@ -104,6 +107,7 @@ class output_sql(air_modes.parse):
 
     if bdsreg == 0x08:
       (msg, typename) = self.parseBDS08(data)
+      self["new_ident"] = icao24
       return "INSERT OR REPLACE INTO ident (icao, ident) VALUES (" + "%i" % icao24 + ", '" + msg + "')"
     elif bdsreg == 0x06:
       [ground_track, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(data)
@@ -111,20 +115,24 @@ class output_sql(air_modes.parse):
       if decoded_lat is None: #no unambiguously valid position available
         raise CPRNoPositionError
       else:
+        self["new_position"] = icao24
         return "INSERT INTO positions (icao, seen, alt, lat, lon) VALUES (" + "%i" % icao24 + ", datetime('now'), " + str(altitude) + ", " + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
     elif bdsreg == 0x05:
       [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(data)
       if decoded_lat is None: #no unambiguously valid position available
         raise CPRNoPositionError
       else:
+        self["new_position"] = icao24
         return "INSERT INTO positions (icao, seen, alt, lat, lon) VALUES (" + "%i" % icao24 + ", datetime('now'), " + str(altitude) + ", " + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
     elif bdsreg == 0x09:
       subtype = data["bds09"].get_type()
       if subtype == 0:
         [velocity, heading, vert_spd, turnrate] = self.parseBDS09_0(data)
+        self["new_vector"] = icao24
         return "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")"
       elif subtype == 1:
-        [velocity, heading, vert_spd] = self.parseBDS09_1(data)  
+        [velocity, heading, vert_spd] = self.parseBDS09_1(data)
+        self["new_vector"] = icao24
         return "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")"
       else:
         raise NoHandlerError

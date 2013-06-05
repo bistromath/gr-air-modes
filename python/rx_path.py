@@ -40,12 +40,12 @@ class rx_path(gr.hier_block2):
 
         # Pulse matched filter for 0.5us pulses
         if use_pmf:
-            self._pmf = gr.moving_average_ff(self._spc, 1.0/self._spc, self._rate)
+            self._pmf = gr.moving_average_ff(self._spc, 1.0/self._spc)#, self._rate)
             self.connect(self._demod, self._pmf)
             self._bb = self._pmf
 
         # Establish baseline amplitude (noise, interference)
-        self._avg = gr.moving_average_ff(48*self._spc, 1.0/(48*self._spc), self._rate) # 3 preambles
+        self._avg = gr.moving_average_ff(48*self._spc, 1.0/(48*self._spc))#, self._rate) # 3 preambles
 
         # Synchronize to Mode-S preamble
         self._sync = air_modes_swig.modes_preamble(self._rate, self._threshold)
@@ -58,3 +58,25 @@ class rx_path(gr.hier_block2):
         self.connect(self._bb, (self._sync, 0))
         self.connect(self._bb, self._avg, (self._sync, 1))
         self.connect(self._sync, self._slicer)
+
+    def set_rate(self, rate):
+        self._sync.set_rate(rate)
+        self._slicer.set_rate(rate)
+        self._spc = int(rate/2e6)
+        self._avg.set_length_and_scale(48*self._spc, 1.0/(48*self._spc))
+        if self._bb != self._demod:
+            self._pmf.set_length_and_scale(self._spc, 1.0/self._spc)
+
+    def set_threshold(self, threshold):
+        self._sync.set_threshold(threshold)
+
+    def set_pmf(self, pmf):
+        #TODO must be done when top block is stopped
+        pass
+
+    def get_pmf(self, pmf):
+        return not (self._bb == self._demod)
+
+    def get_threshold(self, threshold):
+        return self._sync.get_threshold()
+            

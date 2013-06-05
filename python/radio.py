@@ -25,6 +25,7 @@
 
 from gnuradio import gr, gru, optfir, eng_notation, blks2
 from gnuradio.eng_option import eng_option
+from gnuradio.gr.pubsub import pubsub
 from optparse import OptionParser
 import air_modes
 import zmq
@@ -63,9 +64,10 @@ class radio_publisher(threading.Thread):
     self.finished.set()
       
 
-class modes_radio (gr.top_block):
+class modes_radio (gr.top_block, pubsub):
   def __init__(self, options, context):
     gr.top_block.__init__(self)
+    pubsub.__init__(self)
     self._options = options
     self._queue = gr.msg_queue()
     
@@ -75,9 +77,21 @@ class modes_radio (gr.top_block):
 
     self._setup_source(options)
 
-    #TODO allow setting rate, threshold (drill down into slicer & preamble)
-
     self.rx_path = air_modes.rx_path(rate, options.threshold, self._queue, options.pmf)
+
+    #now subscribe to set various options via pubsub
+    self.subscribe("FREQ", self.set_freq)
+    self.subscribe("GAIN", self.set_gain)
+    self.subscribe("RATE", self.set_rate)
+    self.subscribe("RATE", self.rx_path.set_rate)
+    self.subscribe("THRESHOLD", self.rx_path.set_threshold)
+    self.subscribe("PMF", self.rx_path.set_pmf)
+
+    self.publish("FREQ", self.get_freq)
+    self.publish("GAIN", self.get_gain)
+    self.publish("RATE", self.get_rate)
+    self.publish("THRESHOLD", self.rx_path.get_threshold)
+    self.publish("PMF", self.rx_path.get_pmf)
 
     if use_resampler:
         self.lpfiltcoeffs = gr.firdes.low_pass(1, 5*3.2e6, 1.6e6, 300e3)
@@ -87,9 +101,11 @@ class modes_radio (gr.top_block):
         self.connect(self._u, self.rx_path)
 
     #Publish messages when they come back off the queue
-    #self._sender = radio_publisher(None, context, self._queue)
-    #TODO use address
-    self._sender = air_modes.zmq_pubsub_iface(context, subaddr=None, pubaddr="inproc://modes-radio-pub")
+    server_addr = ["inproc://modes-radio-pub"]
+    if options.tcp is not None:
+        server_addr += ["tcp://*:%i"] % options.tcp
+
+    self._sender = air_modes.zmq_pubsub_iface(context, subaddr=None, pubaddr=server_addr)
     self._async_sender = gru.msgq_runner(self._queue, self.send)
 
   def send(self, msg):
@@ -131,9 +147,33 @@ class modes_radio (gr.top_block):
 
   def set_gain(self, gain):
     try:
-        self._u.set_gain(gain)
+      self._u.set_gain(gain)
     except:
+      pass
+
+  def set_rate(self, rate):
+    try:
+      self._u.set_rate(rate)
+    except:
+      pass
+
+  def get_freq(self, freq):
+      try:
+        return self._u.get_center_freq(freq, 0)
+      except:
         pass
+    
+  def get_gain(self, gain):
+    try:
+      return self._u.get_gain()
+    except:
+      pass
+
+  def get_rate(self, rate):
+    try:
+      return self._u.get_rate()
+    except:
+      pass
 
   def _setup_source(self, options):
     if options.filename is None and options.udp is None and options.osmocom is None:

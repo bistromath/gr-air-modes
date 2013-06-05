@@ -42,20 +42,35 @@ air_modes_preamble::air_modes_preamble(int channel_rate, float threshold_db) :
                    gr_make_io_signature2 (2, 2, sizeof(float), sizeof(float)), //stream 0 is received data, stream 1 is moving average for reference
                    gr_make_io_signature (1, 1, sizeof(float))) //the output packets
 {
-	d_chip_rate = 2000000; //2Mchips per second
-	d_samples_per_chip = channel_rate / d_chip_rate; //must be integer number of samples per chip to work
-	d_samples_per_symbol = d_samples_per_chip * 2;
-	d_check_width = 120 * d_samples_per_symbol; //only search to this far from the end of the stream buffer
-	d_threshold_db = threshold_db;
-	d_threshold = powf(10., threshold_db/20.); //the level that the sample must be above the moving average in order to qualify as a pulse
-	d_secs_per_sample = 1.0 / channel_rate;
-	set_output_multiple(1+d_check_width*2);
+	set_rate(channel_rate);
+	set_threshold(threshold_db);
 	
 	std::stringstream str;
 	str << name() << unique_id();
 	d_me = pmt::pmt_string_to_symbol(str.str());
 	d_key = pmt::pmt_string_to_symbol("preamble_found");
 	set_history(d_samples_per_symbol);
+}
+
+void air_modes_preamble::set_rate(int channel_rate)
+{
+	d_chip_rate = 2000000; //2Mchips per second
+	d_samples_per_chip = channel_rate / d_chip_rate; //must be integer number of samples per chip to work
+	d_samples_per_symbol = d_samples_per_chip * 2;
+	d_secs_per_sample = 1.0 / channel_rate;
+	d_check_width = 240 * d_samples_per_symbol; //only search to this far from the end of the stream buffer
+	set_output_multiple(1+d_check_width);
+}
+
+void air_modes_preamble::set_threshold(float threshold_db)
+{
+	d_threshold_db = threshold_db;
+	d_threshold = powf(10., threshold_db/20.); //the level that the sample must be above the moving average in order to qualify as a pulse
+}
+
+float air_modes_preamble::get_threshold(void)
+{
+	return d_threshold_db;
 }
 
 static void integrate_and_dump(float *out, const float *in, int chips, int samps_per_chip) {
@@ -169,7 +184,7 @@ int air_modes_preamble::general_work(int noutput_items,
 			if(!valid_preamble) continue;
 
 			//be sure we've got enough room in the input buffer to copy out a whole packet
-			if(ninputs-i < 240*d_samples_per_chip) {
+			if(ninputs-i < d_check_width) {
 				consume_each(std::max(i-1,0));
 				if(0) std::cout << "Preamble consumed " << std::max(i-1,0) << ", returned 0 (no room)" << std::endl;
 				return 0;

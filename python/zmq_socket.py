@@ -17,12 +17,11 @@
 # the Free Software Foundation, Inc., 51 Franklin Street,
 # Boston, MA 02110-1301, USA.
 
-#this serves as a bridge between 0MQ subscriber and the GR pubsub callbacks interface
+#this serves as a bridge between ZMQ subscriber and the GR pubsub callbacks interface
 #creates a thread, publishes socket data to pubsub subscribers
 #just a convenient way to create an aggregating socket with callbacks on receive
 #can use this for inproc:// signalling with minimal overhead
 #not sure if it's a good idea to use this yet
-#TODO support multiple subscriber addresses for aggregation
 
 import time
 import threading
@@ -39,10 +38,15 @@ class zmq_pubsub_iface(threading.Thread):
         self._pubsocket = context.socket(zmq.PUB)
         self._subaddr = subaddr
         self._pubaddr = pubaddr
+        if type(self._subaddr) is str:
+            self._subaddr = [self._subaddr]
+        if type(self._pubaddr) is str:
+            self._pubaddr = [self._pubaddr]
         self._sub_connected = False
         self._pubsub = pubsub()
-        if pubaddr is not None:
-            self._pubsocket.bind(pubaddr)
+        if self._pubaddr is not None:
+            for addr in self._pubaddr:
+                self._pubsocket.bind(addr)
 
         self._poller = zmq.Poller()
         self._poller.register(self._subsocket, zmq.POLLIN)
@@ -58,7 +62,8 @@ class zmq_pubsub_iface(threading.Thread):
         if not self._sub_connected:
             if not self._subaddr:
                 raise Exception("No subscriber address set")
-            self._subsocket.connect(self._subaddr)
+            for addr in self._subaddr:
+                self._subsocket.connect(addr)
             self._sub_connected = True
         self._subsocket.setsockopt(zmq.SUBSCRIBE, key)
         self._pubsub.subscribe(key, subscriber)
@@ -66,8 +71,6 @@ class zmq_pubsub_iface(threading.Thread):
     def unsubscribe(self, key, subscriber):
         self._subsocket.setsockopt(zmq.UNSUBSCRIBE, key)
         self._pubsub.unsubscribe(key, subscriber)
-        #TODO keep track of subs (_sub_connected is value not bool)
-        #so you don't recv when zero subs
 
     #executed from the thread context(s) of the caller(s)
     #so we use a queue to push sending into the run loop
@@ -90,14 +93,14 @@ class zmq_pubsub_iface(threading.Thread):
             if self._sub_connected:
                 socks = dict(self._poller.poll(timeout=0))
                 while self._subsocket in socks \
-                and socks[self._subsocket] == zmq.POLLIN:
+                  and socks[self._subsocket] == zmq.POLLIN:
                     [address, msg] = self._subsocket.recv_multipart()
                     self._pubsub[address] = msg
                     socks = dict(self._poller.poll(timeout=0))
             #snooze
             time.sleep(0.1)
 
-        #one more send loop to clean up on shutdown
+        #one more send loop to clean up on shutdown (can probably express this better above)
         while not self._queue.empty():
             self._pubsocket.send_multipart(self._queue.get())
 
@@ -111,21 +114,27 @@ class zmq_pubsub_iface(threading.Thread):
         self.finished.wait(0.2)
 
 def pr(x):
-    print x 
+    print x
 
 if __name__ == "__main__":
     #create socket pair
     context = zmq.Context(1)
-    sock1 = zmq_pubsub_iface(context, subaddr="inproc://sock2-pub", pubaddr="inproc://sock1-pub")
-    sock2 = zmq_pubsub_iface(context, subaddr="inproc://sock1-pub", pubaddr="inproc://sock2-pub")
+    sock1 = zmq_pubsub_iface(context, subaddr="inproc://sock2-pub", pubaddr=["inproc://sock1-pub"])
+    sock2 = zmq_pubsub_iface(context, subaddr="inproc://sock1-pub", pubaddr=["inproc://sock2-pub", "tcp://*:5433"])
+    sock3 = zmq_pubsub_iface(context, subaddr="tcp://localhost:5433", pubaddr=None)
 
     sock1.subscribe("data1", pr)
     sock2.subscribe("data2", pr)
+    sock3.subscribe("data3", pr)
 
     for i in range(10):
-        sock1["data2"] = "HOWDY"
+        #sock1["data2"] = "HOWDY"
+        #sock2["data3"] = "DRAW"
         sock2["data1"] = "PARDNER"
-        time.sleep(0.01)
+        #time.sleep(0.1)
 
     sock1.close()
     sock2.close()
+    sock3.close()
+
+    

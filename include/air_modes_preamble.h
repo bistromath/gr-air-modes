@@ -57,6 +57,10 @@ public:
               gr_vector_int &ninput_items,
               gr_vector_const_void_star &input_items,
               gr_vector_void_star &output_items);
+
+    void set_rate(int channel_rate);
+    void set_threshold(float threshold_db);
+    float get_threshold(void);
 };
 
 #endif /* INCLUDED_AIR_MODES_PREAMBLE_H */

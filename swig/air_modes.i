@@ -23,6 +23,9 @@ air_modes_preamble_sptr air_make_modes_preamble (int channel_rate, float thresho
 
 class air_modes_preamble : public gr_sync_block
 {
+  set_rate(int channel_rate);
+  set_threshold(float threshold_db);
+  int get_threshold(void);
 private:
   air_modes_preamble (int channel_rate, float threshold_db);
 };
@@ -33,8 +36,9 @@ air_modes_slicer_sptr air_make_modes_slicer (int channel_rate, gr_msg_queue_sptr
 
 class air_modes_slicer : public gr_block
 {
+  set_rate(int channel_rate);
 private:
-	air_modes_slicer (int channel_rate, gr_msg_queue_sptr queue);
+    air_modes_slicer (int channel_rate, gr_msg_queue_sptr queue);
 };
 
 // ----------------------------------------------------------------

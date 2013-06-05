@@ -24,7 +24,6 @@ from optparse import OptionParser
 import time, os, sys, threading
 from string import split, join
 import air_modes
-import csv
 from air_modes.exceptions import *
 import zmq
 
@@ -55,6 +54,7 @@ class screen_printer(threading.Thread):
         self._subscriber.close()
         self.finished.set()
 
+#todo: maybe move plugins to separate programs (flightgear, SBS1, etc.)
 def main():
   my_position = None
   usage = "%prog: [options]"
@@ -64,8 +64,8 @@ def main():
                       help="filename for Google Earth KML output")
   parser.add_option("-P","--sbs1", action="store_true", default=False,
                       help="open an SBS-1-compatible server on port 30003")
-  parser.add_option("-w","--raw", action="store_true", default=False,
-                      help="open a server outputting raw timestamped data on port 9988")
+  parser.add_option("-s","--servers", type="string", default="",
+                      help="specify additional servers from which to take data in format tcp://x.x.x.x:y,tcp://....")
   parser.add_option("-n","--no-print", action="store_true", default=False,
                       help="disable printing decoded packets to stdout")
   parser.add_option("-l","--location", type="string", default=None,
@@ -74,17 +74,19 @@ def main():
                       help="Use UDP source on specified port")
   parser.add_option("-m","--multiplayer", type="string", default=None,
                       help="FlightGear server to send aircraft data, in format host:port")
+  parser.add_option("-t","--tcp", type="int", default=None,
+                      help="Open a TCP server on this port to publish reports")
 
   (options, args) = parser.parse_args()
 
   #construct the radio
   context = zmq.Context(1)
   tb = air_modes.modes_radio(options, context)
-  relay = air_modes.zmq_pubsub_iface(context, subaddr="inproc://modes-radio-pub", pubaddr=None)
+  servers = options.servers.split(",") + ["inproc://modes-radio-pub"]
+  relay = air_modes.zmq_pubsub_iface(context, subaddr=servers[-1], pubaddr=None)
 
   if options.location is not None:
-    reader = csv.reader([options.location], quoting=csv.QUOTE_NONNUMERIC)
-    my_position = reader.next()
+    my_position = [float(n) for n in options.location.split(",")]
 
   if options.kml is not None:
     dbname = 'adsb.db'

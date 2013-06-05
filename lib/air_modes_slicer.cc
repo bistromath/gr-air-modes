@@ -51,14 +51,17 @@ air_modes_slicer::air_modes_slicer(int channel_rate, gr_msg_queue_sptr queue) :
                    gr_make_io_signature (1, 1, sizeof(float)), //stream 0 is received data, stream 1 is binary preamble detector output
                    gr_make_io_signature (0, 0, 0) )
 {
-	//initialize private data here
+	set_rate(channel_rate);
+	d_queue = queue;
+}
+
+void air_modes_slicer::set_rate(int channel_rate)
+{
 	d_chip_rate = 2000000; //2Mchips per second
 	d_samples_per_chip = 2;//FIXME this is constant now channel_rate / d_chip_rate;
 	d_samples_per_symbol = d_samples_per_chip * 2;
-	d_check_width = 120 * d_samples_per_symbol; //how far you will have to look ahead
-	d_queue = queue;
-
-	set_output_multiple(d_check_width*2); //how do you specify buffer size for sinks?
+	d_check_width = 240 * d_samples_per_symbol; //how far you will have to look ahead
+	set_output_multiple(d_check_width); //how do you specify buffer size for sinks?
 }
 
 //this slicer is courtesy of Lincoln Labs. supposedly it is more resistant to mode A/C FRUIT.

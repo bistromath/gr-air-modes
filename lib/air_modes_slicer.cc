@@ -160,16 +160,12 @@ int air_modes_slicer::work(int noutput_items,
 			}
 		}
 			
-		/******************** BEGIN TIMESTAMP BS ******************/
 		rx_packet.timestamp = pmt_to_double(tag_iter->value);
-		/******************* END TIMESTAMP BS *********************/
 			
-		//increment for the next round
-
-		//here you might want to traverse the whole packet and if you find all 0's, just toss it. don't know why these packets turn up, but they pass ECC.
+		//traverse the whole packet and if you find all 0's, just toss it. don't know why these packets turn up, but they pass ECC.
 		bool zeroes = 1;
 		for(int m = 0; m < 14; m++) {
-			if(rx_packet.data[m]) zeroes = 0;
+			if(rx_packet.data[m]) { zeroes = 0; break; }
 		}
 		if(zeroes) {continue;} //toss it
 

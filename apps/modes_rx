@@ -64,7 +64,7 @@ def main():
                       help="filename for Google Earth KML output")
   parser.add_option("-P","--sbs1", action="store_true", default=False,
                       help="open an SBS-1-compatible server on port 30003")
-  parser.add_option("-s","--servers", type="string", default="",
+  parser.add_option("-s","--servers", type="string", default=None,
                       help="specify additional servers from which to take data in format tcp://x.x.x.x:y,tcp://....")
   parser.add_option("-n","--no-print", action="store_true", default=False,
                       help="disable printing decoded packets to stdout")
@@ -82,8 +82,10 @@ def main():
   #construct the radio
   context = zmq.Context(1)
   tb = air_modes.modes_radio(options, context)
-  servers = options.servers.split(",") + ["inproc://modes-radio-pub"]
-  relay = air_modes.zmq_pubsub_iface(context, subaddr=servers[-1], pubaddr=None)
+  servers = ["inproc://modes-radio-pub"]
+  if options.servers is not None:
+      servers += options.servers.split(",")
+  relay = air_modes.zmq_pubsub_iface(context, subaddr=servers, pubaddr=None)
 
   if options.location is not None:
     my_position = [float(n) for n in options.location.split(",")]

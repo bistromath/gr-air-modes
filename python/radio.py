@@ -26,7 +26,7 @@
 from gnuradio import gr, gru, optfir, eng_notation, blks2
 from gnuradio.eng_option import eng_option
 from gnuradio.gr.pubsub import pubsub
-from optparse import OptionParser
+from optparse import OptionParser, OptionGroup
 import air_modes
 import zmq
 import threading
@@ -78,29 +78,33 @@ class modes_radio (gr.top_block, pubsub):
 
   @staticmethod
   def add_radio_options(parser):
+    group = OptionGroup(parser, "Receiver setup options")
+      
     #Choose source
-    parser.add_option("-s","--source", type="string", default="uhd",
+    group.add_option("-s","--source", type="string", default="uhd",
                       help="Choose source: uhd, osmocom, <filename>, or <ip:port>")
 
     #UHD/Osmocom args
-    parser.add_option("-R", "--subdev", type="string",
+    group.add_option("-R", "--subdev", type="string",
                       help="select USRP Rx side A or B", metavar="SUBDEV")
-    parser.add_option("-A", "--antenna", type="string",
+    group.add_option("-A", "--antenna", type="string",
                       help="select which antenna to use on daughterboard")
-    parser.add_option("-D", "--args", type="string",
+    group.add_option("-D", "--args", type="string",
                       help="arguments to pass to radio constructor", default="")
-    parser.add_option("-f", "--freq", type="eng_float", default=1090e6,
+    group.add_option("-f", "--freq", type="eng_float", default=1090e6,
                       help="set receive frequency in Hz [default=%default]", metavar="FREQ")
-    parser.add_option("-g", "--gain", type="int", default=None,
+    group.add_option("-g", "--gain", type="int", default=None,
                       help="set RF gain", metavar="dB")
 
     #RX path args
-    parser.add_option("-r", "--rate", type="eng_float", default=4e6,
+    group.add_option("-r", "--rate", type="eng_float", default=4e6,
                       help="set sample rate [default=%default]")
-    parser.add_option("-T", "--threshold", type="eng_float", default=5.0,
+    group.add_option("-T", "--threshold", type="eng_float", default=5.0,
                       help="set pulse detection threshold above noise in dB [default=%default]")
-    parser.add_option("-p","--pmf", action="store_true", default=False,
-                      help="Use pulse matched filtering")
+    group.add_option("-p","--pmf", action="store_true", default=False,
+                      help="Use pulse matched filtering [default=%default]")
+
+    parser.add_option_group(group)
 
   def live_source(self):
     return options.source is 'uhd' or options.source is 'osmocom'

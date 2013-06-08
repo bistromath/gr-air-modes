@@ -85,7 +85,10 @@ class zmq_pubsub_iface(threading.Thread):
         return self._pubsub[key]
 
     def run(self):
-        while not self.shutdown.is_set():
+        done = False
+        while not self.shutdown.is_set() and not done:
+            if self.shutdown.is_set():
+                done = True
             #send
             while not self._queue.empty():
                 self._pubsocket.send_multipart(self._queue.get())
@@ -98,11 +101,8 @@ class zmq_pubsub_iface(threading.Thread):
                     self._pubsub[address] = msg
                     socks = dict(self._poller.poll(timeout=0))
             #snooze
-            time.sleep(0.1)
-
-        #one more send loop to clean up on shutdown (can probably express this better above)
-        while not self._queue.empty():
-            self._pubsocket.send_multipart(self._queue.get())
+            if not done:
+                time.sleep(0.1)
 
         self._subsocket.close()
         self._pubsocket.close()
@@ -133,8 +133,8 @@ if __name__ == "__main__":
         sock2["data1"] = "PARDNER"
         time.sleep(0.1)
 
+    time.sleep(0.1)
+
     sock1.close()
     sock2.close()
     sock3.close()
-
-    

@@ -60,22 +60,24 @@ def main():
   usage = "%prog: [options]"
   parser = OptionParser(option_class=eng_option, usage=usage)
   air_modes.modes_radio.add_radio_options(parser)
+
+  parser.add_option("-l","--location", type="string", default=None,
+                      help="GPS coordinates of receiving station in format xx.xxxxx,xx.xxxxx")
+  #data source options
+  parser.add_option("-a","--remote", type="string", default=None,
+                      help="specify additional servers from which to take data in format tcp://x.x.x.x:y,tcp://....")
+  parser.add_option("-t","--tcp", type="int", default=None,
+                      help="Open a TCP server on this port to publish reports")
+  parser.add_option("-n","--no-print", action="store_true", default=False,
+                      help="disable printing decoded packets to stdout")
+  #output plugins
   parser.add_option("-K","--kml", type="string", default=None,
                       help="filename for Google Earth KML output")
   parser.add_option("-P","--sbs1", action="store_true", default=False,
                       help="open an SBS-1-compatible server on port 30003")
-  parser.add_option("-s","--servers", type="string", default=None,
-                      help="specify additional servers from which to take data in format tcp://x.x.x.x:y,tcp://....")
-  parser.add_option("-n","--no-print", action="store_true", default=False,
-                      help="disable printing decoded packets to stdout")
-  parser.add_option("-l","--location", type="string", default=None,
-                      help="GPS coordinates of receiving station in format xx.xxxxx,xx.xxxxx")
-  parser.add_option("-u","--udp", type="int", default=None,
-                      help="Use UDP source on specified port")
   parser.add_option("-m","--multiplayer", type="string", default=None,
                       help="FlightGear server to send aircraft data, in format host:port")
-  parser.add_option("-t","--tcp", type="int", default=None,
-                      help="Open a TCP server on this port to publish reports")
+
 
   (options, args) = parser.parse_args()
 
@@ -83,8 +85,8 @@ def main():
   context = zmq.Context(1)
   tb = air_modes.modes_radio(options, context)
   servers = ["inproc://modes-radio-pub"]
-  if options.servers is not None:
-      servers += options.servers.split(",")
+  if options.remote is not None:
+    servers += options.remote.split(",")
   relay = air_modes.zmq_pubsub_iface(context, subaddr=servers, pubaddr=None)
 
   if options.location is not None:

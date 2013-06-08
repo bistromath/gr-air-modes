@@ -37,6 +37,7 @@ DOWNLINK_DATA_TYPE = "dl_data"
 #ZMQ message publisher.
 #TODO: limit high water mark
 #TODO: limit number of subscribers
+#NOTE: this is obsoleted by zmq_pubsub_iface
 class radio_publisher(threading.Thread):
   def __init__(self, port, context, queue):
     threading.Thread.__init__(self)
@@ -70,35 +71,31 @@ class modes_radio (gr.top_block, pubsub):
     pubsub.__init__(self)
     self._options = options
     self._queue = gr.msg_queue()
-    
-    rate = int(options.rate)
-    use_resampler = False
-    self.time_source = None
+    self._rate = int(options.rate)
 
+    self._resample = None
     self._setup_source(options)
 
-    self.rx_path = air_modes.rx_path(rate, options.threshold, self._queue, options.pmf)
+    self._rx_path = air_modes.rx_path(self._rate, options.threshold, self._queue, options.pmf)
 
     #now subscribe to set various options via pubsub
-    #self.subscribe("freq", self.set_freq)
-    #self.subscribe("gain", self.set_gain)
-    #self.subscribe("rate", self.set_rate)
-    #self.subscribe("rate", self.rx_path.set_rate)
-    #self.subscribe("threshold", self.rx_path.set_threshold)
-    #self.subscribe("pmf", self.rx_path.set_pmf)
+    self.subscribe("freq", self.set_freq)
+    self.subscribe("gain", self.set_gain)
+    self.subscribe("rate", self.set_rate)
+    self.subscribe("rate", self._rx_path.set_rate)
+    self.subscribe("threshold", self._rx_path.set_threshold)
+    self.subscribe("pmf", self._rx_path.set_pmf)
 
-    #self.publish("freq", self.get_freq)
-    #self.publish("gain", self.get_gain)
-    #self.publish("rate", self.get_rate)
-    #self.publish("threshold", self.rx_path.get_threshold)
-    #self.publish("pmf", self.rx_path.get_pmf)
+    self.publish("freq", self.get_freq)
+    self.publish("gain", self.get_gain)
+    self.publish("rate", self.get_rate)
+    self.publish("threshold", self._rx_path.get_threshold)
+    self.publish("pmf", self._rx_path.get_pmf)
 
-    if use_resampler:
-        self.lpfiltcoeffs = gr.firdes.low_pass(1, 5*3.2e6, 1.6e6, 300e3)
-        self.resample = blks2.rational_resampler_ccf(interpolation=5, decimation=4, taps=self.lpfiltcoeffs)
-        self.connect(self._u, self.resample, self.rx_path)
+    if self._resample is not None:
+        self.connect(self._u, self._resample, self._rx_path)
     else:
-        self.connect(self._u, self.rx_path)
+        self.connect(self._u, self._rx_path)
 
     #Publish messages when they come back off the queue
     server_addr = ["inproc://modes-radio-pub"]
@@ -113,6 +110,11 @@ class modes_radio (gr.top_block, pubsub):
 
   @staticmethod
   def add_radio_options(parser):
+    #Choose source
+    parser.add_option("-s","--source", type="string", default="uhd",
+                      help="Choose source: uhd, osmocom, <filename>, or <ip:port>")
+
+    #UHD/Osmocom args
     parser.add_option("-R", "--subdev", type="string",
                       help="select USRP Rx side A or B", metavar="SUBDEV")
     parser.add_option("-A", "--antenna", type="string",
@@ -123,60 +125,38 @@ class modes_radio (gr.top_block, pubsub):
                       help="set receive frequency in Hz [default=%default]", metavar="FREQ")
     parser.add_option("-g", "--gain", type="int", default=None,
                       help="set RF gain", metavar="dB")
-    parser.add_option("-r", "--rate", type="eng_float", default=4000000,
-                      help="set ADC sample rate [default=%default]")
+
+    #RX path args
+    parser.add_option("-r", "--rate", type="eng_float", default=4e6,
+                      help="set sample rate [default=%default]")
     parser.add_option("-T", "--threshold", type="eng_float", default=5.0,
                       help="set pulse detection threshold above noise in dB [default=%default]")
-    parser.add_option("-F","--filename", type="string", default=None,
-                      help="read data from file instead of radio")
-    parser.add_option("-o","--osmocom", action="store_true", default=False,
-                      help="Use gr-osmocom source (RTLSDR or HackRF) instead of UHD source")
     parser.add_option("-p","--pmf", action="store_true", default=False,
                       help="Use pulse matched filtering")
 
+  def live_source(self):
+    return options.source is 'uhd' or options.source is 'osmocom'
 
-  #these are wrapped with try/except because file sources and udp sources
-  #don't have set_center_freq/set_gain functions. this should check to see
-  #the type of self._u.
   def set_freq(self, freq):
-    try:
-        result = self._u.set_center_freq(freq, 0)
-        return result
-    except:
-        return 0
+    return self._u.set_center_freq(freq, 0) if live_source() else 0
 
   def set_gain(self, gain):
-    try:
-      self._u.set_gain(gain)
-    except:
-      pass
+    return self._u.set_gain(gain) if live_source() else 0
 
   def set_rate(self, rate):
-    try:
-      self._u.set_rate(rate)
-    except:
-      pass
+    return self._u.set_rate(rate) if live_source() else 0
 
   def get_freq(self, freq):
-      try:
-        return self._u.get_center_freq(freq, 0)
-      except:
-        pass
+    return self._u.get_center_freq(freq, 0) if live_source() else 1090e6
     
   def get_gain(self, gain):
-    try:
-      return self._u.get_gain()
-    except:
-      pass
+    return self._u.get_gain() if live_source() else 0
 
   def get_rate(self, rate):
-    try:
-      return self._u.get_rate()
-    except:
-      pass
+    return self._u.get_rate() if live_source() else self._rate
 
   def _setup_source(self, options):
-    if options.filename is None and options.udp is None and options.osmocom is None:
+    if options.source == "uhd":
       #UHD source by default
       from gnuradio import uhd
       self._u = uhd.single_usrp_source(options.args, uhd.io_type_t.COMPLEX_FLOAT32, 1)
@@ -190,10 +170,7 @@ class modes_radio (gr.top_block, pubsub):
       #check for GPSDO
       #if you have a GPSDO, UHD will automatically set the timestamp to UTC time
       #as well as automatically set the clock to lock to GPSDO.
-      if self._u.get_time_source(0) == 'gpsdo':
-        self._time_source = 'gpsdo'
-      else:
-        self._time_source = None
+      if self._u.get_time_source(0) != 'gpsdo':
         self._u.set_time_now(uhd.time_spec(0.0))
 
       if options.antenna is not None:
@@ -213,7 +190,8 @@ class modes_radio (gr.top_block, pubsub):
     #TODO: detect if you're using an RTLSDR or Jawbreaker
     #and set up accordingly.
     #ALSO TODO: Actually set gain appropriately using gain bins in HackRF driver.
-    elif options.osmocom: #RTLSDR dongle or HackRF Jawbreaker
+    #osmocom doesn't have gain bucket distribution like UHD does
+    elif options.source == "osmocom": #RTLSDR dongle or HackRF Jawbreaker
         import osmosdr
         self._u = osmosdr.source_c(options.args)
 #        self._u.set_sample_rate(3.2e6) #fixed for RTL dongles
@@ -232,16 +210,23 @@ class modes_radio (gr.top_block, pubsub):
         self._u.set_gain(options.gain)
         print "Gain is %i" % self._u.get_gain()
 
-        use_resampler = True
+        #Note: this should only come into play if using an RTLSDR.
+        lpfiltcoeffs = gr.firdes.low_pass(1, 5*3.2e6, 1.6e6, 300e3)
+        self._resample = blks2.rational_resampler_ccf(interpolation=5, decimation=4, taps=lpfiltcoeffs)
                 
     else:
-      if options.filename is not None:
-        self._u = gr.file_source(gr.sizeof_gr_complex, options.filename)
-      elif options.udp is not None:
-        self._u = gr.udp_source(gr.sizeof_gr_complex, "localhost", options.udp)
+      #semantically detect whether it's ip.ip.ip.ip:port or filename
+      import re
+      if ':' in options.source:
+        try:
+          ip, port = re.search("(.*)\:(\d{1,5})", options.source).groups()
+        except:
+          raise Exception("Please input UDP source e.g. 192.168.10.1:12345")
+        self._u = gr.udp_source(gr.sizeof_gr_complex, ip, int(port))
+        print "Using UDP source %s:%s" % (ip, port)
       else:
-        raise Exception("No valid source selected")
-        
+        self._u = gr.file_source(gr.sizeof_gr_complex, options.source)
+        print "Using file source %s" % options.source
 
     print "Rate is %i" % (options.rate,)
 

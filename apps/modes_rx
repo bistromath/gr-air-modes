@@ -27,33 +27,6 @@ import air_modes
 from air_modes.exceptions import *
 import zmq
 
-class screen_printer(threading.Thread):
-    def __init__(self, position, context, addr=None, port=None):
-        threading.Thread.__init__(self)
-        self._subscriber = context.socket(zmq.SUB)
-        if addr is not None:
-            self._subscriber.connect("tcp://%s:%i" % (addr, port))
-        else:
-            self._subscriber.connect("inproc://modes-radio-pub")
-        self._subscriber.setsockopt(zmq.SUBSCRIBE, "dl_data")
-
-        self._printer = air_modes.output_print(position)
-        self.done = threading.Event()
-        self.finished = threading.Event()
-        self.setDaemon(True)
-        self.start()
-
-    def run(self):
-        while not self.done.is_set():
-            [address, msg] = self._subscriber.recv_multipart() #blocking
-            try:
-                self._printer.output(msg)
-            except ADSBError:
-                pass
-
-        self._subscriber.close()
-        self.finished.set()
-
 #todo: maybe move plugins to separate programs (flightgear, SBS1, etc.)
 def main():
   my_position = None
@@ -99,7 +72,6 @@ def main():
     kmlgen = air_modes.output_kml(options.kml, dbname, my_position, lock) #create a KML generating thread to read from the db
     relay.subscribe("dl_data", sqldb.insert)
 
-  printer = None
   if options.no_print is not True:
     relay.subscribe("dl_data", air_modes.output_print(my_position).output)
 
@@ -115,8 +87,7 @@ def main():
   tb.run()
   tb.cleanup()
 
-  relay.shutdown.set()
-  relay.finished.wait(0.2)
+  relay.close()
 
   if options.kml is not None:
     kmlgen.close()

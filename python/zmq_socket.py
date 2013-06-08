@@ -119,7 +119,7 @@ def pr(x):
 if __name__ == "__main__":
     #create socket pair
     context = zmq.Context(1)
-    sock1 = zmq_pubsub_iface(context, subaddr="inproc://sock2-pub", pubaddr=["inproc://sock1-pub"])
+    sock1 = zmq_pubsub_iface(context, subaddr="inproc://sock2-pub", pubaddr="inproc://sock1-pub")
     sock2 = zmq_pubsub_iface(context, subaddr="inproc://sock1-pub", pubaddr=["inproc://sock2-pub", "tcp://*:5433"])
     sock3 = zmq_pubsub_iface(context, subaddr="tcp://localhost:5433", pubaddr=None)
 
@@ -128,10 +128,10 @@ if __name__ == "__main__":
     sock3.subscribe("data3", pr)
 
     for i in range(10):
-        #sock1["data2"] = "HOWDY"
-        #sock2["data3"] = "DRAW"
+        sock1["data2"] = "HOWDY"
+        sock2["data3"] = "DRAW"
         sock2["data1"] = "PARDNER"
-        #time.sleep(0.1)
+        time.sleep(0.1)
 
     sock1.close()
     sock2.close()

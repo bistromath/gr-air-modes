@@ -19,7 +19,7 @@
 #
 
 # Radio interface for Mode S RX.
-# Handles all Gnuradio-related functionality.
+# Handles all hardware- and source-related functionality
 # You pass it options, it gives you data.
 # It uses the pubsub interface to allow clients to subscribe to its data feeds.
 
@@ -31,39 +31,7 @@ import air_modes
 import zmq
 import threading
 import time
-
-DOWNLINK_DATA_TYPE = "dl_data"
-
-#ZMQ message publisher.
-#TODO: limit high water mark
-#TODO: limit number of subscribers
-#NOTE: this is obsoleted by zmq_pubsub_iface
-class radio_publisher(threading.Thread):
-  def __init__(self, port, context, queue):
-    threading.Thread.__init__(self)
-    self._queue = queue
-    self._publisher = context.socket(zmq.PUB)
-    if port is None:
-      self._publisher.bind("inproc://modes-radio-pub")
-    else:
-      self._publisher.bind("tcp://*:%i" % port)
-
-    self.setDaemon(True)
-    self.shutdown = threading.Event()
-    self.finished = threading.Event()
-    self.start()
-
-  def run(self):
-    done_yet = False
-    while not self.shutdown.is_set() and not done_yet:
-      if self.shutdown.is_set(): #gives it another round after done is set
-        done_yet = True      #so we can clean up the last of the queue
-      while not self._queue.empty_p():
-        self._publisher.send_multipart([DOWNLINK_DATA_TYPE, self._queue.delete_head().to_string()])
-      time.sleep(0.1) #can use time.sleep(0) to yield, but it'll suck a whole CPU
-    self._publisher.close()
-    self.finished.set()
-      
+import re
 
 class modes_radio (gr.top_block, pubsub):
   def __init__(self, options, context):
@@ -216,7 +184,6 @@ class modes_radio (gr.top_block, pubsub):
                 
     else:
       #semantically detect whether it's ip.ip.ip.ip:port or filename
-      import re
       if ':' in options.source:
         try:
           ip, port = re.search("(.*)\:(\d{1,5})", options.source).groups()

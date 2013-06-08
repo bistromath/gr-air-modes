@@ -1,5 +1,5 @@
 #
-# Copyright 2012 Corgan Labs
+# Copyright 2012, 2013 Corgan Labs, Nick Foster
 # 
 # This file is part of gr-air-modes
 # 

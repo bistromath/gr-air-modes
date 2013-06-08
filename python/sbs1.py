@@ -25,6 +25,27 @@ from string import split, join
 import air_modes
 from datetime import *
 from air_modes.exceptions import *
+import threading
+
+class dumb_task_runner(threading.Thread):
+    def __init__(self, task, interval):
+        threading.Thread.__init__(self)
+        self._task = task
+        self._interval = interval
+        self.shutdown = threading.Event()
+        self.finished = threading.Event()
+        self.setDaemon(True)
+        self.start()
+
+    def run(self):
+        while not self.shutdown.is_set():
+            self._task()
+            time.sleep(self._interval)
+        self.finished.set()
+
+    def close(self):
+        self.shutdown.set()
+        self.finished.wait(self._interval)
 
 class output_sbs1(air_modes.parse):
   def __init__(self, mypos, port):
@@ -37,6 +58,9 @@ class output_sbs1(air_modes.parse):
     self._conns = [] #list of active connections
     self._aircraft_id_map = {} # dictionary of icao24 to aircraft IDs
     self._aircraft_id_count = 0 # Current Aircraft ID count
+
+    #spawn thread to add new connections as they come in
+    self._runner = dumb_task_runner(self.add_pending_conns, 0.1)
 
   def __del__(self):
     self._s.close()

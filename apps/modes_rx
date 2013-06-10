@@ -83,7 +83,7 @@ def main():
     relay.subscribe("dl_data", sbs1port.output)
 
   tb.run()
-  tb.cleanup()
+  tb.close()
 
   relay.close()
 

@@ -179,14 +179,14 @@ class modes_radio (gr.top_block, pubsub):
 ###DO NOT COMMIT
         self._u.set_gain(14, "RF", 0)
         self._u.set_gain(40, "IF", 0)
-        self._u.set_gain(14, "BB", 0)
+        #self._u.set_gain(14, "BB", 0)
 ###DO NOT COMMIT
         self._u.set_gain(options.gain)
         print "Gain is %i" % self._u.get_gain()
 
         #Note: this should only come into play if using an RTLSDR.
-        lpfiltcoeffs = gr.firdes.low_pass(1, 5*3.2e6, 1.6e6, 300e3)
-        self._resample = blks2.rational_resampler_ccf(interpolation=5, decimation=4, taps=lpfiltcoeffs)
+#        lpfiltcoeffs = gr.firdes.low_pass(1, 5*3.2e6, 1.6e6, 300e3)
+#        self._resample = blks2.rational_resampler_ccf(interpolation=5, decimation=4, taps=lpfiltcoeffs)
                 
     else:
       #semantically detect whether it's ip.ip.ip.ip:port or filename
@@ -203,5 +203,5 @@ class modes_radio (gr.top_block, pubsub):
 
     print "Rate is %i" % (options.rate,)
 
-  def cleanup(self):
+  def close(self):
     self._sender.close()

@@ -24,11 +24,10 @@ from string import split, join
 import air_modes
 import sqlite3
 from air_modes.exceptions import *
-import zmq
 from gnuradio.gr.pubsub import pubsub
 
 class output_sql(air_modes.parse, pubsub):
-  def __init__(self, mypos, filename, lock, addr=None):
+  def __init__(self, mypos, filename, lock):
     air_modes.parse.__init__(self, mypos)
     pubsub.__init__(self)
 
@@ -101,13 +100,21 @@ class output_sql(air_modes.parse, pubsub):
 
     return query
 
+#TODO: if there's a way to publish selective reports on upsert to distinguish,
+#for instance, between a new ICAO that's just been heard, and a refresh of an
+#existing ICAO, both of those would be useful publishers for the GUI model.
+#otherwise, worst-case you can just refresh everything every time a report
+#comes in, but it's going to use more CPU. Not likely a problem if you're only
+#looking at ADS-B (no mode S) data.
+#It's probably time to look back at the Qt SQL table model and see if it can be
+#bent into shape for you.
   def sql17(self, data):
     icao24 = data["aa"]
     bdsreg = data["me"].get_type()
+    self["bds%.2i" % bdsreg] = icao24 #publish
 
     if bdsreg == 0x08:
       (msg, typename) = self.parseBDS08(data)
-      self["new_ident"] = icao24
       return "INSERT OR REPLACE INTO ident (icao, ident) VALUES (" + "%i" % icao24 + ", '" + msg + "')"
     elif bdsreg == 0x06:
       [ground_track, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(data)
@@ -115,24 +122,20 @@ class output_sql(air_modes.parse, pubsub):
       if decoded_lat is None: #no unambiguously valid position available
         raise CPRNoPositionError
       else:
-        self["new_position"] = icao24
         return "INSERT INTO positions (icao, seen, alt, lat, lon) VALUES (" + "%i" % icao24 + ", datetime('now'), " + str(altitude) + ", " + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
     elif bdsreg == 0x05:
       [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(data)
       if decoded_lat is None: #no unambiguously valid position available
         raise CPRNoPositionError
       else:
-        self["new_position"] = icao24
         return "INSERT INTO positions (icao, seen, alt, lat, lon) VALUES (" + "%i" % icao24 + ", datetime('now'), " + str(altitude) + ", " + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
     elif bdsreg == 0x09:
       subtype = data["bds09"].get_type()
       if subtype == 0:
         [velocity, heading, vert_spd, turnrate] = self.parseBDS09_0(data)
-        self["new_vector"] = icao24
         return "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")"
       elif subtype == 1:
         [velocity, heading, vert_spd] = self.parseBDS09_1(data)
-        self["new_vector"] = icao24
         return "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")"
       else:
         raise NoHandlerError

@@ -83,6 +83,8 @@ class modes_radio (gr.top_block, pubsub):
     #Choose source
     group.add_option("-s","--source", type="string", default="uhd",
                       help="Choose source: uhd, osmocom, <filename>, or <ip:port> [default=%default]")
+    group.add_option("-t","--tcp", type="int", default=None,
+                      help="Open a TCP server on this port to publish reports")
 
     #UHD/Osmocom args
     group.add_option("-R", "--subdev", type="string",

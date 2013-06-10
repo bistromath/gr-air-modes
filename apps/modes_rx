@@ -39,8 +39,6 @@ def main():
   #data source options
   parser.add_option("-a","--remote", type="string", default=None,
                       help="specify additional servers from which to take data in format tcp://x.x.x.x:y,tcp://....")
-  parser.add_option("-t","--tcp", type="int", default=None,
-                      help="Open a TCP server on this port to publish reports")
   parser.add_option("-n","--no-print", action="store_true", default=False,
                       help="disable printing decoded packets to stdout")
   #output plugins

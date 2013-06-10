@@ -107,7 +107,7 @@ class modes_radio (gr.top_block, pubsub):
     parser.add_option_group(group)
 
   def live_source(self):
-    return options.source is 'uhd' or options.source is 'osmocom'
+    return self._options.source is 'uhd' or self._options.source is 'osmocom'
 
   def set_freq(self, freq):
     return self._u.set_center_freq(freq, 0) if live_source() else 0

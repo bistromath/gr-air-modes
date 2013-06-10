@@ -115,7 +115,8 @@ class mainwindow(QtGui.QMainWindow):
         self.ui.compass_heading.setNeedle(Qwt.QwtDialSimpleNeedle(Qwt.QwtDialSimpleNeedle.Ray, False, QtCore.Qt.black))
         self.ui.compass_bearing.setNeedle(Qwt.QwtDialSimpleNeedle(Qwt.QwtDialSimpleNeedle.Ray, False, QtCore.Qt.black))
 
-        #hook up the update signal
+        #hook up the update signals which are explicitly necessary
+        #most of the dashboard_mapper and list_aircraft stuff is implicitly done already
         self.ui.list_aircraft.selectionModel().currentRowChanged.connect(self.dashboard_mapper.setCurrentModelIndex)
         self.ui.list_aircraft.selectionModel().currentRowChanged.connect(self.update_heading_widget)
         self.ui.list_aircraft.selectionModel().currentRowChanged.connect(self.update_bearing_widget)
@@ -140,11 +141,11 @@ class mainwindow(QtGui.QMainWindow):
     def unmapped_widgets_dataChanged(self, startIndex, endIndex):
         index = self.ui.list_aircraft.selectionModel().currentIndex()
         if index.row() in range(startIndex.row(), endIndex.row()+1): #the current aircraft was affected
-            if self.datamodel._colnames.index("heading") in range(startIndex.column(), endIndex.column()+1):
+            if 6 in range(startIndex.column(), endIndex.column()+1):
                 self.update_heading_widget(index)
-            if self.datamodel._colnames.index("bearing") in range(startIndex.column(), endIndex.column()+1):
+            if 12 in range(startIndex.column(), endIndex.column()+1):
                 self.update_bearing_widget(index)
-            if self.datamodel._colnames.index("rssi") in range(startIndex.column(), endIndex.column()+1):
+            if 2 in range(startIndex.column(), endIndex.column()+1):
                 self.update_rssi_widget(index)
 
     def update_rssi_widget(self, index):

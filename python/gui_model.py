@@ -42,8 +42,12 @@ class ICAOViewDelegate(QtGui.QStyledItemDelegate):
             paintstr = index.model().data(index.model().index(index.row(), 8)).toString()
         else:
             paintstr = index.model().data(index.model().index(index.row(), 0)).toString()
-        last_report = index.model().data(index.model().index(index.row(), 1)).toDouble()[0]
-        age = (time.time() - last_report)
+
+        #FIXME this is kind of heinous, find out how you got int data out of it last time
+        last_report = time.strptime(str(index.model().data(index.model().index(index.row(), 1)).toString()), "%Y-%m-%d %H:%M:%S")
+        age = (time.mktime(time.gmtime()) - time.mktime(last_report)) - 3600.*time.daylight
+        print age
+
         max_age = 60. #age at which it grays out
         #minimum alpha is 0x40 (oldest), max is 0xFF (newest)
         age = min(age, max_age)
@@ -52,6 +56,9 @@ class ICAOViewDelegate(QtGui.QStyledItemDelegate):
         painter.drawText(option.rect.left()+3, option.rect.top(), option.rect.width(), option.rect.height(), option.displayAlignment, paintstr)
 
 #TODO must add libqt4-sql, libqt4-sql-sqlite, python-qt4-sql to dependencies
+#TODO looks like you're going to have to either integrate this into sql.py (ugh!) or find a way to keep it in sync
+#seems like it wants to have control over maintaining data currency
+#worst case is you make your own damn SQL query model based on abstracttablemodel.
 class dashboard_sql_model(QtSql.QSqlQueryModel):
     def __init__(self, parent):
         QtSql.QSqlQueryModel.__init__(self, parent)
@@ -61,14 +68,17 @@ class dashboard_sql_model(QtSql.QSqlQueryModel):
         self._db.open()
         #what is this i don't even
         #fetches the combined data of all three tables for all ICAOs seen in the last minute.
+        #FIXME PyQt's SQLite gives you different results than the SQLite browser
         self.setQuery("""select tab1.icao, tab1.seen, tab1.lat, tab1.lon, tab1.alt, speed, heading, vertical, ident, type
                          from (select * from (select * from positions order by seen desc) group by icao) tab1
                     left join (select * from (select * from vectors order by seen desc)   group by icao) tab2
                         on tab1.icao=tab2.icao
                     left join (select * from (select * from ident)) tab3
                         on tab1.icao=tab3.icao
-                    where tab1.seen > datetime('now', '-1 minute')""", self._db)
+                    where tab1.seen > datetime('now', '-1 hour')""", self._db)
 
     #the big club
     def update_all(self, icao):
+#        self.beginInsertRows(QtCore.QModelIndex(), 1, 1)
         self.dataChanged.emit(self.createIndex(0, 0), self.createIndex(self.rowCount(), self.columnCount()))
+#        self.endInsertRows()

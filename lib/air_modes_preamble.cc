@@ -210,10 +210,10 @@ int air_modes_preamble::general_work(int noutput_items,
 			add_item_tag(0, //stream ID
 					 nitems_written(0), //sample
 					 d_key,      //frame_info
-			         pmt::pmt_from_double(tstamp),
+			         pmt::pmt_make_tuple(pmt::pmt_from_double(tstamp), pmt::pmt_from_double(inavg[i])),
 			         d_me        //block src id
 			        );
-					 
+
 			//std::cout << "PREAMBLE" << std::endl;
 			
 			//produce only one output per work call -- TODO this should probably change

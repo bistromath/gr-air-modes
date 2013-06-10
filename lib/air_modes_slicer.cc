@@ -159,8 +159,9 @@ int air_modes_slicer::work(int noutput_items,
 				if(rx_packet.numlowconf < 24) rx_packet.lowconfbits[rx_packet.numlowconf++] = j;
 			}
 		}
-			
-		rx_packet.timestamp = pmt_to_double(tag_iter->value);
+		
+		rx_packet.timestamp = pmt_to_double(pmt_tuple_ref(tag_iter->value, 0));
+		double ref = pmt_to_double(pmt_tuple_ref(tag_iter->value, 1));
 			
 		//traverse the whole packet and if you find all 0's, just toss it. don't know why these packets turn up, but they pass ECC.
 		bool zeroes = 1;
@@ -186,7 +187,7 @@ int air_modes_slicer::work(int noutput_items,
 			d_payload << std::hex << std::setw(2) << std::setfill('0') << unsigned(rx_packet.data[m]);
 		}
 
-		d_payload << " " << std::setw(6) << rx_packet.crc << " " << std::dec << rx_packet.reference_level
+		d_payload << " " << std::setw(6) << rx_packet.crc << " " << std::dec << rx_packet.reference_level / ref
 		          << " " << std::setprecision(10) << std::setw(10) << rx_packet.timestamp;
 			gr_message_sptr msg = gr_make_message_from_string(std::string(d_payload.str()));
 		d_queue->handle(msg);

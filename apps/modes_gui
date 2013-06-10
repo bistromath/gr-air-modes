@@ -77,12 +77,12 @@ class mainwindow(QtGui.QMainWindow):
         self.queue = gr.msg_queue(10)
         self.running = False
         self.kmlgen = None #necessary bc we stop its thread in shutdown
-        self.dbname = "air_modes.db"
+        self.dbname = "adsb.db"
         self.num_reports = 0
         self.last_report = 0
         self.context = zmq.Context(1)
 
-        self.datamodel = dashboard_data_model(None)
+        self.datamodel = dashboard_sql_model(None)
         self.ui.list_aircraft.setModel(self.datamodel)
         self.ui.list_aircraft.setModelColumn(0)
 
@@ -96,15 +96,16 @@ class mainwindow(QtGui.QMainWindow):
         self.dashboard_mapper.setModel(self.datamodel)
         self.dashboard_mapper.addMapping(self.ui.line_icao, 0)
         #self.dashboard_mapper.addMapping(self.ui.prog_rssi, 2)
-        self.dashboard_mapper.addMapping(self.ui.line_latitude, 3)
-        self.dashboard_mapper.addMapping(self.ui.line_longitude, 4)
-        self.dashboard_mapper.addMapping(self.ui.line_alt, 5)
-        self.dashboard_mapper.addMapping(self.ui.line_speed, 6)
-        #self.dashboard_mapper.addMapping(self.ui.compass_heading, 7)
-        self.dashboard_mapper.addMapping(self.ui.line_climb, 8)
-        self.dashboard_mapper.addMapping(self.ui.line_ident, 9)
-        self.dashboard_mapper.addMapping(self.ui.line_type, 10)
-        self.dashboard_mapper.addMapping(self.ui.line_range, 11)
+        self.dashboard_mapper.addMapping(self.ui.line_latitude, 2)
+        self.dashboard_mapper.addMapping(self.ui.line_longitude, 3)
+        self.dashboard_mapper.addMapping(self.ui.line_alt, 4)
+        self.dashboard_mapper.addMapping(self.ui.line_speed, 5)
+        #self.dashboard_mapper.addMapping(self.ui.compass_heading, 6)
+        self.dashboard_mapper.addMapping(self.ui.line_climb, 7)
+        self.dashboard_mapper.addMapping(self.ui.line_ident, 8)
+        self.dashboard_mapper.addMapping(self.ui.line_type, 9)
+        #self.dashboard_mapper.addMapping(self.ui.line_range, 11)
+        #self.dashboard_mapper.addMapping(self.ui.compass_bearing, 12)
 
         compass_palette = QtGui.QPalette()
         compass_palette.setColor(QtGui.QPalette.Foreground, QtCore.Qt.white)
@@ -128,12 +129,12 @@ class mainwindow(QtGui.QMainWindow):
 ############ widget update functions for non-mapped widgets ############
     def update_heading_widget(self, index):
         if index.model() is not None:
-            heading = index.model().data(index.model().index(index.row(), self.datamodel._colnames.index("heading"))).toDouble()[0]
+            heading = index.model().data(index.model().index(index.row(), 6)).toDouble()[0]
             self.ui.compass_heading.setValue(heading)
 
     def update_bearing_widget(self, index):
         if index.model() is not None:
-            bearing = index.model().data(index.model().index(index.row(), self.datamodel._colnames.index("bearing"))).toDouble()[0]
+            bearing = 0#index.model().data(index.model().index(index.row(), 12)).toDouble()[0]
             self.ui.compass_bearing.setValue(bearing)
 
     def unmapped_widgets_dataChanged(self, startIndex, endIndex):
@@ -148,7 +149,7 @@ class mainwindow(QtGui.QMainWindow):
 
     def update_rssi_widget(self, index):
         if index.model() is not None:
-            rssi = index.model().data(index.model().index(index.row(), 2)).toDouble()[0]
+            rssi = 0#index.model().data(index.model().index(index.row(), 2)).toDouble()[0]
             self.ui.prog_rssi.setValue(rssi)
 
     def increment_reportspersec(self, msg):
@@ -277,7 +278,6 @@ class mainwindow(QtGui.QMainWindow):
                 my_position = None
 
             self._cpr_dec = air_modes.cpr_decoder(my_position)
-
             self.datamodelout = dashboard_output(self._cpr_dec, self.datamodel, self._publisher)
 
             self.lock = threading.Lock() #grab a lock to ensure sql and kml don't step on each other
@@ -312,6 +312,7 @@ class mainwindow(QtGui.QMainWindow):
                                                    self.live_data_changed_signal.emit)
 
             #create SQL database for KML and dashboard displays
+<<<<<<< HEAD
             self.dbwriter = air_modes.output_sql(self._cpr_dec, self.dbname, self.lock, self._publisher)
             self.jsonpgen = air_modes.output_jsonp(self._jsonfile.name, self.dbname, my_position, self.lock, timeout=1)
             htmlstring = air_modes.html_template(my_position, self._jsonfile.name)
@@ -324,6 +325,11 @@ class mainwindow(QtGui.QMainWindow):
             self.ui.mapView.setPage(page)
             self.ui.mapView.load( QtCore.QUrl( QtCore.QUrl.fromLocalFile("/tmp/mode_s.html") ) )
             self.ui.mapView.show()
+=======
+            self.dbwriter = air_modes.output_sql(my_position, self.dbname, self.lock)
+            self.dbwriter.subscribe("new_adsb", self.datamodel.update_all)
+            self._relay.subscribe("dl_data", self.dbwriter.insert) #now the db will update itself
+>>>>>>> GUI model ripped up and replaced with QSqlQueryModel. Not working but committing before I kill the child in row 15.
 
             #output to update reports/sec widget
             self._relay.subscribe("dl_data", self.increment_reportspersec)

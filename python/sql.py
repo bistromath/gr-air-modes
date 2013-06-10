@@ -96,42 +96,34 @@ class output_sql:
 
     return query
 
-#TODO: if there's a way to publish selective reports on upsert to distinguish,
-#for instance, between a new ICAO that's just been heard, and a refresh of an
-#existing ICAO, both of those would be useful publishers for the GUI model.
-#otherwise, worst-case you can just refresh everything every time a report
-#comes in, but it's going to use more CPU. Not likely a problem if you're only
-#looking at ADS-B (no mode S) data.
-#It's probably time to look back at the Qt SQL table model and see if it can be
-#bent into shape for you.
   def sql17(self, data):
     icao24 = data["aa"]
     bdsreg = data["me"].get_type()
     #self["bds%.2i" % bdsreg] = icao24 #publish under "bds08", "bds06", etc.
 
     if bdsreg == 0x08:
-      (msg, typename) = air_modes.parseBDS08(data)
-      return "INSERT OR REPLACE INTO ident (icao, ident, type) VALUES (" + "%i" % icao24 + ", '" + msg + "', '" + typename + "')"
+      (msg, typename) = self.parseBDS08(data)
+      return "INSERT OR REPLACE INTO ident (icao, ident, type) VALUES (%i, '%s', '%s')" % (icao24, msg, typename)
     elif bdsreg == 0x06:
       [ground_track, decoded_lat, decoded_lon, rnge, bearing] = air_modes.parseBDS06(data, self._cpr)
       altitude = 0
       if decoded_lat is None: #no unambiguously valid position available
         raise CPRNoPositionError
       else:
-        return "INSERT INTO positions (icao, seen, alt, lat, lon) VALUES (" + "%i" % icao24 + ", datetime('now'), " + str(altitude) + ", " + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
+        return "INSERT INTO positions (icao, seen, alt, lat, lon) VALUES (%i, datetime('now'), %i, %.6f, %.6f)" % (icao24, int(altitude), decoded_lat, decoded_lon)
     elif bdsreg == 0x05:
       [altitude, decoded_lat, decoded_lon, rnge, bearing] = air_modes.parseBDS05(data, self._cpr)
       if decoded_lat is None: #no unambiguously valid position available
         raise CPRNoPositionError
       else:
-        return "INSERT INTO positions (icao, seen, alt, lat, lon) VALUES (" + "%i" % icao24 + ", datetime('now'), " + str(altitude) + ", " + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
+        return "INSERT INTO positions (icao, seen, alt, lat, lon) VALUES (%i, datetime('now'), %i, %.6f, %.6f)" % (icao24, int(altitude), decoded_lat, decoded_lon)
     elif bdsreg == 0x09:
       subtype = data["bds09"].get_type()
       if subtype == 0:
-        [velocity, heading, vert_spd, turnrate] = air_modes.parseBDS09_0(data)
-        return "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")"
+        [velocity, heading, vert_spd, turnrate] = self.parseBDS09_0(data)
+        return "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (%i, datetime('now'), %.0f, %.0f, %.0f)" % (icao24, velocity, heading, vert_spd)
       elif subtype == 1:
-        [velocity, heading, vert_spd] = air_modes.parseBDS09_1(data)
-        return "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")"
+        [velocity, heading, vert_spd] = self.parseBDS09_1(data)
+        return "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (%i, datetime('now'), %.0f, %.0f, %.0f)" % (icao24, velocity, heading, vert_spd)
       else:
         raise NoHandlerError

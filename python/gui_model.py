@@ -25,6 +25,7 @@
 from PyQt4 import QtCore, QtGui
 import air_modes
 import threading, math, time
+from air_modes.exceptions import *
 
 #fades the ICAOs out as their last report gets older,
 #and display ident if available, ICAO otherwise
@@ -146,53 +147,58 @@ class dashboard_output(air_modes.parse):
         self.model = model
     def output(self, msg):
         [data, ecc, reference, timestamp] = msg.split()
-        data = air_modes.modes_reply(long(data, 16))
-        ecc = long(ecc, 16)
-        rssi = 10.*math.log10(float(reference))
-        msgtype = data["df"]
-        now = time.time()
-        newrow = {"rssi": rssi, "seen": now}
-        if msgtype in [0, 4, 20]:
-            newrow["altitude"] = air_modes.altitude.decode_alt(data["ac"], True)
-            newrow["icao"] = ecc
-            self.model.addRecord(newrow)
-        
-        elif msgtype == 17:
-            icao = data["aa"]
-            newrow["icao"] = icao
-            subtype = data["ftc"]
-            if subtype == 4:
-                (ident, actype) = self.parseBDS08(data)
-                newrow["ident"] = ident
-                newrow["type"] = actype
-            elif 5 <= subtype <= 8:
-                (ground_track, decoded_lat, decoded_lon, rnge, bearing) = self.parseBDS06(data)
-                newrow["heading"] = ground_track
-                newrow["latitude"] = decoded_lat
-                newrow["longitude"] = decoded_lon
-                newrow["altitude"] = 0
-                if rnge is not None:
-                    newrow["range"] = rnge
-                    newrow["bearing"] = bearing
-            elif 9 <= subtype <= 18:
-                (altitude, decoded_lat, decoded_lon, rnge, bearing) = self.parseBDS05(data)
-                newrow["altitude"] = altitude
-                newrow["latitude"] = decoded_lat
-                newrow["longitude"] = decoded_lon
-                if rnge is not None:
-                    newrow["range"] = rnge
-                    newrow["bearing"] = bearing
-            elif subtype == 19:
-                subsubtype = data["sub"]
-                velocity = None
-                heading = None
-                vert_spd = None
-                if subsubtype == 0:
-                    (velocity, heading, vert_spd) = self.parseBDS09_0(data)
-                elif 1 <= subsubtype <= 2:
-                    (velocity, heading, vert_spd) = self.parseBDS09_1(data)
-                newrow["speed"] = velocity
-                newrow["heading"] = heading
-                newrow["vertical"] = vert_spd
+        try:
+            data = air_modes.modes_reply(long(data, 16))
+            ecc = long(ecc, 16)
+            rssi = 10.*math.log10(float(reference))
+            msgtype = data["df"]
+            now = time.time()
+            newrow = {"rssi": rssi, "seen": now}
+            if msgtype in [0, 4, 20]:
+                newrow["altitude"] = air_modes.altitude.decode_alt(data["ac"], True)
+                newrow["icao"] = ecc
+                self.model.addRecord(newrow)
+            
+            elif msgtype == 17:
+                icao = data["aa"]
+                newrow["icao"] = icao
+                subtype = data["ftc"]
+                if subtype == 4:
+                    (ident, actype) = self.parseBDS08(data)
+                    newrow["ident"] = ident
+                    newrow["type"] = actype
+                elif 5 <= subtype <= 8:
+                    (ground_track, decoded_lat, decoded_lon, rnge, bearing) = self.parseBDS06(data)
+                    newrow["heading"] = ground_track
+                    newrow["latitude"] = decoded_lat
+                    newrow["longitude"] = decoded_lon
+                    newrow["altitude"] = 0
+                    if rnge is not None:
+                        newrow["range"] = rnge
+                        newrow["bearing"] = bearing
+                elif 9 <= subtype <= 18:
+                    (altitude, decoded_lat, decoded_lon, rnge, bearing) = self.parseBDS05(data)
+                    newrow["altitude"] = altitude
+                    newrow["latitude"] = decoded_lat
+                    newrow["longitude"] = decoded_lon
+                    if rnge is not None:
+                        newrow["range"] = rnge
+                        newrow["bearing"] = bearing
+                elif subtype == 19:
+                    subsubtype = data["sub"]
+                    velocity = None
+                    heading = None
+                    vert_spd = None
+                    if subsubtype == 0:
+                        (velocity, heading, vert_spd) = self.parseBDS09_0(data)
+                    elif 1 <= subsubtype <= 2:
+                        (velocity, heading, vert_spd) = self.parseBDS09_1(data)
+                    newrow["speed"] = velocity
+                    newrow["heading"] = heading
+                    newrow["vertical"] = vert_spd
+    
+                self.model.addRecord(newrow)
 
-            self.model.addRecord(newrow)
+        except ADSBError:
+            return
+

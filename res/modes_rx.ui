@@ -365,7 +365,7 @@
               </rect>
              </property>
              <property name="text">
-              <string>Raw</string>
+              <string>TCP</string>
              </property>
             </widget>
             <widget class="QLineEdit" name="line_kmlfilename">

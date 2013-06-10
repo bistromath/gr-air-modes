@@ -68,7 +68,7 @@ class modes_radio (gr.top_block, pubsub):
     #Publish messages when they come back off the queue
     server_addr = ["inproc://modes-radio-pub"]
     if options.tcp is not None:
-        server_addr += ["tcp://*:%i"] % options.tcp
+        server_addr += ["tcp://*:%i" % options.tcp]
 
     self._sender = air_modes.zmq_pubsub_iface(context, subaddr=None, pubaddr=server_addr)
     self._async_sender = gru.msgq_runner(self._queue, self.send)
@@ -83,7 +83,7 @@ class modes_radio (gr.top_block, pubsub):
     #Choose source
     group.add_option("-s","--source", type="string", default="uhd",
                       help="Choose source: uhd, osmocom, <filename>, or <ip:port> [default=%default]")
-    group.add_option("-t","--tcp", type="int", default=None,
+    group.add_option("-t","--tcp", type="int", default=None, metavar="PORT",
                       help="Open a TCP server on this port to publish reports")
 
     #UHD/Osmocom args

@@ -111,7 +111,7 @@ class output_sql(air_modes.parse, pubsub):
   def sql17(self, data):
     icao24 = data["aa"]
     bdsreg = data["me"].get_type()
-    self["bds%.2i" % bdsreg] = icao24 #publish
+    self["bds%.2i" % bdsreg] = icao24 #publish under "bds08", "bds06", etc.
 
     if bdsreg == 0x08:
       (msg, typename) = self.parseBDS08(data)

@@ -20,15 +20,17 @@
 # 
 
 import os, sys, time, threading, datetime, math, csv
+from optparse import OptionParser
 from PyQt4 import QtCore,QtGui
 from PyQt4.Qwt5 import Qwt
 from gnuradio import gr, gru, optfir, eng_notation, blks2
-import gnuradio.gr.gr_threading as _threading
+from gnuradio.eng_option import eng_option
 import air_modes
 from air_modes.exceptions import *
 from air_modes.modes_rx_ui import Ui_MainWindow
 from air_modes.gui_model import *
 import sqlite3
+import zmq
 
 class mainwindow(QtGui.QMainWindow):
     live_data_changed_signal = QtCore.pyqtSignal(QtCore.QString, name='liveDataChanged')
@@ -39,7 +41,7 @@ class mainwindow(QtGui.QMainWindow):
 
         #set defaults
         #add file, RTL, UHD sources
-        self.ui.combo_source.addItems(["UHD device", "RTL-SDR", "File"])
+        self.ui.combo_source.addItems(["UHD", "Osmocom", "File/UDP"])
         self.ui.combo_source.setCurrentIndex(0)
 
         #populate antenna, rate combo boxes based on source
@@ -51,8 +53,8 @@ class mainwindow(QtGui.QMainWindow):
         #default to 5dB
         self.ui.line_threshold.insert("5")
 
-        self.ui.prog_rssi.setMinimum(-40)
-        self.ui.prog_rssi.setMaximum(0)
+        self.ui.prog_rssi.setMinimum(0)
+        self.ui.prog_rssi.setMaximum(40)
 
         self.ui.combo_ant.setCurrentIndex(self.ui.combo_ant.findText("RX2"))
 
@@ -71,15 +73,12 @@ class mainwindow(QtGui.QMainWindow):
         self.ui.check_adsbonly.setCheckState(QtCore.Qt.Unchecked)
 
         self.queue = gr.msg_queue(10)
-        self.runner = None
-        self.fg = None
-        self.outputs = []
-        self.updates = []
-        self.output_handler = None
+        self.running = False
         self.kmlgen = None #necessary bc we stop its thread in shutdown
         self.dbname = "air_modes.db"
         self.num_reports = 0
         self.last_report = 0
+        self.context = zmq.Context(1)
 
         self.datamodel = dashboard_data_model(None)
         self.ui.list_aircraft.setModel(self.datamodel)
@@ -167,11 +166,11 @@ class mainwindow(QtGui.QMainWindow):
         self.ratetext = []
         self.antennas = []
         
-        if sourceid == "UHD device":
+        if sourceid == "UHD":
             try:
                 from gnuradio import uhd
                 self.src = uhd.single_usrp_source("", uhd.io_type_t.COMPLEX_FLOAT32, 1)
-                self.rates = [rate.start() for rate in self.src.get_samp_rates()]
+                self.rates = [rate.start() for rate in self.src.get_samp_rates() if (rate.start() % 2.e6) == 0]
                 self.antennas = self.src.get_antennas()
                 self.src = None #deconstruct UHD source for now
                 self.ui.combo_ant.setEnabled(True)
@@ -184,15 +183,25 @@ class mainwindow(QtGui.QMainWindow):
                 self.ui.combo_rate.setEnabled(False)
                 self.ui.stack_source.setCurrentIndex(0)
                 
-        elif sourceid == "RTL-SDR":
-            self.rates = [3.2e6]
-            self.antennas = ["RX"]
-            self.ui.combo_ant.setEnabled(False)
-            self.ui.combo_rate.setEnabled(False)
-            self.ui.stack_source.setCurrentIndex(0)
+        elif sourceid == "Osmocom":
+            try:
+                import osmosdr
+                self.src = osmosdr.source_c("")
+                self.rates = [rate.start() for rate in self.src.get_sample_rates() if (rate.start() % 2.e6) == 0]
+                self.antennas = ["RX"]
+                self.src = None
+                self.ui.combo_ant.setEnabled(False)
+                self.ui.combo_rate.setEnabled(True)
+                self.ui.stack_source.setCurrentIndex(0)
+            except:
+                self.rates = []
+                self.antennas = []
+                self.ui.combo_ant.setEnabled(False)
+                self.ui.combo_rate.setEnabled(False)
+                self.ui.stack_source.setCurrentIndex(0)
 
-        elif sourceid == "File":
-            self.rates = [2e6, 4e6, 6e6, 8e6, 10e6]
+        elif sourceid == "File/UDP":
+            self.rates = [2e6*i for i in range(2,13)]
             self.antennas = ["None"]
             self.ui.combo_ant.setEnabled(False)
             self.ui.combo_rate.setEnabled(True)
@@ -215,37 +224,36 @@ class mainwindow(QtGui.QMainWindow):
 
     def on_button_start_released(self):
         #if we're already running, kill it!
-        if self.runner is not None:
-            self.output_handler.done = True
-            self.output_handler = None
-            self.outputs = []
-            self.updates = []
-            self.fg.stop()
-            self.runner = None
-            self.fg = None
-            if self.kmlgen is not None:
-                self.kmlgen.done = True
-                #TODO FIXME need a way to kill kmlgen safely without delay
-                #self.kmlgen.join()
-                #self.kmlgen = None
+        if self.running is True:
+            self.on_quit()
 
             self.num_reports = 0
             self.ui.line_reports.setText("0")
 
             self.ui.button_start.setText("Start")
+            self.running = False
 
         else: #we aren't already running, let's get this party started
-            options = {}
-            options["source"] = str(self.ui.combo_source.currentText())
-            options["rate"] = float(self.ui.combo_rate.currentText()) * 1e6
-            options["antenna"] = str(self.ui.combo_ant.currentText())
-            options["gain"] = float(self.ui.line_gain.text())
-            options["threshold"] = float(self.ui.line_threshold.text())
-            options["filename"] = str(self.ui.line_inputfile.text())
-            options["pmf"] = self.ui.check_pmf.checkState()
+            parser = OptionParser(option_class=eng_option)
+            air_modes.modes_radio.add_radio_options(parser)
+            (options, args) = parser.parse_args() #sets defaults nicely
+            if str(self.ui.combo_source.currentText()) != "File/UDP":
+                options.source = str(self.ui.combo_source.currentText()).lower()
+            else:
+                options.source = str(self.ui.line_inputfile.text())
+            options.rate = float(self.ui.combo_rate.currentText()) * 1e6
+            options.antenna = str(self.ui.combo_ant.currentText())
+            options.gain = float(self.ui.line_gain.text())
+            options.threshold = float(self.ui.line_threshold.text())
+            options.pmf = self.ui.check_pmf.checkState()
 
-            self.fg = adsb_rx_block(options, self.queue) #create top RX block
-            self.runner = top_block_runner(self.fg) #spawn new thread to do RX
+            self._servers = ["inproc://modes-radio-pub"] #TODO ADD REMOTES
+            self._relay = air_modes.zmq_pubsub_iface(self.context, subaddr=self._servers, pubaddr=None)
+
+            if self.ui.check_raw.checkState():
+                options.tcp = int(self.ui.line_rawport.text())
+
+            self._radio = air_modes.modes_radio(options, self.context)
 
             try:
                 my_position = [float(self.ui.line_my_lat.text()), float(self.ui.line_my_lon.text())]
@@ -253,9 +261,8 @@ class mainwindow(QtGui.QMainWindow):
                 my_position = None
 
             self.datamodelout = dashboard_output(my_position, self.datamodel)
+            self._relay.subscribe("dl_data", self.datamodelout.output)
 
-            self.outputs = [self.datamodelout.output]
-            self.updates = []
             self.lock = threading.Lock() #grab a lock to ensure sql and kml don't step on each other
 
             #output options to populate outputs, updates
@@ -266,54 +273,43 @@ class mainwindow(QtGui.QMainWindow):
             if self.ui.check_sbs1.checkState():
                 sbs1port = int(self.ui.line_sbs1port.text())
                 sbs1out = air_modes.output_sbs1(my_position, sbs1port)
-                self.outputs.append(sbs1out.output)
-                self.updates.append(sbs1out.add_pending_conns)
+                self._relay.subscribe("dl_data", sbs1.output)
 
             if self.ui.check_fgfs.checkState():
                 fghost = "127.0.0.1" #TODO FIXME
                 fgport = self.ui.line_fgfsport.text()
                 fgout = air_modes.output_flightgear(my_position, fghost, int(fgport))
-                self.outputs.append(fgout.output)
-
-            if self.ui.check_raw.checkState():
-                rawport = air_modes.raw_server(int(self.ui.line_rawport.text()))
-                self.outputs.append(rawport.output)
-                self.updates.append(rawport.add_pending_conns)
+                self._relay.subscribe("dl_data", fgout.output)
 
             #add azimuth map output and hook it up
             if my_position is not None:
                 self.az_map_output = air_modes.az_map_output(my_position, self.az_model)
-                self.outputs.append(self.az_map_output.output)
+                self._relay.subscribe("dl_data", self.az_map_output.output)
 
             self.livedata = air_modes.output_print(my_position)
             #add output for live data box
-            self.outputs.append(self.output_live_data)
+            self._relay.subscribe("dl_data", self.output_live_data)
 
             #create SQL database for KML and dashboard displays
             self.dbwriter = air_modes.output_sql(my_position, self.dbname, self.lock)
-            self.outputs.append(self.dbwriter.output) #now the db will update itself
+            self._relay.subscribe("dl_data", self.dbwriter.insert) #now the db will update itself
 
             #output to update reports/sec widget
-            self.outputs.append(self.increment_reportspersec)
-            self.updates.append(self.update_reportspersec)
+            self._relay.subscribe("dl_data", self.increment_reportspersec)
+            #self.updates.append(self.update_reportspersec) #TODO FIXME
 
-            #create output handler thread
-            self.output_handler = output_handler(self.outputs, self.updates, self.queue)
+            #start the flowgraph
+            self._radio.start()
 
             self.ui.button_start.setText("Stop")
+            self.running = True
 
     def on_quit(self):
-        if self.runner is not None:
-            try:
-                self.output_handler.done = True
-            except:
-                pass
-            self.output_handler = None
-            self.outputs = []
-            self.updates = []
-            self.fg.stop()
-            self.runner = None
-            self.fg = None
+        if self.running is True:
+            self._relay.close()
+            self._radio.close()
+            self._relay = None
+            self._radio = None
             try:
                 self.kmlgen.done = True
                 #TODO FIXME need a way to kill kmlgen safely without delay
@@ -336,103 +332,12 @@ class mainwindow(QtGui.QMainWindow):
         self.ui.text_livedata.verticalScrollBar().setSliderPosition(self.ui.text_livedata.verticalScrollBar().maximum())
 
     def output_live_data(self, msg):
-        msgstr = self.livedata.parse(msg)
-        if msgstr is not None:
-            self.live_data_changed_signal.emit(msgstr)
-
-
-
-#the output handler is a thread which runs the various registered output functions when there's a received message.
-#it also executes registered updates at the sleep rate -- currently 10Hz.
-class output_handler(threading.Thread):
-    def __init__(self, outputs, updates, queue):
-        threading.Thread.__init__(self)
-        self.setDaemon(1)
-        self.outputs = outputs
-        self.updates = updates
-        self.queue = queue
-        self.done = False
-        self.start()
-
-    def run(self):
-        while self.done is False:
-            for update in self.updates:
-                update()
-            while not self.queue.empty_p():
-                msg = self.queue.delete_head()
-                for output in self.outputs:
-                    try:
-                        output(msg.to_string())
-                    except ADSBError:
-                        pass
-
-            time.sleep(0.1)
-
-        self.done = True
-        self.outputs = None
-        self.updates = None
-        self.queue = None
-        
-
-class top_block_runner(_threading.Thread):
-    def __init__(self, tb):
-        _threading.Thread.__init__(self)
-        self.setDaemon(1)
-        self.tb = tb
-        self.done = False
-        self.start()
-
-    def run(self):
-        self.tb.run()
-        self.done = True
-
-#Top block for ADSB receiver. If you define a standard interface you
-#can make this common code between the GUI app and the cmdline app
-class adsb_rx_block (gr.top_block):
-    def __init__(self, options, queue):
-        gr.top_block.__init__(self)
-
-        self.options = options
-        rate = options["rate"]
-        print "Rate: %f" % rate
-        use_resampler = False
-        freq = 1090e6
-
-        if options["source"] == "UHD device":
-            from gnuradio import uhd
-            self.u = uhd.single_usrp_source("", uhd.io_type_t.COMPLEX_FLOAT32, 1)
-            time_spec = uhd.time_spec(0.0)
-            self.u.set_time_now(time_spec)
-            self.u.set_antenna(options["antenna"])
-            self.u.set_samp_rate(rate)
-            rate = self.u.get_samp_rate()
-            self.u.set_gain(int(options["gain"]))
-            self.u.set_center_freq(freq, 0)
-        
-        elif options["source"] == "RTL-SDR":
-            import osmosdr
-            self.u = osmosdr.source_c()
-            self.u.set_sample_rate(3.2e6) #fixed for RTL dongles
-            rate = int(4e6)
-            self.u.set_gain_mode(0) #manual gain mode
-            self.u.set_gain(int(options["gain"]))
-            self.u.set_center_freq(freq, 0)
-            use_resampler = True
-
-        elif options["source"] == "File":
-            self.u = gr.file_source(gr.sizeof_gr_complex, options["filename"])
-        else:
-            raise NotImplementedError
-
-        self.rx_path = air_modes.rx_path(rate, options["threshold"], queue, options["pmf"])
-
-        if use_resampler:
-            self.lpfiltcoeffs = gr.firdes.low_pass(1, 5*3.2e6, 1.6e6, 300e3)
-            self.resample = blks2.rational_resampler_ccf(interpolation=5, decimation=4, taps=self.lpfiltcoeffs)
-            self.connect(self.u, self.resample, self.rx_path)
-        else:
-            self.connect(self.u, self.rx_path)
-
+        try:
+            msgstr = self.livedata.parse(msg)
+            if msgstr is not None:
+                self.live_data_changed_signal.emit(msgstr)
+        except ADSBError:
+            pass
 
 if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)

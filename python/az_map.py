@@ -26,6 +26,7 @@ from PyQt4 import QtCore, QtGui
 import threading
 import math
 import air_modes
+from air_modes.exceptions import *
 
 
 # model has max range vs. azimuth in n-degree increments
@@ -174,24 +175,27 @@ class az_map_output(air_modes.parse):
         self.model = model
         
     def output(self, msg):
-        [data, ecc, reference, timestamp] = msg.split()
-        data = air_modes.modes_reply(long(data, 16))
-        ecc = long(ecc, 16)
-        rssi = 10.*math.log10(float(reference))
-        msgtype = data["df"]
-        now = time.time()
+        try:
+            [data, ecc, reference, timestamp] = msg.split()
+            data = air_modes.modes_reply(long(data, 16))
+            ecc = long(ecc, 16)
+            rssi = 10.*math.log10(float(reference))
+            msgtype = data["df"]
+            now = time.time()
         
-        if msgtype == 17:
-            icao = data["aa"]
-            subtype = data["ftc"]
-            distance, altitude, bearing = [0,0,0]
-            if 5 <= subtype <= 8:
-                (ground_track, decoded_lat, decoded_lon, distance, bearing) = self.parseBDS06(data)
-                altitude = 0
-            elif 9 <= subtype <= 18:
-                (altitude, decoded_lat, decoded_lon, distance, bearing) = self.parseBDS05(data)
+            if msgtype == 17:
+                icao = data["aa"]
+                subtype = data["ftc"]
+                distance, altitude, bearing = [0,0,0]
+                if 5 <= subtype <= 8:
+                    (ground_track, decoded_lat, decoded_lon, distance, bearing) = self.parseBDS06(data)
+                    altitude = 0
+                elif 9 <= subtype <= 18:
+                    (altitude, decoded_lat, decoded_lon, distance, bearing) = self.parseBDS05(data)
 
-            self.model.addRecord(bearing, altitude, distance)
+                self.model.addRecord(bearing, altitude, distance)
+        except ADSBError:
+            pass
 
 
 ##############################

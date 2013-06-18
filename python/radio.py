@@ -181,7 +181,7 @@ class modes_radio (gr.top_block, pubsub):
         self._u.set_gain(40, "IF", 0)
         #self._u.set_gain(14, "BB", 0)
 ###DO NOT COMMIT
-        self._u.set_gain(options.gain)
+#        self._u.set_gain(options.gain)
         print "Gain is %i" % self._u.get_gain()
 
         #Note: this should only come into play if using an RTLSDR.

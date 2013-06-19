@@ -45,8 +45,10 @@ class output_print:
     if msg.data.get_type() not in self._fns:
       retstr = output_print.prefix(msg)
       retstr += "No handler for message type %i" % msg.data.get_type()
-      if "ap" in msg.data.fields:
-        retstr += " from %.6x" % msg.data["ap"]
+      if "aa" not in msg.data.fields:
+        retstr += " from %.6x" % msg.ecc
+      else:
+        retstr += " from %.6x" % msg.data["aa"]
       print retstr
       
   def handle0(self, msg):

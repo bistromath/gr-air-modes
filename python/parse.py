@@ -23,8 +23,8 @@ import time, os, sys
 from string import split, join
 from altitude import decode_alt
 import math
+import air_modes
 from air_modes.exceptions import *
-from air_modes import cpr
 
 #this implements a packet class which can retrieve its own fields.
 class data_field:
@@ -376,7 +376,7 @@ def parseBDS62(data):
 def parseMB_id(data): #bds1 == 2, bds2 == 0
   msg = ""
   for i in range(0, 8):
-    msg += self.charmap( data["ais"] >> (42-6*i) & 0x3F)
+    msg += charmap( data["ais"] >> (42-6*i) & 0x3F)
   return (msg)
 
 def parseMB_TCAS_resolutions(data):
@@ -406,15 +406,32 @@ def parseMB_TCAS_resolutions(data):
 def parseMB_TCAS_threatid(data): #bds1==3, bds2==0, TTI==1
   #3: {"bds1": (33,4), "bds2": (37,4), "ara": (41,14), "rac": (55,4), "rat": (59,1),
   #    "mte": (60,1), "tti": (61,2),  "tida": (63,13), "tidr": (76,7), "tidb": (83,6)}
-  (resolutions, complements) = self.parseMB_TCAS_resolutions(data)
+  (resolutions, complements) = parseMB_TCAS_resolutions(data)
   return (resolutions, complements, data["rat"], data["mte"], data["tid"])
 
 def parseMB_TCAS_threatloc(data): #bds1==3, bds2==0, TTI==2
-  (resolutions, complements) = self.parseMB_TCAS_resolutions(data)
+  (resolutions, complements) = parseMB_TCAS_resolutions(data)
   threat_alt = decode_alt(data["tida"], True)
   return (resolutions, complements, data["rat"], data["mte"], threat_alt, data["tidr"], data["tidb"])
 
 #type 16 Coordination Reply Message
 def parse_TCAS_CRM(data):
-  (resolutions, complements) = self.parseMB_TCAS_resolutions(data)
+  (resolutions, complements) = parseMB_TCAS_resolutions(data)
   return (resolutions, complements, data["rat"], data["mte"])
+
+#this decorator takes a pubsub and returns a function which parses and publishes messages
+def make_parser(pub):
+  publisher = pub
+  def publish(message):
+    [data, ecc, reference, timestamp] = message.split()
+    try:
+      ret = air_modes.modes_report(modes_reply(int(data, 16)),
+                                   int(ecc, 16),
+                                   20.0*math.log10(float(reference)),
+                                   air_modes.stamp(0, float(timestamp)))
+      pub["modes_dl"] = ret
+      pub["type%i_dl" % ret.data.get_type()] = ret
+    except ADSBError:
+      pass
+
+  return publish

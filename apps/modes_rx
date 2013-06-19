@@ -60,32 +60,14 @@ def main():
   if options.remote is not None:
     servers += options.remote.split(",")
   relay = air_modes.zmq_pubsub_iface(context, subaddr=servers, pubaddr=None)
-
-  #ok now relay is gonna get all those tasty strings
-  #internally we want to distribute parsed data instead, lighten the load
-  #TODO obviously this should go somewhere besides the main app. But where?
   publisher = pubsub()
-  def make_report(pub, message):
-    [data, ecc, reference, timestamp] = message.split()
-    try:
-        ret = air_modes.modes_report(air_modes.modes_reply(int(data, 16)),
-                                     int(ecc, 16),
-                                     20.0*math.log10(float(reference)),
-                                     air_modes.stamp(0, float(timestamp)))
-        pub["modes_dl"] = ret
-        pub["type%i_dl" % ret.data.get_type()] = ret
-    except ADSBError:
-        pass
-
-  send = lambda msg: make_report(publisher, msg)
-  
-  relay.subscribe("dl_data", send)
+  relay.subscribe("dl_data", air_modes.make_parser(publisher))
 
   if options.location is not None:
     my_position = [float(n) for n in options.location.split(",")]
 
   #CPR decoder obj to handle getting position from BDS0,5 and BDS0,6 pkts
-  cpr_dec = air_modes.cpr.cpr_decoder(my_position)
+  cpr_dec = air_modes.cpr_decoder(my_position)
 
   if options.kml is not None:
     dbname = 'adsb.db'

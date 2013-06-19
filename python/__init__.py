@@ -64,6 +64,7 @@ from exceptions import *
 from az_map import *
 from types import *
 from altitude import *
+from cpr import cpr_decoder
 #this is try/excepted in case the user doesn't have numpy installed
 try:
     from flightgear import output_flightgear

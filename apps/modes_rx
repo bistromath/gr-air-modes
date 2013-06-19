@@ -63,15 +63,21 @@ def main():
 
   #ok now relay is gonna get all those tasty strings
   #internally we want to distribute parsed data instead, lighten the load
+  #TODO obviously this should go somewhere besides the main app. But where?
   publisher = pubsub()
-  def send(message):
+  def make_report(pub, message):
     [data, ecc, reference, timestamp] = message.split()
     try:
-        ret = air_modes.modes_report(air_modes.modes_reply(int(data, 16)), int(ecc, 16), 20.0*math.log10(float(reference)), air_modes.stamp(0, float(timestamp)))
-        publisher["modes_dl"] = ret
-        publisher["type%i_dl" % ret.data.get_type()] = ret
+        ret = air_modes.modes_report(air_modes.modes_reply(int(data, 16)),
+                                     int(ecc, 16),
+                                     20.0*math.log10(float(reference)),
+                                     air_modes.stamp(0, float(timestamp)))
+        pub["modes_dl"] = ret
+        pub["type%i_dl" % ret.data.get_type()] = ret
     except ADSBError:
         pass
+
+  send = lambda msg: make_report(publisher, msg)
   
   relay.subscribe("dl_data", send)
 
@@ -84,12 +90,10 @@ def main():
   if options.kml is not None:
     dbname = 'adsb.db'
     lock = threading.Lock()
-    sqldb = air_modes.output_sql(my_position, dbname, lock) #input into the db
+    sqldb = air_modes.output_sql(cpr_dec, dbname, lock, publisher) #input into the db
     kmlgen = air_modes.output_kml(options.kml, dbname, my_position, lock) #create a KML generating thread to read from the db
-    relay.subscribe("dl_data", sqldb.insert)
 
   if options.no_print is not True:
-    #relay.subscribe("dl_data", air_modes.output_print(my_position).output)
     printer = air_modes.output_print(cpr_dec, publisher)
 
   if options.multiplayer is not None:
@@ -98,8 +102,7 @@ def main():
     relay.subscribe("dl_data", fgout.output)
 
   if options.sbs1 is True:
-    sbs1port = air_modes.output_sbs1(my_position, 30003)
-    relay.subscribe("dl_data", sbs1port.output)
+    sbs1port = air_modes.output_sbs1(cpr_dec, 30003, publisher)
 
   tb.run()
   tb.close()

@@ -47,9 +47,8 @@ class dumb_task_runner(threading.Thread):
         self.shutdown.set()
         self.finished.wait(self._interval)
 
-class output_sbs1(air_modes.parse):
-  def __init__(self, mypos, port):
-    air_modes.parse.__init__(self, mypos)
+class output_sbs1:
+  def __init__(self, cprdec, port, pub):
     self._s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self._s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     self._s.bind(('', port))
@@ -58,6 +57,13 @@ class output_sbs1(air_modes.parse):
     self._conns = [] #list of active connections
     self._aircraft_id_map = {} # dictionary of icao24 to aircraft IDs
     self._aircraft_id_count = 0 # Current Aircraft ID count
+
+    self._cpr = cprdec
+
+    #it could be cleaner if there were separate output_* fns
+    #but this works
+    for i in (0, 4, 5, 11, 17):
+        pub.subscribe("type%i_dl" % i, output)
 
     #spawn thread to add new connections as they come in
     self._runner = dumb_task_runner(self.add_pending_conns, 0.1)
@@ -124,35 +130,30 @@ class output_sbs1(air_modes.parse):
     else:
       return ",,,"
 
-  def parse(self, message):
+  def parse(self, msg):
     #assembles a SBS-1-style output string from the received message
 
-    [data, ecc, reference, timestamp] = message.split()
-
-    data = air_modes.modes_reply(long(data, 16))
-    ecc = long(ecc, 16)
-    msgtype = data["df"]
+    msgtype = msg.data["df"]
     outmsg = None
 
     if msgtype == 0:
-      outmsg = self.pp0(data, ecc)
+      outmsg = self.pp0(msg.data, msg.ecc)
     elif msgtype == 4:
-      outmsg = self.pp4(data, ecc)
+      outmsg = self.pp4(msg.data, msg.ecc)
     elif msgtype == 5:
-      outmsg = self.pp5(data, ecc)
+      outmsg = self.pp5(msg.data, msg.ecc)
     elif msgtype == 11:
-      outmsg = self.pp11(data, ecc)
+      outmsg = self.pp11(msg.data, msg.ecc)
     elif msgtype == 17:
-      outmsg = self.pp17(data)
+      outmsg = self.pp17(msg.data)
     else:
       raise NoHandlerError(msgtype)
     return outmsg
 
   def pp0(self, shortdata, ecc):
     [datestr, timestr] = self.current_time()
-    [vs, cc, sl, ri, altitude] = self.parse0(shortdata)
     aircraft_id = self.get_aircraft_id(ecc)
-    retstr = "MSG,7,0,%i,%06X,%i,%s,%s,%s,%s,,%s,,,,,,,,,," % (aircraft_id, ecc, aircraft_id+100, datestr, timestr, datestr, timestr, altitude)
+    retstr = "MSG,7,0,%i,%06X,%i,%s,%s,%s,%s,,%s,,,,,,,,,," % (aircraft_id, ecc, aircraft_id+100, datestr, timestr, datestr, timestr, air_modes.decode_alt(shortdata["ac"], True))
     if vs:
       retstr += "1\r\n"
     else:
@@ -161,23 +162,20 @@ class output_sbs1(air_modes.parse):
 
   def pp4(self, shortdata, ecc):
     [datestr, timestr] = self.current_time()
-    [fs, dr, um, altitude] = self.parse4(shortdata)
     aircraft_id = self.get_aircraft_id(ecc)
-    retstr = "MSG,5,0,%i,%06X,%i,%s,%s,%s,%s,,%s,,,,,,," % (aircraft_id, ecc, aircraft_id+100, datestr, timestr, datestr, timestr, altitude)
-    return retstr + self.decode_fs(fs) + "\r\n"
+    retstr = "MSG,5,0,%i,%06X,%i,%s,%s,%s,%s,,%s,,,,,,," % (aircraft_id, ecc, aircraft_id+100, datestr, timestr, datestr, timestr, air_modes.decode_alt(shortdata["ac"], True))
+    return retstr + self.decode_fs(shortdata["fs"]) + "\r\n"
 
   def pp5(self, shortdata, ecc):
     [datestr, timestr] = self.current_time()
-    [fs, dr, um, ident] = self.parse5(shortdata)
     aircraft_id = self.get_aircraft_id(ecc)
-    retstr = "MSG,6,0,%i,%06X,%i,%s,%s,%s,%s,,,,,,,,%04i," % (aircraft_id, ecc, aircraft_id+100, datestr, timestr, datestr, timestr, ident)
-    return retstr + self.decode_fs(fs) + "\r\n"
+    retstr = "MSG,6,0,%i,%06X,%i,%s,%s,%s,%s,,,,,,,,%04i," % (aircraft_id, ecc, aircraft_id+100, datestr, timestr, datestr, timestr, air_modes.decode_id(shortdata["id"]))
+    return retstr + self.decode_fs(shortdata["fs"]) + "\r\n"
 
   def pp11(self, shortdata, ecc):
     [datestr, timestr] = self.current_time()
-    [icao24, interrogator, ca] = self.parse11(shortdata, ecc)
     aircraft_id = self.get_aircraft_id(icao24)
-    return "MSG,8,0,%i,%06X,%i,%s,%s,%s,%s,,,,,,,,,,,,\r\n" % (aircraft_id, icao24, aircraft_id+100, datestr, timestr, datestr, timestr)
+    return "MSG,8,0,%i,%06X,%i,%s,%s,%s,%s,,,,,,,,,,,,\r\n" % (aircraft_id, shortdata["aa"], aircraft_id+100, datestr, timestr, datestr, timestr)
 
   def pp17(self, data):
     icao24 = data["aa"]
@@ -191,12 +189,12 @@ class output_sbs1(air_modes.parse):
 
     if bdsreg == 0x08:
       # Aircraft Identification
-      (msg, typestring) = self.parseBDS08(data)
+      (msg, typestring) = air_modes.parseBDS08(data)
       retstr = "MSG,1,0,%i,%06X,%i,%s,%s,%s,%s,%s,,,,,,,,,,,\r\n" % (aircraft_id, icao24, aircraft_id+100, datestr, timestr, datestr, timestr, msg)
 
     elif bdsreg == 0x06:
       # Surface position measurement
-      [ground_track, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(data)
+      [ground_track, decoded_lat, decoded_lon, rnge, bearing] = air_modes.parseBDS06(data, self._cpr)
       altitude = 0
       if decoded_lat is None: #no unambiguously valid position available
         retstr = None
@@ -206,7 +204,7 @@ class output_sbs1(air_modes.parse):
     elif bdsreg == 0x05:
       # Airborne position measurements
       # WRONG (rnge, bearing), is this still true?
-      [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(data)
+      [altitude, decoded_lat, decoded_lon, rnge, bearing] = air_modes.parseBDS05(data, self._cpr)
       if decoded_lat is None: #no unambiguously valid position available
         retstr = None
       else:
@@ -217,7 +215,7 @@ class output_sbs1(air_modes.parse):
       # WRONG (heading, vert_spd), Is this still true?
       subtype = data["bds09"].get_type()
       if subtype == 0 or subtype == 1:
-        parser = self.parseBDS09_0 if subtype == 0 else self.parseBDS09_1
+        parser = air_modes.parseBDS09_0 if subtype == 0 else air_modes.parseBDS09_1
         [velocity, heading, vert_spd] = parser(data)
         retstr = "MSG,4,0,%i,%06X,%i,%s,%s,%s,%s,,,%.1f,%.1f,,,%i,,,,,\r\n" % (aircraft_id, icao24, aircraft_id+100, datestr, timestr, datestr, timestr, velocity, heading, vert_spd)
 

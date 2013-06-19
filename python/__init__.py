@@ -55,22 +55,22 @@ from rx_path import rx_path
 from zmq_socket import zmq_pubsub_iface
 from parse import *
 from msprint import output_print
-#from sql import output_sql
-#from sbs1 import output_sbs1
-#from kml import output_kml
-#from raw_server import raw_server
+from sql import output_sql
+from sbs1 import output_sbs1
+from kml import output_kml
+from raw_server import raw_server
 from radio import modes_radio
 from exceptions import *
-#from az_map import *
+from az_map import *
 from types import *
 from altitude import *
 #this is try/excepted in case the user doesn't have numpy installed
-#try:
-#    from flightgear import output_flightgear
-#    from Quaternion import *
-#except ImportError:
-#    print "gr-air-modes warning: numpy+scipy not installed, FlightGear interface not supported"
-#    pass
+try:
+    from flightgear import output_flightgear
+    from Quaternion import *
+except ImportError:
+    print "gr-air-modes warning: numpy+scipy not installed, FlightGear interface not supported"
+    pass
 
 # ----------------------------------------------------------------
 # Tail of workaround

@@ -26,11 +26,10 @@ import sqlite3
 from air_modes.exceptions import *
 from gnuradio.gr.pubsub import pubsub
 
-class output_sql(air_modes.parse, pubsub):
-  def __init__(self, mypos, filename, lock):
-    air_modes.parse.__init__(self, mypos)
-    pubsub.__init__(self)
-
+class output_sql:
+  def __init__(self, cpr, filename, lock, publisher):
+    #pubsub.__init__(self)
+    self._cpr = cpr
     self._lock = lock;
     #create the database
     self.filename = filename
@@ -63,6 +62,7 @@ class output_sql(air_modes.parse, pubsub):
     #we close the db conn now to reopen it in the output() thread context.
     self._db.close()
     self._db = None
+    publisher.subscribe("type17_dl", self.insert)
 
   def insert(self, message):
     with self._lock:
@@ -84,19 +84,14 @@ class output_sql(air_modes.parse, pubsub):
       except ADSBError:
         pass
 
-  def make_insert_query(self, message):
+  def make_insert_query(self, msg):
     #assembles a SQL query tailored to our database
     #this version ignores anything that isn't Type 17 for now, because we just don't care
-    [data, ecc, reference, timestamp] = message.split()
-
-    data = air_modes.modes_reply(long(data, 16))
-    ecc = long(ecc, 16)
-#   reference = float(reference)
     query = None
-    msgtype = data["df"]
+    msgtype = msg.data["df"]
     if msgtype == 17:
-      query = self.sql17(data)
-      self["new_adsb"] = data["aa"] #publish change notification
+      query = self.sql17(msg.data)
+      #self["new_adsb"] = data["aa"] #publish change notification
 
     return query
 
@@ -111,20 +106,20 @@ class output_sql(air_modes.parse, pubsub):
   def sql17(self, data):
     icao24 = data["aa"]
     bdsreg = data["me"].get_type()
-    self["bds%.2i" % bdsreg] = icao24 #publish under "bds08", "bds06", etc.
+    #self["bds%.2i" % bdsreg] = icao24 #publish under "bds08", "bds06", etc.
 
     if bdsreg == 0x08:
-      (msg, typename) = self.parseBDS08(data)
+      (msg, typename) = air_modes.parseBDS08(data)
       return "INSERT OR REPLACE INTO ident (icao, ident) VALUES (" + "%i" % icao24 + ", '" + msg + "')"
     elif bdsreg == 0x06:
-      [ground_track, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(data)
+      [ground_track, decoded_lat, decoded_lon, rnge, bearing] = air_modes.parseBDS06(data, self._cpr)
       altitude = 0
       if decoded_lat is None: #no unambiguously valid position available
         raise CPRNoPositionError
       else:
         return "INSERT INTO positions (icao, seen, alt, lat, lon) VALUES (" + "%i" % icao24 + ", datetime('now'), " + str(altitude) + ", " + "%.6f" % decoded_lat + ", " + "%.6f" % decoded_lon + ")"
     elif bdsreg == 0x05:
-      [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(data)
+      [altitude, decoded_lat, decoded_lon, rnge, bearing] = air_modes.parseBDS05(data, self._cpr)
       if decoded_lat is None: #no unambiguously valid position available
         raise CPRNoPositionError
       else:
@@ -132,10 +127,10 @@ class output_sql(air_modes.parse, pubsub):
     elif bdsreg == 0x09:
       subtype = data["bds09"].get_type()
       if subtype == 0:
-        [velocity, heading, vert_spd, turnrate] = self.parseBDS09_0(data)
+        [velocity, heading, vert_spd, turnrate] = air_modes.parseBDS09_0(data)
         return "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")"
       elif subtype == 1:
-        [velocity, heading, vert_spd] = self.parseBDS09_1(data)
+        [velocity, heading, vert_spd] = air_modes.parseBDS09_1(data)
         return "INSERT INTO vectors (icao, seen, speed, heading, vertical) VALUES (" + "%i" % icao24 + ", datetime('now'), " + "%.0f" % velocity + ", " + "%.0f" % heading + ", " + "%.0f" % vert_spd + ")"
       else:
         raise NoHandlerError

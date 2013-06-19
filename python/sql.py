@@ -77,7 +77,6 @@ class output_sql:
         query = self.make_insert_query(message)
         if query is not None:
             c = self._db.cursor()
-            print query
             c.execute(query)
             c.close()
 #            self._db.commit()

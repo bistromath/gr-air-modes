@@ -98,8 +98,7 @@ def main():
 
   if options.multiplayer is not None:
     [fghost, fgport] = options.multiplayer.split(':')
-    fgout = air_modes.output_flightgear(my_position, fghost, int(fgport))
-    relay.subscribe("dl_data", fgout.output)
+    fgout = air_modes.output_flightgear(cpr_dec, fghost, int(fgport), publisher)
 
   if options.sbs1 is True:
     sbs1port = air_modes.output_sbs1(cpr_dec, 30003, publisher)

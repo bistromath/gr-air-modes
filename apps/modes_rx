@@ -20,10 +20,12 @@
 # 
 
 from gnuradio.eng_option import eng_option
+from gnuradio.gr.pubsub import pubsub
 from optparse import OptionParser
-import time, os, sys, threading
+import time, os, sys, threading, math
 from string import split, join
 import air_modes
+from air_modes.types import *
 from air_modes.exceptions import *
 import zmq
 
@@ -31,26 +33,25 @@ import zmq
 def main():
   my_position = None
   usage = "%prog: [options]"
-  parser = OptionParser(option_class=eng_option, usage=usage)
-  air_modes.modes_radio.add_radio_options(parser)
+  optparser = OptionParser(option_class=eng_option, usage=usage)
+  air_modes.modes_radio.add_radio_options(optparser)
 
-  parser.add_option("-l","--location", type="string", default=None,
-                      help="GPS coordinates of receiving station in format xx.xxxxx,xx.xxxxx")
+  optparser.add_option("-l","--location", type="string", default=None,
+                       help="GPS coordinates of receiving station in format xx.xxxxx,xx.xxxxx")
   #data source options
-  parser.add_option("-a","--remote", type="string", default=None,
-                      help="specify additional servers from which to take data in format tcp://x.x.x.x:y,tcp://....")
-  parser.add_option("-n","--no-print", action="store_true", default=False,
-                      help="disable printing decoded packets to stdout")
+  optparser.add_option("-a","--remote", type="string", default=None,
+                       help="specify additional servers from which to take data in format tcp://x.x.x.x:y,tcp://....")
+  optparser.add_option("-n","--no-print", action="store_true", default=False,
+                       help="disable printing decoded packets to stdout")
   #output plugins
-  parser.add_option("-K","--kml", type="string", default=None,
-                      help="filename for Google Earth KML output")
-  parser.add_option("-P","--sbs1", action="store_true", default=False,
-                      help="open an SBS-1-compatible server on port 30003")
-  parser.add_option("-m","--multiplayer", type="string", default=None,
-                      help="FlightGear server to send aircraft data, in format host:port")
+  optparser.add_option("-K","--kml", type="string", default=None,
+                       help="filename for Google Earth KML output")
+  optparser.add_option("-P","--sbs1", action="store_true", default=False,
+                       help="open an SBS-1-compatible server on port 30003")
+  optparser.add_option("-m","--multiplayer", type="string", default=None,
+                       help="FlightGear server to send aircraft data, in format host:port")
 
-
-  (options, args) = parser.parse_args()
+  (options, args) = optparser.parse_args()
 
   #construct the radio
   context = zmq.Context(1)
@@ -59,6 +60,20 @@ def main():
   if options.remote is not None:
     servers += options.remote.split(",")
   relay = air_modes.zmq_pubsub_iface(context, subaddr=servers, pubaddr=None)
+
+  #ok now relay is gonna get all those tasty strings
+  #internally we want to distribute parsed data instead, lighten the load
+  publisher = pubsub()
+  def send(message):
+    [data, ecc, reference, timestamp] = message.split()
+    try:
+        ret = air_modes.modes_report(air_modes.modes_reply(int(data, 16)), int(ecc, 16), 20.0*math.log10(float(reference)), air_modes.stamp(0, float(timestamp)))
+        publisher["modes_dl"] = ret
+        publisher["type%i_dl" % ret.data.get_type()] = ret
+    except ADSBError:
+        pass
+  
+  relay.subscribe("dl_data", send)
 
   if options.location is not None:
     my_position = [float(n) for n in options.location.split(",")]
@@ -71,7 +86,8 @@ def main():
     relay.subscribe("dl_data", sqldb.insert)
 
   if options.no_print is not True:
-    relay.subscribe("dl_data", air_modes.output_print(my_position).output)
+    #relay.subscribe("dl_data", air_modes.output_print(my_position).output)
+    printer = air_modes.output_print(my_position, publisher)
 
   if options.multiplayer is not None:
     [fghost, fgport] = options.multiplayer.split(':')

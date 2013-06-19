@@ -25,122 +25,102 @@ import air_modes
 from air_modes.exceptions import *
 import math
 
-class output_print(air_modes.parse):
-  def __init__(self, mypos):
-      air_modes.parse.__init__(self, mypos)
+#TODO get rid of class and convert to functions
+#no need for class here
+class output_print:
+  def __init__(self, mypos, publisher):
+    #self._cpr = air_modes.cpr_decoder(mypos)
+    #sub to every function that starts with "print"
+    self._fns = [int(l[6:]) for l in dir(self) if l.startswith("handle")]
+    for i in self._fns:
+      publisher.subscribe("type%i_dl" % i, getattr(self, "handle%i" % i))
+    
+    publisher.subscribe("modes_dl", self.catch_nohandler)
+
+  @staticmethod
+  def prefix(msg):
+    return "(%i %.8f) " % (msg.rssi, msg.timestamp)
+
+  def catch_nohandler(self, msg):
+    if msg.data.get_type() not in self._fns:
+      retstr = output_print.prefix(msg)
+      retstr += "No handler for message type %i" % msg.data.get_type()
+      if "ap" in msg.data.fields:
+        retstr += " from %.6x" % msg.data["ap"]
+      print retstr
       
-  def parse(self, message):
-    [data, ecc, reference, timestamp] = message.split()
-
-    ecc = long(ecc, 16)
-    reference = float(reference)
-    timestamp = float(timestamp)
-
-    if reference == 0.0:
-      refdb = -150.0
-    else:
-      refdb = 20.0*math.log10(reference)
-    output = "(%.0f %.10f) " % (refdb, timestamp);
-
+  def handle0(self, msg):
     try:
-      data = air_modes.modes_reply(long(data, 16))
-      msgtype = data["df"]
-      if msgtype == 0:
-        output += self.print0(data, ecc)
-      elif msgtype == 4:
-        output += self.print4(data, ecc)
-      elif msgtype == 5:
-        output += self.print5(data, ecc)
-      elif msgtype == 11:
-        output += self.print11(data, ecc)
-      elif msgtype == 17:
-        output += self.print17(data)
-      elif msgtype == 20 or msgtype == 21 or msgtype == 16:
-        output += self.printTCAS(data, ecc)
+      retstr = output_print.prefix(msg)
+      retstr += "Type 0 (short A-A surveillance) from %x at %ift" % (msg.ecc, air_modes.decode_alt(msg.data["ac"], True))
+      ri = msg.data["ri"]
+      if ri == 0:
+        retstr += " (No TCAS)"
+      elif ri == 2:
+        retstr += " (TCAS resolution inhibited)"
+      elif ri == 3:
+        retstr += " (Vertical TCAS resolution only)"
+      elif ri == 4:
+        retstr += " (Full TCAS resolution)"
+      elif ri == 9:
+        retstr += " (speed <75kt)"
+      elif ri > 9:
+        retstr += " (speed %i-%ikt)" % (75 * (1 << (ri-10)), 75 * (1 << (ri-9)))
       else:
-        output += "No handler for message type %i from %x (but it's in modes_parse)" % (msgtype, ecc)
-      return output
-    except NoHandlerError as e:
-      output += "No handler for message type %s from %x" % (e.msgtype, ecc)
-      return output
-    except MetricAltError:
-      pass
-    except CPRNoPositionError:
-      pass
+        raise ADSBError
 
-  def output(self, msg):
-      try:
-        parsed = self.parse(msg)
-        if parsed is not None:
-          print self.parse(msg)
-      except ADSBError:
-        pass
+    except ADSBError:
+        return
 
-  def print0(self, shortdata, ecc):
-    [vs, cc, sl, ri, altitude] = self.parse0(shortdata)
-	
-    retstr = "Type 0 (short A-A surveillance) from %x at %ift" % (ecc, altitude)
-    if ri == 0:
-      retstr += " (No TCAS)"
-    elif ri == 2:
-      retstr += " (TCAS resolution inhibited)"
-    elif ri == 3:
-      retstr += " (Vertical TCAS resolution only)"
-    elif ri == 4:
-      retstr += " (Full TCAS resolution)"
-    elif ri == 9:
-      retstr += " (speed <75kt)"
-    elif ri > 9:
-      retstr += " (speed %i-%ikt)" % (75 * (1 << (ri-10)), 75 * (1 << (ri-9)))
-
-    if vs is True:
+    if msg.data["vs"] is 1:
       retstr += " (aircraft is on the ground)"
 
-    return retstr
+    print retstr
 
-  def print4(self, shortdata, ecc):
-
-    [fs, dr, um, altitude] = self.parse4(shortdata)
-
-    retstr = "Type 4 (short surveillance altitude reply) from %x at %ift" % (ecc, altitude)
-
+  @staticmethod
+  def fs_text(fs):
     if fs == 1:
-      retstr += " (aircraft is on the ground)"
+      return " (aircraft is on the ground)"
     elif fs == 2:
-      retstr += " (AIRBORNE ALERT)"
+      return " (AIRBORNE ALERT)"
     elif fs == 3:
-      retstr += " (GROUND ALERT)"
+      return " (GROUND ALERT)"
     elif fs == 4:
-      retstr += " (SPI ALERT)"
+      return " (SPI ALERT)"
     elif fs == 5:
-      retstr += " (SPI)"
+      return " (SPI)"
+    else:
+      raise ADSBError
 
-    return retstr
+  def handle4(self, msg):
+    try:
+      retstr = output_print.prefix(msg)
+      retstr += "Type 4 (short surveillance altitude reply) from %x at %ift" % (msg.ecc, air_modes.decode_alt(msg.data["ac"], True))
+      retstr += output_print.fs_text(msg.data["fs"])    
+    except ADSBError:
+      return
+    print retstr
 
-  def print5(self, shortdata, ecc):
-    [fs, dr, um, ident] = self.parse5(shortdata)
+  def handle5(self, msg):
+    try:
+      retstr = output_print.prefix(msg)
+      retstr += "Type 5 (short surveillance ident reply) from %x with ident %i" % (msg.ecc, air_modes.decode_id(msg.data["id"]))
+      retstr += output_print.fs_text(msg.data["fs"])
+    except ADSBError:
+      return
+    print retstr
 
-    retstr = "Type 5 (short surveillance ident reply) from %x with ident %i" % (ecc, ident)
+  def handle11(self, msg):
+    try:
+      retstr = output_print.prefix(msg)
+      retstr += "Type 11 (all call reply) from %x in reply to interrogator %i with capability level %i" % (msg.data["aa"], msg.ecc & 0xF, msg.data["ca"]+1)
+    except ADSBError:
+      return
+    print retstr
 
-    if fs == 1:
-      retstr += " (aircraft is on the ground)"
-    elif fs == 2:
-      retstr += " (AIRBORNE ALERT)"
-    elif fs == 3:
-      retstr += " (GROUND ALERT)"
-    elif fs == 4:
-      retstr += " (SPI ALERT)"
-    elif fs == 5:
-      retstr += " (SPI)"
-
-    return retstr
-
-  def print11(self, data, ecc):
-    [icao24, interrogator, ca] = self.parse11(data, ecc)
-    retstr = "Type 11 (all call reply) from %x in reply to interrogator %i with capability level %i" % (icao24, interrogator, ca+1)
-    return retstr
-
-  def print17(self, data):
+  #the only one which requires state
+  def handle17(self, data):
+    return
     icao24 = data["aa"]
     bdsreg = data["me"].get_type()
 
@@ -189,7 +169,8 @@ class output_print(air_modes.parse):
 
     return retstr
 
-  def printTCAS(self, data, ecc):
+  def printTCAS(self, msg):
+    return
     msgtype = data["df"]
     if msgtype == 20 or msgtype == 16:
       #type 16 does not have fs, dr, um but we get alt here
@@ -244,3 +225,7 @@ class output_print(air_modes.parse):
       retstr += " ident %x" % ident
       
     return retstr
+
+  handle16 = printTCAS
+  handle20 = printTCAS
+  handle21 = printTCAS

@@ -254,199 +254,167 @@ def decode_id(id):
    
   return (a * 1000) + (b * 100) + (c * 10) + d
 
-class parse:
-  def __init__(self, mypos):
-      self.my_location = mypos
-      self.cpr = cpr.cpr_decoder(self.my_location)
-    
-  def parse0(self, data):
-    altitude = decode_alt(data["ac"], True)
-    return [data["vs"], data["cc"], data["sl"], data["ri"], altitude]
+#decode ident squawks
+def charmap(self, d):
+  if d > 0 and d < 27:
+    retval = chr(ord("A")+d-1)
+  elif d == 32:
+    retval = " "
+  elif d > 47 and d < 58:
+    retval = chr(ord("0")+d-48)
+  else:
+    retval = " "
 
-  def parse4(self, data):
-    altitude = decode_alt(data["ac"], True)
-    return [data["fs"], data["dr"], data["um"], altitude]
+  return retval
 
-  def parse5(self, data):
-    squawk = decode_id(data["id"])
-    return [data["fs"], data["dr"], data["um"], squawk]
-
-  def parse11(self, data, ecc):
-    interrogator = ecc & 0x0F
-    return [data["aa"], interrogator, data["ca"]]    
-
+def parseBDS08(self, data):
   categories = [["NO INFO", "RESERVED", "RESERVED", "RESERVED", "RESERVED", "RESERVED", "RESERVED", "RESERVED"],\
                 ["NO INFO", "SURFACE EMERGENCY VEHICLE", "SURFACE SERVICE VEHICLE", "FIXED OBSTRUCTION", "CLUSTER OBSTRUCTION", "LINE OBSTRUCTION", "RESERVED"],\
                 ["NO INFO", "GLIDER", "BALLOON/BLIMP", "PARACHUTE", "ULTRALIGHT", "RESERVED", "UAV", "SPACECRAFT"],\
                 ["NO INFO", "LIGHT", "SMALL", "LARGE", "LARGE HIGH VORTEX", "HEAVY", "HIGH PERFORMANCE", "ROTORCRAFT"]]
 
-  def parseBDS08(self, data):
-    catstring = self.categories[data["ftc"]-1][data["cat"]]
+  catstring = categories[data["ftc"]-1][data["cat"]]
 
-    msg = ""
-    for i in range(0, 8):
-      msg += self.charmap(data["ident"] >> (42-6*i) & 0x3F)
-    return (msg, catstring)
+  msg = ""
+  for i in range(0, 8):
+    msg += charmap(data["ident"] >> (42-6*i) & 0x3F)
+  return (msg, catstring)
 
-  def charmap(self, d):
-    if d > 0 and d < 27:
-      retval = chr(ord("A")+d-1)
-    elif d == 32:
-      retval = " "
-    elif d > 47 and d < 58:
-      retval = chr(ord("0")+d-48)
-    else:
-      retval = " "
+#NOTE: this is stateful -- requires CPR decoder
+def parseBDS05(self, data, cpr):
+  altitude = decode_alt(data["alt"], False)
+  [decoded_lat, decoded_lon, rnge, bearing] = cpr.decode(data["aa"], data["lat"], data["lon"], data["cpr"], 0)
+  return [altitude, decoded_lat, decoded_lon, rnge, bearing]
 
-    return retval
+#NOTE: this is stateful -- requires CPR decoder
+def parseBDS06(self, data, cpr):
+  ground_track = data["gtk"] * 360. / 128
+  [decoded_lat, decoded_lon, rnge, bearing] = cpr.decode(data["aa"], data["lat"], data["lon"], data["cpr"], 1)
+  return [ground_track, decoded_lat, decoded_lon, rnge, bearing]
 
-  def parseBDS05(self, data):
-    icao24 = data["aa"]
-
-    encoded_lon = data["lon"]
-    encoded_lat = data["lat"]
-    cpr_format = data["cpr"]
-    altitude = decode_alt(data["alt"], False)
-
-    [decoded_lat, decoded_lon, rnge, bearing] = self.cpr.decode(icao24, encoded_lat, encoded_lon, cpr_format, 0)
-
-    return [altitude, decoded_lat, decoded_lon, rnge, bearing]
-
-
-  #welp turns out it looks like there's only 17 bits in the BDS0,6 ground packet after all.
-  def parseBDS06(self, data):
-    icao24 = data["aa"]
- 
-    encoded_lon = data["lon"]
-    encoded_lat = data["lat"]
-    cpr_format = data["cpr"]
-    ground_track = data["gtk"] * 360. / 128
-    [decoded_lat, decoded_lon, rnge, bearing] = self.cpr.decode(icao24, encoded_lat, encoded_lon, cpr_format, 1)
-    return [ground_track, decoded_lat, decoded_lon, rnge, bearing]
-
-  def parseBDS09_0(self, data):
-    #0: ["sub", "dew", "vew", "dns", "vns", "str", "tr", "svr", "vr"],
-    vert_spd = data["vr"] * 32
-    ud = bool(data["dvr"])
-    if ud:
-      vert_spd = 0 - vert_spd
-    turn_rate = data["tr"] * 15/62
-    rl = data["str"]
-    if rl:
-      turn_rate = 0 - turn_rate
-    ns_vel = data["vns"] - 1
-    ns = bool(data["dns"])
-    ew_vel = data["vew"] - 1
-    ew = bool(data["dew"])
+def parseBDS09_0(self, data):
+  #0: ["sub", "dew", "vew", "dns", "vns", "str", "tr", "svr", "vr"],
+  vert_spd = data["vr"] * 32
+  ud = bool(data["dvr"])
+  if ud:
+    vert_spd = 0 - vert_spd
+  turn_rate = data["tr"] * 15/62
+  rl = data["str"]
+  if rl:
+    turn_rate = 0 - turn_rate
+  ns_vel = data["vns"] - 1
+  ns = bool(data["dns"])
+  ew_vel = data["vew"] - 1
+  ew = bool(data["dew"])
     
-    velocity = math.hypot(ns_vel, ew_vel)
-    if ew:
-      ew_vel = 0 - ew_vel
-    if ns:
-      ns_vel = 0 - ns_vel
-    heading = math.atan2(ew_vel, ns_vel) * (180.0 / math.pi)
-    if heading < 0:
-      heading += 360
+  velocity = math.hypot(ns_vel, ew_vel)
+  if ew:
+    ew_vel = 0 - ew_vel
+  if ns:
+    ns_vel = 0 - ns_vel
+  heading = math.atan2(ew_vel, ns_vel) * (180.0 / math.pi)
+  if heading < 0:
+    heading += 360
 
-    return [velocity, heading, vert_spd, turn_rate]
+  return [velocity, heading, vert_spd, turn_rate]
 
-  def parseBDS09_1(self, data):
-    #1: ["sub", "icf", "ifr", "nuc", "dew", "vew", "dns", "vns", "vrsrc", "dvr", "vr", "dhd", "hd"],
-    alt_geo_diff = data["hd"] * 25
-    above_below = bool(data["dhd"])
-    if above_below:
-      alt_geo_diff = 0 - alt_geo_diff;
-    vert_spd = float(data["vr"] - 1) * 64
-    ud = bool(data["dvr"])
-    if ud:
-      vert_spd = 0 - vert_spd
-    vert_src = bool(data["vrsrc"])
-    ns_vel = float(data["vns"])
-    ns = bool(data["dns"])
-    ew_vel = float(data["vew"])
-    ew = bool(data["dew"])
-    subtype = data["sub"]
-    if subtype == 0x02:
-      ns_vel <<= 2
-      ew_vel <<= 2
+def parseBDS09_1(self, data):
+  #1: ["sub", "icf", "ifr", "nuc", "dew", "vew", "dns", "vns", "vrsrc", "dvr", "vr", "dhd", "hd"],
+  alt_geo_diff = data["hd"] * 25
+  above_below = bool(data["dhd"])
+  if above_below:
+    alt_geo_diff = 0 - alt_geo_diff;
+  vert_spd = float(data["vr"] - 1) * 64
+  ud = bool(data["dvr"])
+  if ud:
+    vert_spd = 0 - vert_spd
+  vert_src = bool(data["vrsrc"])
+  ns_vel = float(data["vns"])
+  ns = bool(data["dns"])
+  ew_vel = float(data["vew"])
+  ew = bool(data["dew"])
+  subtype = data["sub"]
+  if subtype == 0x02:
+    ns_vel <<= 2
+    ew_vel <<= 2
 
-    velocity = math.hypot(ns_vel, ew_vel)
-    if ew:
-      ew_vel = 0 - ew_vel
+  velocity = math.hypot(ns_vel, ew_vel)
+  if ew:
+    ew_vel = 0 - ew_vel
 	
-    if ns_vel == 0:
-      heading = 0
-    else:
-      heading = math.atan(float(ew_vel) / float(ns_vel)) * (180.0 / math.pi)
-    if ns:
-      heading = 180 - heading
-    if heading < 0:
-      heading += 360
+  if ns_vel == 0:
+    heading = 0
+  else:
+    heading = math.atan(float(ew_vel) / float(ns_vel)) * (180.0 / math.pi)
+  if ns:
+    heading = 180 - heading
+  if heading < 0:
+    heading += 360
 
-    return [velocity, heading, vert_spd]
+  return [velocity, heading, vert_spd]
 
-  def parseBDS09_3(self, data):
+def parseBDS09_3(self, data):
     #3: {"sub", "icf", "ifr", "nuc", "mhs", "hdg", "ast", "spd", "vrsrc",
     #    "dvr", "vr", "dhd", "hd"}
-    mag_hdg = data["mhs"] * 360. / 1024
-    vel_src = "TAS" if data["ast"] == 1 else "IAS"
-    vel = data["spd"]
-    if data["sub"] == 4:
-        vel *= 4
-    vert_spd = float(data["vr"] - 1) * 64
-    if data["dvr"] == 1:
-        vert_spd = 0 - vert_spd
-    geo_diff = float(data["hd"] - 1) * 25
-    return [mag_hdg, vel_src, vel, vert_spd, geo_diff]
+  mag_hdg = data["mhs"] * 360. / 1024
+  vel_src = "TAS" if data["ast"] == 1 else "IAS"
+  vel = data["spd"]
+  if data["sub"] == 4:
+      vel *= 4
+  vert_spd = float(data["vr"] - 1) * 64
+  if data["dvr"] == 1:
+      vert_spd = 0 - vert_spd
+  geo_diff = float(data["hd"] - 1) * 25
+  return [mag_hdg, vel_src, vel, vert_spd, geo_diff]
       
 
-  def parseBDS62(self, data):
-    eps_strings = ["NO EMERGENCY", "GENERAL EMERGENCY", "LIFEGUARD/MEDICAL", "FUEL EMERGENCY",
-                   "NO COMMUNICATIONS", "UNLAWFUL INTERFERENCE", "RESERVED", "RESERVED"]
-    return eps_strings[data["eps"]]
+def parseBDS62(self, data):
+  eps_strings = ["NO EMERGENCY", "GENERAL EMERGENCY", "LIFEGUARD/MEDICAL", "FUEL EMERGENCY",
+                 "NO COMMUNICATIONS", "UNLAWFUL INTERFERENCE", "RESERVED", "RESERVED"]
+  return eps_strings[data["eps"]]
 
-  def parseMB_id(self, data): #bds1 == 2, bds2 == 0
-    msg = ""
-    for i in range(0, 8):
-      msg += self.charmap( data["ais"] >> (42-6*i) & 0x3F)
-    return (msg)
+def parseMB_id(self, data): #bds1 == 2, bds2 == 0
+  msg = ""
+  for i in range(0, 8):
+    msg += self.charmap( data["ais"] >> (42-6*i) & 0x3F)
+  return (msg)
 
-  def parseMB_TCAS_resolutions(self, data):
-    #these are LSB because the ICAO are asshats
-    ara_bits    = {41: "CLIMB", 42: "DON'T DESCEND", 43: "DON'T DESCEND >500FPM", 44: "DON'T DESCEND >1000FPM",
-                   45: "DON'T DESCEND >2000FPM", 46: "DESCEND", 47: "DON'T CLIMB", 48: "DON'T CLIMB >500FPM",
-                   49: "DON'T CLIMB >1000FPM", 50: "DON'T CLIMB >2000FPM", 51: "TURN LEFT", 52: "TURN RIGHT",
-                   53: "DON'T TURN LEFT", 54: "DON'T TURN RIGHT"}
-    rac_bits    = {55: "DON'T DESCEND", 56: "DON'T CLIMB", 57: "DON'T TURN LEFT", 58: "DON'T TURN RIGHT"}
-    ara = data["ara"]
-    rac = data["rac"]
-    #check to see which bits are set
-    resolutions = ""
-    for bit in ara_bits:
-      if ara & (1 << (54-bit)):
-        resolutions += " " + ara_bits[bit]
-    complements = ""
-    for bit in rac_bits:
-      if rac & (1 << (58-bit)):
-        complements += " " + rac_bits[bit]
-    return (resolutions, complements)
+def parseMB_TCAS_resolutions(self, data):
+  #these are LSB because the ICAO are asshats
+  ara_bits    = {41: "CLIMB", 42: "DON'T DESCEND", 43: "DON'T DESCEND >500FPM", 44: "DON'T DESCEND >1000FPM",
+                 45: "DON'T DESCEND >2000FPM", 46: "DESCEND", 47: "DON'T CLIMB", 48: "DON'T CLIMB >500FPM",
+                 49: "DON'T CLIMB >1000FPM", 50: "DON'T CLIMB >2000FPM", 51: "TURN LEFT", 52: "TURN RIGHT",
+                 53: "DON'T TURN LEFT", 54: "DON'T TURN RIGHT"}
+  rac_bits    = {55: "DON'T DESCEND", 56: "DON'T CLIMB", 57: "DON'T TURN LEFT", 58: "DON'T TURN RIGHT"}
+  ara = data["ara"]
+  rac = data["rac"]
+  #check to see which bits are set
+  resolutions = ""
+  for bit in ara_bits:
+    if ara & (1 << (54-bit)):
+      resolutions += " " + ara_bits[bit]
+  complements = ""
+  for bit in rac_bits:
+    if rac & (1 << (58-bit)):
+      complements += " " + rac_bits[bit]
+  return (resolutions, complements)
 
-  #rat is 1 if resolution advisory terminated <18s ago
-  #mte is 1 if multiple threats indicated
-  #tti is threat type: 1 if ID, 2 if range/brg/alt
-  #tida is threat altitude in Mode C format
-  def parseMB_TCAS_threatid(self, data): #bds1==3, bds2==0, TTI==1
-    #3: {"bds1": (33,4), "bds2": (37,4), "ara": (41,14), "rac": (55,4), "rat": (59,1),
-    #    "mte": (60,1), "tti": (61,2),  "tida": (63,13), "tidr": (76,7), "tidb": (83,6)}
-    (resolutions, complements) = self.parseMB_TCAS_resolutions(data)
-    return (resolutions, complements, data["rat"], data["mte"], data["tid"])
+#rat is 1 if resolution advisory terminated <18s ago
+#mte is 1 if multiple threats indicated
+#tti is threat type: 1 if ID, 2 if range/brg/alt
+#tida is threat altitude in Mode C format
+def parseMB_TCAS_threatid(self, data): #bds1==3, bds2==0, TTI==1
+  #3: {"bds1": (33,4), "bds2": (37,4), "ara": (41,14), "rac": (55,4), "rat": (59,1),
+  #    "mte": (60,1), "tti": (61,2),  "tida": (63,13), "tidr": (76,7), "tidb": (83,6)}
+  (resolutions, complements) = self.parseMB_TCAS_resolutions(data)
+  return (resolutions, complements, data["rat"], data["mte"], data["tid"])
 
-  def parseMB_TCAS_threatloc(self, data): #bds1==3, bds2==0, TTI==2
-    (resolutions, complements) = self.parseMB_TCAS_resolutions(data)
-    threat_alt = decode_alt(data["tida"], True)
-    return (resolutions, complements, data["rat"], data["mte"], threat_alt, data["tidr"], data["tidb"])
+def parseMB_TCAS_threatloc(self, data): #bds1==3, bds2==0, TTI==2
+  (resolutions, complements) = self.parseMB_TCAS_resolutions(data)
+  threat_alt = decode_alt(data["tida"], True)
+  return (resolutions, complements, data["rat"], data["mte"], threat_alt, data["tidr"], data["tidb"])
 
-  #type 16 Coordination Reply Message
-  def parse_TCAS_CRM(self, data):
-    (resolutions, complements) = self.parseMB_TCAS_resolutions(data)
-    return (resolutions, complements, data["rat"], data["mte"])
+#type 16 Coordination Reply Message
+def parse_TCAS_CRM(self, data):
+  (resolutions, complements) = self.parseMB_TCAS_resolutions(data)
+  return (resolutions, complements, data["rat"], data["mte"])

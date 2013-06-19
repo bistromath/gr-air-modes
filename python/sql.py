@@ -77,6 +77,7 @@ class output_sql:
         query = self.make_insert_query(message)
         if query is not None:
             c = self._db.cursor()
+            print query
             c.execute(query)
             c.close()
 #            self._db.commit()
@@ -110,7 +111,7 @@ class output_sql:
 
     if bdsreg == 0x08:
       (msg, typename) = air_modes.parseBDS08(data)
-      return "INSERT OR REPLACE INTO ident (icao, ident) VALUES (" + "%i" % icao24 + ", '" + msg + "')"
+      return "INSERT OR REPLACE INTO ident (icao, ident, type) VALUES (" + "%i" % icao24 + ", '" + msg + "', '" + typename + "')"
     elif bdsreg == 0x06:
       [ground_track, decoded_lat, decoded_lon, rnge, bearing] = air_modes.parseBDS06(data, self._cpr)
       altitude = 0

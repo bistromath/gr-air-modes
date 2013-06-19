@@ -173,43 +173,39 @@ class output_print:
     print retstr
 
   def printTCAS(self, msg):
-    return
-    msgtype = data["df"]
-    if msgtype == 20 or msgtype == 16:
-      #type 16 does not have fs, dr, um but we get alt here
-      [fs, dr, um, alt] = self.parse4(data)
-    elif msgtype == 21:
-      [fs, dr, um, ident] = self.parse5(data)
+    msgtype = msg.data["df"]
 
     if msgtype == 16:
-      bds1 = data["vds1"]
-      bds2 = data["vds2"]
+      bds1 = msg.data["vds1"]
+      bds2 = msg.data["vds2"]
     else:
-      bds1 = data["bds1"]
-      bds2 = data["bds2"]
+      bds1 = msg.data["bds1"]
+      bds2 = msg.data["bds2"]
+
+    retstr = output_print.prefix(msg)
 
     if bds2 != 0:
-      retstr = "No handler in type %i for BDS2 == %i from %x" % (msgtype, bds2, ecc)
+      retstr += "No handler in type %i for BDS2 == %i from %x" % (msgtype, bds2, msg.ecc)
 
     elif bds1 == 0:
-      retstr = "No handler in type %i for BDS1 == 0 from %x" % (msgtype, ecc)
+      retstr += "No handler in type %i for BDS1 == 0 from %x" % (msgtype, msg.ecc)
     elif bds1 == 1:
-      retstr = "Type %i link capability report from %x: ACS: 0x%x, BCS: 0x%x, ECS: 0x%x, continues %i" \
-                % (msgtype, ecc, data["acs"], data["bcs"], data["ecs"], data["cfs"])
+      retstr += "Type %i link capability report from %x: ACS: 0x%x, BCS: 0x%x, ECS: 0x%x, continues %i" \
+                % (msgtype, msg.ecc, msg.data["acs"], msg.data["bcs"], msg.data["ecs"], msg.data["cfs"])
     elif bds1 == 2:
-      retstr = "Type %i identification from %x with text %s" % (msgtype, ecc, self.parseMB_id(data))
+      retstr += "Type %i identification from %x with text %s" % (msgtype, msg.ecc, air_modes.parseMB_id(msg.data))
     elif bds1 == 3:
-      retstr = "Type %i TCAS report from %x: " % (msgtype, ecc)
-      tti = data["tti"]
+      retstr += "Type %i TCAS report from %x: " % (msgtype, msg.ecc)
+      tti = msg.data["tti"]
       if msgtype == 16:
-        (resolutions, complements, rat, mte) = self.parse_TCAS_CRM(data)
+        (resolutions, complements, rat, mte) = air_modes.parse_TCAS_CRM(msg.data)
         retstr += "advised: %s complement: %s" % (resolutions, complements)
       else:
           if tti == 1:
-            (resolutions, complements, rat, mte, threat_id) = self.parseMB_TCAS_threatid(data)
+            (resolutions, complements, rat, mte, threat_id) = air_modes.parseMB_TCAS_threatid(msg.data)
             retstr += "threat ID: %x advised: %s complement: %s" % (threat_id, resolutions, complements)
           elif tti == 2:
-            (resolutions, complements, rat, mte, threat_alt, threat_range, threat_bearing) = self.parseMB_TCAS_threatloc(data)
+            (resolutions, complements, rat, mte, threat_alt, threat_range, threat_bearing) = air_modes.parseMB_TCAS_threatloc(msg.data)
             retstr += "range: %i bearing: %i alt: %i advised: %s complement: %s" % (threat_range, threat_bearing, threat_alt, resolutions, complements)
           else:
             rat = 0
@@ -220,14 +216,14 @@ class output_print:
       if rat == 1:
         retstr += " (resolved)"
     else:
-      retstr = "No handler for BDS1 == %i from %x" % (bds1, ecc)
+      retstr += "No handler for type %i, BDS1 == %i from %x" % (msgtype, bds1, msg.ecc)
 
     if(msgtype == 20 or msgtype == 16):
-      retstr += " at %ift" % alt
+      retstr += " at %ift" % air_modes.decode_alt(msg.data["ac"], True)
     else:
-      retstr += " ident %x" % ident
+      retstr += " ident %x" % air_modes.decode_id(msg.data["id"])
       
-    return retstr
+    print retstr
 
   handle16 = printTCAS
   handle20 = printTCAS

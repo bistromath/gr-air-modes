@@ -255,7 +255,7 @@ def decode_id(id):
   return (a * 1000) + (b * 100) + (c * 10) + d
 
 #decode ident squawks
-def charmap(self, d):
+def charmap(d):
   if d > 0 and d < 27:
     retval = chr(ord("A")+d-1)
   elif d == 32:
@@ -267,7 +267,7 @@ def charmap(self, d):
 
   return retval
 
-def parseBDS08(self, data):
+def parseBDS08(data):
   categories = [["NO INFO", "RESERVED", "RESERVED", "RESERVED", "RESERVED", "RESERVED", "RESERVED", "RESERVED"],\
                 ["NO INFO", "SURFACE EMERGENCY VEHICLE", "SURFACE SERVICE VEHICLE", "FIXED OBSTRUCTION", "CLUSTER OBSTRUCTION", "LINE OBSTRUCTION", "RESERVED"],\
                 ["NO INFO", "GLIDER", "BALLOON/BLIMP", "PARACHUTE", "ULTRALIGHT", "RESERVED", "UAV", "SPACECRAFT"],\
@@ -281,18 +281,18 @@ def parseBDS08(self, data):
   return (msg, catstring)
 
 #NOTE: this is stateful -- requires CPR decoder
-def parseBDS05(self, data, cpr):
+def parseBDS05(data, cprdec):
   altitude = decode_alt(data["alt"], False)
-  [decoded_lat, decoded_lon, rnge, bearing] = cpr.decode(data["aa"], data["lat"], data["lon"], data["cpr"], 0)
+  [decoded_lat, decoded_lon, rnge, bearing] = cprdec.decode(data["aa"], data["lat"], data["lon"], data["cpr"], 0)
   return [altitude, decoded_lat, decoded_lon, rnge, bearing]
 
 #NOTE: this is stateful -- requires CPR decoder
-def parseBDS06(self, data, cpr):
+def parseBDS06(data, cprdec):
   ground_track = data["gtk"] * 360. / 128
-  [decoded_lat, decoded_lon, rnge, bearing] = cpr.decode(data["aa"], data["lat"], data["lon"], data["cpr"], 1)
+  [decoded_lat, decoded_lon, rnge, bearing] = cprdec.decode(data["aa"], data["lat"], data["lon"], data["cpr"], 1)
   return [ground_track, decoded_lat, decoded_lon, rnge, bearing]
 
-def parseBDS09_0(self, data):
+def parseBDS09_0(data):
   #0: ["sub", "dew", "vew", "dns", "vns", "str", "tr", "svr", "vr"],
   vert_spd = data["vr"] * 32
   ud = bool(data["dvr"])
@@ -318,7 +318,7 @@ def parseBDS09_0(self, data):
 
   return [velocity, heading, vert_spd, turn_rate]
 
-def parseBDS09_1(self, data):
+def parseBDS09_1(data):
   #1: ["sub", "icf", "ifr", "nuc", "dew", "vew", "dns", "vns", "vrsrc", "dvr", "vr", "dhd", "hd"],
   alt_geo_diff = data["hd"] * 25
   above_below = bool(data["dhd"])
@@ -353,7 +353,7 @@ def parseBDS09_1(self, data):
 
   return [velocity, heading, vert_spd]
 
-def parseBDS09_3(self, data):
+def parseBDS09_3(data):
     #3: {"sub", "icf", "ifr", "nuc", "mhs", "hdg", "ast", "spd", "vrsrc",
     #    "dvr", "vr", "dhd", "hd"}
   mag_hdg = data["mhs"] * 360. / 1024
@@ -368,18 +368,18 @@ def parseBDS09_3(self, data):
   return [mag_hdg, vel_src, vel, vert_spd, geo_diff]
       
 
-def parseBDS62(self, data):
+def parseBDS62(data):
   eps_strings = ["NO EMERGENCY", "GENERAL EMERGENCY", "LIFEGUARD/MEDICAL", "FUEL EMERGENCY",
                  "NO COMMUNICATIONS", "UNLAWFUL INTERFERENCE", "RESERVED", "RESERVED"]
   return eps_strings[data["eps"]]
 
-def parseMB_id(self, data): #bds1 == 2, bds2 == 0
+def parseMB_id(data): #bds1 == 2, bds2 == 0
   msg = ""
   for i in range(0, 8):
     msg += self.charmap( data["ais"] >> (42-6*i) & 0x3F)
   return (msg)
 
-def parseMB_TCAS_resolutions(self, data):
+def parseMB_TCAS_resolutions(data):
   #these are LSB because the ICAO are asshats
   ara_bits    = {41: "CLIMB", 42: "DON'T DESCEND", 43: "DON'T DESCEND >500FPM", 44: "DON'T DESCEND >1000FPM",
                  45: "DON'T DESCEND >2000FPM", 46: "DESCEND", 47: "DON'T CLIMB", 48: "DON'T CLIMB >500FPM",
@@ -403,18 +403,18 @@ def parseMB_TCAS_resolutions(self, data):
 #mte is 1 if multiple threats indicated
 #tti is threat type: 1 if ID, 2 if range/brg/alt
 #tida is threat altitude in Mode C format
-def parseMB_TCAS_threatid(self, data): #bds1==3, bds2==0, TTI==1
+def parseMB_TCAS_threatid(data): #bds1==3, bds2==0, TTI==1
   #3: {"bds1": (33,4), "bds2": (37,4), "ara": (41,14), "rac": (55,4), "rat": (59,1),
   #    "mte": (60,1), "tti": (61,2),  "tida": (63,13), "tidr": (76,7), "tidb": (83,6)}
   (resolutions, complements) = self.parseMB_TCAS_resolutions(data)
   return (resolutions, complements, data["rat"], data["mte"], data["tid"])
 
-def parseMB_TCAS_threatloc(self, data): #bds1==3, bds2==0, TTI==2
+def parseMB_TCAS_threatloc(data): #bds1==3, bds2==0, TTI==2
   (resolutions, complements) = self.parseMB_TCAS_resolutions(data)
   threat_alt = decode_alt(data["tida"], True)
   return (resolutions, complements, data["rat"], data["mte"], threat_alt, data["tidr"], data["tidb"])
 
 #type 16 Coordination Reply Message
-def parse_TCAS_CRM(self, data):
+def parse_TCAS_CRM(data):
   (resolutions, complements) = self.parseMB_TCAS_resolutions(data)
   return (resolutions, complements, data["rat"], data["mte"])

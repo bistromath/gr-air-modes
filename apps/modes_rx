@@ -78,6 +78,9 @@ def main():
   if options.location is not None:
     my_position = [float(n) for n in options.location.split(",")]
 
+  #CPR decoder obj to handle getting position from BDS0,5 and BDS0,6 pkts
+  cpr_dec = air_modes.cpr.cpr_decoder(my_position)
+
   if options.kml is not None:
     dbname = 'adsb.db'
     lock = threading.Lock()
@@ -87,7 +90,7 @@ def main():
 
   if options.no_print is not True:
     #relay.subscribe("dl_data", air_modes.output_print(my_position).output)
-    printer = air_modes.output_print(my_position, publisher)
+    printer = air_modes.output_print(cpr_dec, publisher)
 
   if options.multiplayer is not None:
     [fghost, fgport] = options.multiplayer.split(':')

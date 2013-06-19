@@ -28,8 +28,8 @@ import math
 #TODO get rid of class and convert to functions
 #no need for class here
 class output_print:
-  def __init__(self, mypos, publisher):
-    #self._cpr = air_modes.cpr_decoder(mypos)
+  def __init__(self, cpr, publisher):
+    self._cpr = cpr
     #sub to every function that starts with "print"
     self._fns = [int(l[6:]) for l in dir(self) if l.startswith("handle")]
     for i in self._fns:
@@ -119,55 +119,56 @@ class output_print:
     print retstr
 
   #the only one which requires state
-  def handle17(self, data):
-    return
-    icao24 = data["aa"]
-    bdsreg = data["me"].get_type()
+  def handle17(self, msg):
+    icao24 = msg.data["aa"]
+    bdsreg = msg.data["me"].get_type()
 
-    retstr = None
+    retstr = output_print.prefix(msg)
+    try:
+        if bdsreg == 0x08:
+          (ident, typestring) = air_modes.parseBDS08(msg.data)
+          retstr += "Type 17 BDS0,8 (ident) from %x type %s ident %s" % (icao24, typestring, ident)
 
-    if bdsreg == 0x08:
-      (msg, typestring) = self.parseBDS08(data)
-      retstr = "Type 17 BDS0,8 (ident) from %x type %s ident %s" % (icao24, typestring, msg)
+        elif bdsreg == 0x06:
+          [ground_track, decoded_lat, decoded_lon, rnge, bearing] = air_modes.parseBDS06(msg.data, self._cpr)
+          retstr += "Type 17 BDS0,6 (surface report) from %x at (%.6f, %.6f) ground track %i" % (icao24, decoded_lat, decoded_lon, ground_track)
+          if rnge is not None and bearing is not None:
+            retstr += " (%.2f @ %.0f)" % (rnge, bearing)
 
-    elif bdsreg == 0x06:
-      [ground_track, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS06(data)
-      retstr = "Type 17 BDS0,6 (surface report) from %x at (%.6f, %.6f) ground track %i" % (icao24, decoded_lat, decoded_lon, ground_track)
-      if rnge is not None and bearing is not None:
-        retstr += " (%.2f @ %.0f)" % (rnge, bearing)
+        elif bdsreg == 0x05:
+          [altitude, decoded_lat, decoded_lon, rnge, bearing] = air_modes.parseBDS05(msg.data, self._cpr)
+          retstr += "Type 17 BDS0,5 (position report) from %x at (%.6f, %.6f)" % (icao24, decoded_lat, decoded_lon)
+          if rnge is not None and bearing is not None:
+            retstr += " (" + "%.2f" % rnge + " @ " + "%.0f" % bearing + ")"
+          retstr += " at " + str(altitude) + "ft"
 
-    elif bdsreg == 0x05:
-      [altitude, decoded_lat, decoded_lon, rnge, bearing] = self.parseBDS05(data)
-      retstr = "Type 17 BDS0,5 (position report) from %x at (%.6f, %.6f)" % (icao24, decoded_lat, decoded_lon)
-      if rnge is not None and bearing is not None:
-        retstr += " (" + "%.2f" % rnge + " @ " + "%.0f" % bearing + ")"
-      retstr += " at " + str(altitude) + "ft"
+        elif bdsreg == 0x09:
+          subtype = msg.data["bds09"].get_type()
+          if subtype == 0:
+            [velocity, heading, vert_spd, turnrate] = air_modes.parseBDS09_0(msg.data)
+            retstr += "Type 17 BDS0,9-%i (track report) from %x with velocity %.0fkt heading %.0f VS %.0f turn rate %.0f" \
+                     % (subtype, icao24, velocity, heading, vert_spd, turnrate)
+          elif subtype == 1:
+            [velocity, heading, vert_spd] = air_modes.parseBDS09_1(msg.data)
+            retstr += "Type 17 BDS0,9-%i (track report) from %x with velocity %.0fkt heading %.0f VS %.0f" % (subtype, icao24, velocity, heading, vert_spd)
+          elif subtype == 3:
+            [mag_hdg, vel_src, vel, vert_spd, geo_diff] = air_modes.parseBDS09_3(msg.data)
+            retstr += "Type 17 BDS0,9-%i (air course report) from %x with %s %.0fkt magnetic heading %.0f VS %.0f geo. diff. from baro. alt. %.0fft" \
+                     % (subtype, icao24, vel_src, vel, mag_hdg, vert_spd, geo_diff)
+        
+          else:
+            retstr += "Type 17 BDS0,9-%i from %x not implemented" % (subtype, icao24)
 
-    elif bdsreg == 0x09:
-      subtype = data["bds09"].get_type()
-      if subtype == 0:
-        [velocity, heading, vert_spd, turnrate] = self.parseBDS09_0(data)
-        retstr = "Type 17 BDS0,9-%i (track report) from %x with velocity %.0fkt heading %.0f VS %.0f turn rate %.0f" \
-                 % (subtype, icao24, velocity, heading, vert_spd, turnrate)
-      elif subtype == 1:
-        [velocity, heading, vert_spd] = self.parseBDS09_1(data)
-        retstr = "Type 17 BDS0,9-%i (track report) from %x with velocity %.0fkt heading %.0f VS %.0f" % (subtype, icao24, velocity, heading, vert_spd)
-      elif subtype == 3:
-        [mag_hdg, vel_src, vel, vert_spd, geo_diff] = self.parseBDS09_3(data)
-        retstr = "Type 17 BDS0,9-%i (air course report) from %x with %s %.0fkt magnetic heading %.0f VS %.0f geo. diff. from baro. alt. %.0fft" \
-                 % (subtype, icao24, vel_src, vel, mag_hdg, vert_spd, geo_diff)
-    
-      else:
-        retstr = "Type 17 BDS0,9-%i from %x not implemented" % (subtype, icao24)
+        elif bdsreg == 0x62:
+          emerg_str = air_modes.parseBDS62(data)
+          retstr += "Type 17 BDS6,2 (emergency) from %x type %s" % (icao24, emerg_str)
+          
+        else:
+          retstr += "Type 17 with FTC=%i from %x not implemented" % (msg.data["ftc"], icao24)
+    except ADSBError:
+        return
 
-    elif bdsreg == 0x62:
-      emerg_str = self.parseBDS62(data)
-      retstr = "Type 17 BDS6,2 (emergency) from %x type %s" % (icao24, emerg_str)
-      
-    else:
-      retstr = "Type 17 with FTC=%i from %x not implemented" % (data["ftc"], icao24)
-
-    return retstr
+    print retstr
 
   def printTCAS(self, msg):
     return

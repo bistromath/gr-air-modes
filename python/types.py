@@ -69,8 +69,10 @@ class stamp:
             ipart = self.secs + other.secs
             fpart = self.frac_secs + other.frac_secs
             return stamp(ipart, fpart)
-        elif isinstance(other, float) or isinstance(other, int):
-            return float(self) + other
+        elif isinstance(other, float):
+            return self + stamp(0, other)
+        elif isinstance(other, int):
+            return self + stamp(other, 0)            
         else:
             raise TypeError
             
@@ -79,8 +81,10 @@ class stamp:
             ipart = self.secs - other.secs
             fpart = self.frac_secs - other.frac_secs
             return stamp(ipart, fpart)
-        elif isinstance(other, float) or isinstance(other, int):
-            return float(self) - other
+        elif isinstance(other, float):
+            return self - stamp(0, other)
+        elif isinstance(other, int):
+            return self - stamp(other, 0)
         else:
             raise TypeError
 

@@ -25,6 +25,7 @@ from PyQt4 import QtCore,QtGui
 from PyQt4.Qwt5 import Qwt
 from gnuradio import gr, gru, optfir, eng_notation, blks2
 from gnuradio.eng_option import eng_option
+from gnuradio.gr.pubsub import pubsub
 import air_modes
 from air_modes.exceptions import *
 from air_modes.modes_rx_ui import Ui_MainWindow
@@ -254,14 +255,17 @@ class mainwindow(QtGui.QMainWindow):
                 options.tcp = int(self.ui.line_rawport.text())
 
             self._radio = air_modes.modes_radio(options, self.context)
+            self._publisher = pubsub()
+            self._relay.subscribe("dl_data", air_modes.make_parser(self._publisher))
 
             try:
                 my_position = [float(self.ui.line_my_lat.text()), float(self.ui.line_my_lon.text())]
             except:
                 my_position = None
 
-            self.datamodelout = dashboard_output(my_position, self.datamodel)
-            self._relay.subscribe("dl_data", self.datamodelout.output)
+            self._cpr_dec = air_modes.cpr_decoder(my_position)
+
+            self.datamodelout = dashboard_output(self._cpr_dec, self.datamodel, self._publisher)
 
             self.lock = threading.Lock() #grab a lock to ensure sql and kml don't step on each other
 
@@ -272,27 +276,24 @@ class mainwindow(QtGui.QMainWindow):
 
             if self.ui.check_sbs1.checkState():
                 sbs1port = int(self.ui.line_sbs1port.text())
-                sbs1out = air_modes.output_sbs1(my_position, sbs1port)
-                self._relay.subscribe("dl_data", sbs1.output)
+                sbs1out = air_modes.output_sbs1(self._cpr_dec, sbs1port, self._publisher)
 
             if self.ui.check_fgfs.checkState():
                 fghost = "127.0.0.1" #TODO FIXME
                 fgport = self.ui.line_fgfsport.text()
-                fgout = air_modes.output_flightgear(my_position, fghost, int(fgport))
-                self._relay.subscribe("dl_data", fgout.output)
+                fgout = air_modes.output_flightgear(self._cpr_dec, fghost, int(fgport), self._publisher)
 
             #add azimuth map output and hook it up
             if my_position is not None:
-                self.az_map_output = air_modes.az_map_output(my_position, self.az_model)
-                self._relay.subscribe("dl_data", self.az_map_output.output)
+                self.az_map_output = air_modes.az_map_output(self._cpr_dec, self.az_model, self._publisher)
+                #self._relay.subscribe("dl_data", self.az_map_output.output)
 
-            self.livedata = air_modes.output_print(my_position)
+            self.livedata = air_modes.output_print(self._cpr_dec, self._publisher)
             #add output for live data box
-            self._relay.subscribe("dl_data", self.output_live_data)
+            #self._relay.subscribe("dl_data", self.output_live_data)
 
             #create SQL database for KML and dashboard displays
-            self.dbwriter = air_modes.output_sql(my_position, self.dbname, self.lock)
-            self._relay.subscribe("dl_data", self.dbwriter.insert) #now the db will update itself
+            self.dbwriter = air_modes.output_sql(self._cpr_dec, self.dbname, self.lock, self._publisher)
 
             #output to update reports/sec widget
             self._relay.subscribe("dl_data", self.increment_reportspersec)

@@ -173,7 +173,7 @@ class az_map_output:
     def __init__(self, cprdec, model, pub):
         self._cpr = cprdec
         self.model = model
-        pub.subscribe("type17_dl", output)
+        pub.subscribe("type17_dl", self.output)
         
     def output(self, msg):
         try:

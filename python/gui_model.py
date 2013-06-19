@@ -141,34 +141,31 @@ class dashboard_data_model(QtCore.QAbstractTableModel):
                 self.endRemoveRows()
         self.lock.release()
                 
-class dashboard_output(air_modes.parse):
-    def __init__(self, mypos, model):
-        air_modes.parse.__init__(self, mypos)
+class dashboard_output:
+    def __init__(self, cprdec, model, pub):
         self.model = model
+        self._cpr = cprdec
+        pub.subscribe("modes_dl", self.output)
     def output(self, msg):
-        [data, ecc, reference, timestamp] = msg.split()
         try:
-            data = air_modes.modes_reply(long(data, 16))
-            ecc = long(ecc, 16)
-            rssi = 10.*math.log10(float(reference))
-            msgtype = data["df"]
+            msgtype = msg.data["df"]
             now = time.time()
-            newrow = {"rssi": rssi, "seen": now}
+            newrow = {"rssi": msg.rssi, "seen": now}
             if msgtype in [0, 4, 20]:
-                newrow["altitude"] = air_modes.altitude.decode_alt(data["ac"], True)
-                newrow["icao"] = ecc
+                newrow["altitude"] = air_modes.altitude.decode_alt(msg.data["ac"], True)
+                newrow["icao"] = msg.ecc
                 self.model.addRecord(newrow)
             
             elif msgtype == 17:
-                icao = data["aa"]
+                icao = msg.data["aa"]
                 newrow["icao"] = icao
-                subtype = data["ftc"]
+                subtype = msg.data["ftc"]
                 if subtype == 4:
-                    (ident, actype) = self.parseBDS08(data)
+                    (ident, actype) = air_modes.parseBDS08(msg.data)
                     newrow["ident"] = ident
                     newrow["type"] = actype
                 elif 5 <= subtype <= 8:
-                    (ground_track, decoded_lat, decoded_lon, rnge, bearing) = self.parseBDS06(data)
+                    (ground_track, decoded_lat, decoded_lon, rnge, bearing) = air_modes.parseBDS06(msg.data, self._cpr)
                     newrow["heading"] = ground_track
                     newrow["latitude"] = decoded_lat
                     newrow["longitude"] = decoded_lon
@@ -177,7 +174,7 @@ class dashboard_output(air_modes.parse):
                         newrow["range"] = rnge
                         newrow["bearing"] = bearing
                 elif 9 <= subtype <= 18:
-                    (altitude, decoded_lat, decoded_lon, rnge, bearing) = self.parseBDS05(data)
+                    (altitude, decoded_lat, decoded_lon, rnge, bearing) = air_modes.parseBDS05(msg.data, self._cpr)
                     newrow["altitude"] = altitude
                     newrow["latitude"] = decoded_lat
                     newrow["longitude"] = decoded_lon
@@ -185,14 +182,14 @@ class dashboard_output(air_modes.parse):
                         newrow["range"] = rnge
                         newrow["bearing"] = bearing
                 elif subtype == 19:
-                    subsubtype = data["sub"]
+                    subsubtype = msg.data["sub"]
                     velocity = None
                     heading = None
                     vert_spd = None
                     if subsubtype == 0:
-                        (velocity, heading, vert_spd) = self.parseBDS09_0(data)
+                        (velocity, heading, vert_spd) = air_modes.parseBDS09_0(msg.data)
                     elif 1 <= subsubtype <= 2:
-                        (velocity, heading, vert_spd) = self.parseBDS09_1(data)
+                        (velocity, heading, vert_spd) = air_modes.parseBDS09_1(msg.data)
                     newrow["speed"] = velocity
                     newrow["heading"] = heading
                     newrow["vertical"] = vert_spd

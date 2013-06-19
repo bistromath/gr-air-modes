@@ -24,12 +24,12 @@ class ADSBError(Exception):
 
 class MetricAltError(ADSBError):
     pass
-        
+
 class ParserError(ADSBError):
     pass
 
 class NoHandlerError(ADSBError):
-    def __init__(self, msgtype):
+    def __init__(self, msgtype=None):
         self.msgtype = msgtype
 
 class MlatNonConvergeError(ADSBError):

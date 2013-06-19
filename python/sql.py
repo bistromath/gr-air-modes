@@ -54,7 +54,8 @@ class output_sql:
     c.execute(query)
     query = """CREATE TABLE IF NOT EXISTS "ident" (
               "icao"     INTEGER PRIMARY KEY NOT NULL,
-              "ident"    TEXT NOT NULL
+              "ident"    TEXT NOT NULL,
+              "type"     TEXT NOT NULL
           );"""
     c.execute(query)
     c.close()

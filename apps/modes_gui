@@ -290,7 +290,9 @@ class mainwindow(QtGui.QMainWindow):
                 #self._relay.subscribe("dl_data", self.az_map_output.output)
 
             #set up map
-            self._htmlfile = open("/home/nick/wat.html", 'wb+')#tempfile.NamedTemporaryFile()
+            #NOTE this is busted on windows. WebKit requires .htm[l] extensions to render,
+            #so using a temp file doesn't work.
+            self._htmlfile = open("/tmp/mode_s.html", 'wb+')#tempfile.NamedTemporaryFile()
             self._jsonfile = tempfile.NamedTemporaryFile()
 
             self.livedata = air_modes.output_print(self._cpr_dec, self._publisher)
@@ -308,7 +310,7 @@ class mainwindow(QtGui.QMainWindow):
                     print '%s line %d: %s' % (source, line, msg)
             page = WebPage()
             self.ui.mapView.setPage(page)
-            self.ui.mapView.load( QtCore.QUrl( QtCore.QUrl.fromLocalFile("/home/nick/wat.html") ) )
+            self.ui.mapView.load( QtCore.QUrl( QtCore.QUrl.fromLocalFile("/tmp/mode_s.html") ) )
             self.ui.mapView.show()
 
             #output to update reports/sec widget

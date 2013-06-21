@@ -222,13 +222,14 @@ class output_jsonp(output_kml):
 #                trackstr = str("")
 
             #now get metadata
-#            q = "select ident from ident where icao=%i" % icao
-#            self.locked_execute(c, q)
-#            r = c.fetchall()
-#            if len(r) != 0:
-#                ident = r[0][0]
-#            else: ident=""
-            #if ident is None: ident = ""
+            q = "select ident, type from ident where icao=%i" % icao
+            self.locked_execute(c, q)
+            r = c.fetchall()
+            if len(r) != 0:
+                ident = r[0][0]
+                actype = r[0][1]
+            else: ident=""
+            if ident is None: ident = ""
             #get most recent speed/heading/vertical
             q = "select seen, speed, heading, vertical from vectors where icao=%i order by seen desc limit 1" % icao
             self.locked_execute(c, q)
@@ -245,17 +246,19 @@ class output_jsonp(output_kml):
                 heading = 0
                 vertical = 0
 
-            q = "select lat, lon from positions where icao=%i order by seen desc limit 1" % icao
+            q = "select lat, lon, alt from positions where icao=%i order by seen desc limit 1" % icao
             self.locked_execute(c, q)
             r = c.fetchall()
             if len(r) != 0:
                 lat = r[0][0]
                 lon = r[0][1]
+                alt = r[0][2]
             else:
                 lat = 0
                 lon = 0
+                alt = 0
             #now generate some KML
-            retstr+= """{"icao": "%.6x", "lat": %f, "lon": %f, "hdg": %i, "speed": %i, "vertical": %i},""" % (icao, lat, lon, heading, speed, vertical)
+            retstr+= """{"icao": "%.6x", "lat": %f, "lon": %f, "alt": %i, "hdg": %i, "speed": %i, "vertical": %i, "ident": "%s", "type": "%s"},""" % (icao, lat, lon, alt, heading, speed, vertical, ident, actype)
 
         retstr+= """]);"""
         return retstr

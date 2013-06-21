@@ -11,6 +11,20 @@ def html_template(my_position, json_file):
     <head>
         <title>ADS-B Aircraft Map</title>
         <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+        <meta http-equiv="content-type" content="text/html;charset=utf-8" />
+        <style type="text/css">
+            .labels {
+                color: red;
+                background-color: white;
+                font-family: "Lucida Grande", "Arial", sans-serif;
+                font-size: 10px;
+                font-weight: bold;
+                text-align: center;
+                width: 40px;     
+                border: 2px solid black;
+                white-space: nowrap;
+            }
+        </style>
         <script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=false">
         </script>
         <script type="text/javascript">
@@ -43,7 +57,11 @@ def html_template(my_position, json_file):
                     airplanes[results[i].icao] = {
                         center: new google.maps.LatLng(results[i].lat, results[i].lon),
                         heading: results[i].hdg,
-                        altitude: 0
+                        altitude: results[i].alt,
+                        type: results[i].type,
+                        ident: results[i].ident,
+                        speed: results[i].speed,
+                        vertical: results[i].vertical
                     };
                 }
                 refreshIcons();
@@ -58,10 +76,21 @@ def html_template(my_position, json_file):
                         anchor: new google.maps.Point(64,64),
                         //scaledSize: new google.maps.Size(4608,126)
                     };
+                    
+                    identstr = airplanes[airplane].ident;
+                    if (identstr === "" || !identstr) {
+                        identstr = airplanes[airplane].icao;
+                    };
+                    
                     var planeOptions = {
                         map: map,
                         position: airplanes[airplane].center,
-                        icon: plane_icon
+                        icon: plane_icon,
+                        //label content meaningless unless you use the MarkerWithLabel class from the Maps Utility Library
+                        labelContent: identstr,
+                        labelAnchor: new google.maps.Point(64, 0),
+                        labelClass: "labels",
+                        labelStyle: {opacity: 0.75}
                     };
                     planeMarker = new google.maps.Marker(planeOptions);
                     planes.push(planeMarker);

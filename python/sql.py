@@ -80,7 +80,7 @@ class output_sql:
             c = self._db.cursor()
             c.execute(query)
             c.close()
-#            self._db.commit()
+            self._db.commit()
 
       except ADSBError:
         pass

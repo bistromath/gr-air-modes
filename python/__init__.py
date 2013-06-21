@@ -57,7 +57,7 @@ from parse import *
 from msprint import output_print
 from sql import output_sql
 from sbs1 import output_sbs1
-from kml import output_kml
+from kml import output_kml, output_jsonp
 from raw_server import raw_server
 from radio import modes_radio
 from exceptions import *
@@ -65,6 +65,7 @@ from az_map import *
 from types import *
 from altitude import *
 from cpr import cpr_decoder
+from html_template import html_template
 #this is try/excepted in case the user doesn't have numpy installed
 try:
     from flightgear import output_flightgear

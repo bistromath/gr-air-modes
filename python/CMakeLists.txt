@@ -34,6 +34,7 @@ GR_PYTHON_INSTALL(
     altitude.py
     az_map.py
     cpr.py
+    html_template.py
     mlat.py
     exceptions.py
     flightgear.py

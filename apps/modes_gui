@@ -19,9 +19,9 @@
 # Boston, MA 02110-1301, USA.
 # 
 
-import os, sys, time, threading, datetime, math, csv
+import os, sys, time, threading, datetime, math, csv, tempfile
 from optparse import OptionParser
-from PyQt4 import QtCore,QtGui
+from PyQt4 import QtCore,QtGui,QtWebKit
 from PyQt4.Qwt5 import Qwt
 from gnuradio import gr, gru, optfir, eng_notation, blks2
 from gnuradio.eng_option import eng_option
@@ -72,7 +72,8 @@ class mainwindow(QtGui.QMainWindow):
 
         #disable by default
         self.ui.check_adsbonly.setCheckState(QtCore.Qt.Unchecked)
-
+        
+        #set up the radio stuff
         self.queue = gr.msg_queue(10)
         self.running = False
         self.kmlgen = None #necessary bc we stop its thread in shutdown
@@ -288,12 +289,27 @@ class mainwindow(QtGui.QMainWindow):
                 self.az_map_output = air_modes.az_map_output(self._cpr_dec, self.az_model, self._publisher)
                 #self._relay.subscribe("dl_data", self.az_map_output.output)
 
+            #set up map
+            self._htmlfile = open("/home/nick/wat.html", 'wb+')#tempfile.NamedTemporaryFile()
+            self._jsonfile = tempfile.NamedTemporaryFile()
+
             self.livedata = air_modes.output_print(self._cpr_dec, self._publisher)
             #add output for live data box
             #self._relay.subscribe("dl_data", self.output_live_data)
 
             #create SQL database for KML and dashboard displays
             self.dbwriter = air_modes.output_sql(self._cpr_dec, self.dbname, self.lock, self._publisher)
+            self.jsonpgen = air_modes.output_jsonp(self._jsonfile.name, self.dbname, my_position, self.lock, timeout=1)
+            htmlstring = air_modes.html_template(my_position, self._jsonfile.name)
+            self._htmlfile.write(htmlstring)
+            self._htmlfile.flush()
+            class WebPage(QtWebKit.QWebPage):
+                def javaScriptConsoleMessage(self, msg, line, source):
+                    print '%s line %d: %s' % (source, line, msg)
+            page = WebPage()
+            self.ui.mapView.setPage(page)
+            self.ui.mapView.load( QtCore.QUrl( QtCore.QUrl.fromLocalFile("/home/nick/wat.html") ) )
+            self.ui.mapView.show()
 
             #output to update reports/sec widget
             self._relay.subscribe("dl_data", self.increment_reportspersec)

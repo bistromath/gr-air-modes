@@ -85,7 +85,7 @@
            </sizepolicy>
           </property>
           <property name="currentIndex">
-           <number>0</number>
+           <number>3</number>
           </property>
           <widget class="QWidget" name="setup">
            <property name="sizePolicy">
@@ -856,7 +856,7 @@
              <string>Climb</string>
             </property>
            </widget>
-           <widget class="QwtCompass" name="compass_heading">
+           <widget class="QwtCompass" name="compass_heading" native="true">
             <property name="geometry">
              <rect>
               <x>200</x>
@@ -865,10 +865,10 @@
               <height>91</height>
              </rect>
             </property>
-            <property name="readOnly">
+            <property name="readOnly" stdset="0">
              <bool>true</bool>
             </property>
-            <property name="lineWidth">
+            <property name="lineWidth" stdset="0">
              <number>4</number>
             </property>
            </widget>
@@ -901,7 +901,7 @@
              <bool>true</bool>
             </property>
            </widget>
-           <widget class="QwtCompass" name="compass_bearing">
+           <widget class="QwtCompass" name="compass_bearing" native="true">
             <property name="geometry">
              <rect>
               <x>-20</x>
@@ -910,10 +910,10 @@
               <height>91</height>
              </rect>
             </property>
-            <property name="readOnly">
+            <property name="readOnly" stdset="0">
              <bool>true</bool>
             </property>
-            <property name="lineWidth">
+            <property name="lineWidth" stdset="0">
              <number>4</number>
             </property>
            </widget>
@@ -925,6 +925,18 @@
            <layout class="QGridLayout" name="gridLayout_3">
             <item row="0" column="0">
              <widget class="az_map" name="azimuth_map" native="true"/>
+            </item>
+           </layout>
+          </widget>
+          <widget class="QWidget" name="map_tab">
+           <attribute name="title">
+            <string>Map</string>
+           </attribute>
+           <layout class="QGridLayout" name="gridLayout_8">
+            <item row="0" column="0">
+             <widget class="QWebView" name="mapView" native="true">
+              <zorder>gridLayoutWidget</zorder>
+             </widget>
             </item>
            </layout>
           </widget>
@@ -1017,11 +1029,6 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>QwtCompass</class>
-   <extends>QwtDial</extends>
-   <header>qwt_compass.h</header>
-  </customwidget>
-  <customwidget>
    <class>QwtDial</class>
    <extends>QWidget</extends>
    <header>qwt_dial.h</header>
@@ -1030,6 +1037,17 @@
    <class>az_map</class>
    <extends>QWidget</extends>
    <header location="global">air_modes/az_map</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>QwtCompass</class>
+   <extends>QwtDial</extends>
+   <header>qwt_compass.h</header>
+  </customwidget>
+  <customwidget>
+   <class>QWebView</class>
+   <extends>QWidget</extends>
+   <header location="global">QtWebKit/qwebview.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

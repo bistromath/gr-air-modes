@@ -170,3 +170,92 @@ class output_kml(threading.Thread):
 
         retstr+= '\n\t</Folder>\n</Document>\n</kml>'
         return retstr
+
+#we just inherit from output_kml because we're doing the same thing, only in a different format.
+class output_jsonp(output_kml):
+    def genkml(self):
+        retstr="""jsonp_callback(["""
+
+#        if self.my_coords is not None:
+#            retstr += """\n\t<Folder>\n\t\t<name>Range rings</name>\n\t\t<open>0</open>"""
+#            for rng in [100, 200, 300]:     
+#                retstr += """\n\t\t<Placemark>\n\t\t\t<name>%inm</name>\n\t\t\t<styleUrl>#rangering</styleUrl>\n\t\t\t<LinearRing>\n\t\t\t\t<coordinates>%s</coordinates>\n\t\t\t</LinearRing>\n\t\t</Placemark>""" % (rng, self.draw_circle(self.my_coords, rng),)
+#            retstr += """\t</Folder>\n"""
+        
+#        retstr +=  """\t<Folder>\n\t\t<name>Aircraft locations</name>\n\t\t<open>0</open>"""
+
+        #read the database and add KML
+        q = "select distinct icao from positions where seen > datetime('now', '-5 minute')"
+        c = self._db.cursor()
+        self.locked_execute(c, q)
+        icaolist = c.fetchall()
+        #now we have a list icaolist of all ICAOs seen in the last 5 minutes
+
+        for icao in icaolist:
+            icao = icao[0]
+            #print "ICAO: %x" % icao
+#            q = "select * from positions where icao=%i and seen > datetime('now', '-2 hour') ORDER BY seen DESC limit 1" % icao
+#            self.locked_execute(c, q)
+#            pos = c.fetchall()
+            #print "Track length: %i" % len(track)
+#            if len(track) != 0:
+#                lat = track[0][3]
+#                if lat is None: lat = 0
+#                lon = track[0][4]
+#                if lon is None: lon = 0
+#                alt = track[0][2]
+#                if alt is None: alt = 0
+                
+#                metric_alt = alt * 0.3048 #google earth takes meters, the commie bastards
+                
+#                trackstr = ""
+                
+#                for pos in track:
+#                    trackstr += " %f,%f,%f" % (pos[4], pos[3], pos[2]*0.3048)
+
+#                trackstr = string.lstrip(trackstr)
+#            else:
+#                alt = 0
+#                metric_alt = 0
+#                lat = 0
+#                lon = 0
+#                trackstr = str("")
+
+            #now get metadata
+#            q = "select ident from ident where icao=%i" % icao
+#            self.locked_execute(c, q)
+#            r = c.fetchall()
+#            if len(r) != 0:
+#                ident = r[0][0]
+#            else: ident=""
+            #if ident is None: ident = ""
+            #get most recent speed/heading/vertical
+            q = "select seen, speed, heading, vertical from vectors where icao=%i order by seen desc limit 1" % icao
+            self.locked_execute(c, q)
+            r = c.fetchall()
+            if len(r) != 0:
+                seen = r[0][0]
+                speed = r[0][1]
+                heading = r[0][2]
+                vertical = r[0][3]
+
+            else:
+                seen = 0
+                speed = 0
+                heading = 0
+                vertical = 0
+
+            q = "select lat, lon from positions where icao=%i order by seen desc limit 1" % icao
+            self.locked_execute(c, q)
+            r = c.fetchall()
+            if len(r) != 0:
+                lat = r[0][0]
+                lon = r[0][1]
+            else:
+                lat = 0
+                lon = 0
+            #now generate some KML
+            retstr+= """{"icao": "%.6x", "lat": %f, "lon": %f, "hdg": %i, "speed": %i, "vertical": %i},""" % (icao, lat, lon, heading, speed, vertical)
+
+        retstr+= """]);"""
+        return retstr

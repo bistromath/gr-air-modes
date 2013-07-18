@@ -72,7 +72,7 @@ class mainwindow(QtGui.QMainWindow):
 
         #disable by default
         self.ui.check_adsbonly.setCheckState(QtCore.Qt.Unchecked)
-        
+
         #set up the radio stuff
         self.queue = gr.msg_queue(10)
         self.running = False

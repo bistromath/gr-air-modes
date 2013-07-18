@@ -23,7 +23,7 @@
 # You pass it options, it gives you data.
 # It uses the pubsub interface to allow clients to subscribe to its data feeds.
 
-from gnuradio import gr, gru, optfir, eng_notation, blks2
+from gnuradio import gr, gru, eng_notation, blks2
 from gnuradio.eng_option import eng_option
 from gnuradio.gr.pubsub import pubsub
 from optparse import OptionParser, OptionGroup

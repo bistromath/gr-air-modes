@@ -23,7 +23,7 @@ import os, sys, time, threading, datetime, math, csv
 from optparse import OptionParser
 from PyQt4 import QtCore,QtGui
 from PyQt4.Qwt5 import Qwt
-from gnuradio import gr, gru, optfir, eng_notation, blks2
+from gnuradio import gr, eng_notation
 from gnuradio.eng_option import eng_option
 from gnuradio.gr.pubsub import pubsub
 import air_modes

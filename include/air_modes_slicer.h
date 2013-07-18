@@ -23,38 +23,36 @@
 #ifndef INCLUDED_AIR_MODES_slicer_H
 #define INCLUDED_AIR_MODES_slicer_H
 
-#include <gr_sync_block.h>
-#include <gr_msg_queue.h>
+#include <gnuradio/sync_block.h>
+#include <gnuradio/msg_queue.h>
 #include <air_modes_api.h>
 
 class air_modes_slicer;
 typedef boost::shared_ptr<air_modes_slicer> air_modes_slicer_sptr;
 
-AIR_MODES_API air_modes_slicer_sptr air_make_modes_slicer(int channel_rate, gr_msg_queue_sptr queue);
+AIR_MODES_API air_modes_slicer_sptr air_make_modes_slicer(int channel_rate, gr::msg_queue::sptr queue);
 
 /*!
  * \brief mode select slicer detection
  * \ingroup block
  */
-class AIR_MODES_API air_modes_slicer : public gr_sync_block
+class AIR_MODES_API air_modes_slicer : public gr::sync_block
 {
 private:
-    friend air_modes_slicer_sptr air_make_modes_slicer(int channel_rate, gr_msg_queue_sptr queue);
-    air_modes_slicer(int channel_rate, gr_msg_queue_sptr queue);
+    friend air_modes_slicer_sptr air_make_modes_slicer(int channel_rate, gr::msg_queue::sptr queue);
+    air_modes_slicer(int channel_rate, gr::msg_queue::sptr queue);
 
     int d_check_width;
     int d_chip_rate;
     int d_samples_per_chip;
     int d_samples_per_symbol;
-    gr_msg_queue_sptr d_queue;
+    gr::msg_queue::sptr d_queue;
     std::ostringstream d_payload;
 
 public:
     int work (int noutput_items,
               gr_vector_const_void_star &input_items,
               gr_vector_void_star &output_items);
-
-    void set_rate(int channel_rate);
 };
 
 #endif /* INCLUDED_AIR_MODES_slicer_H */

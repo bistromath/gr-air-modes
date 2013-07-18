@@ -22,7 +22,7 @@
 #ifndef INCLUDED_AIR_MODES_API_H
 #define INCLUDED_AIR_MODES_API_H
 
-#include <gruel/attributes.h>
+#include <gnuradio/attributes.h>
 
 #ifdef AIR_MODES_EXPORTS
 #  define AIR_MODES_API __GR_ATTR_EXPORT

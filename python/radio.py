@@ -23,7 +23,8 @@
 # You pass it options, it gives you data.
 # It uses the pubsub interface to allow clients to subscribe to its data feeds.
 
-from gnuradio import gr, gru, eng_notation, blks2
+from gnuradio import gr, gru, eng_notation, filter
+from gnuradio.filter import optfir
 from gnuradio.eng_option import eng_option
 from gnuradio.gr.pubsub import pubsub
 from optparse import OptionParser, OptionGroup
@@ -186,7 +187,7 @@ class modes_radio (gr.top_block, pubsub):
 
         #Note: this should only come into play if using an RTLSDR.
 #        lpfiltcoeffs = gr.firdes.low_pass(1, 5*3.2e6, 1.6e6, 300e3)
-#        self._resample = blks2.rational_resampler_ccf(interpolation=5, decimation=4, taps=lpfiltcoeffs)
+#        self._resample = filter.rational_resampler_ccf(interpolation=5, decimation=4, taps=lpfiltcoeffs)
                 
     else:
       #semantically detect whether it's ip.ip.ip.ip:port or filename

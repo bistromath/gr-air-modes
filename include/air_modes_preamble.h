@@ -23,7 +23,7 @@
 #ifndef INCLUDED_AIR_MODES_PREAMBLE_H
 #define INCLUDED_AIR_MODES_PREAMBLE_H
 
-#include <gr_block.h>
+#include <gnuradio/block.h>
 #include <air_modes_api.h>
 
 class air_modes_preamble;
@@ -35,7 +35,7 @@ AIR_MODES_API air_modes_preamble_sptr air_make_modes_preamble(int channel_rate, 
  * \brief mode select preamble detection
  * \ingroup block
  */
-class AIR_MODES_API air_modes_preamble : public gr_block
+class AIR_MODES_API air_modes_preamble : public gr::block
 {
 private:
     friend air_modes_preamble_sptr air_make_modes_preamble(int channel_rate, float threshold_db);
@@ -49,7 +49,7 @@ private:
 	float d_threshold_db;
 	float d_threshold;
 	pmt::pmt_t d_me, d_key;
-	gr_tag_t d_timestamp;
+    gr::tag_t d_timestamp;
 	double d_secs_per_sample;
 
 public:

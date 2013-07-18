@@ -27,10 +27,10 @@
 
 #include <ciso646>
 #include <air_modes_preamble.h>
-#include <gr_io_signature.h>
+#include <gnuradio/io_signature.h>
 #include <string.h>
 #include <iostream>
-#include <gr_tags.h>
+#include <gnuradio/tags.h>
 
 air_modes_preamble_sptr air_make_modes_preamble(int channel_rate, float threshold_db)
 {
@@ -38,39 +38,24 @@ air_modes_preamble_sptr air_make_modes_preamble(int channel_rate, float threshol
 }
 
 air_modes_preamble::air_modes_preamble(int channel_rate, float threshold_db) :
-    gr_block ("modes_preamble",
-                   gr_make_io_signature2 (2, 2, sizeof(float), sizeof(float)), //stream 0 is received data, stream 1 is moving average for reference
-                   gr_make_io_signature (1, 1, sizeof(float))) //the output packets
-{
-	set_rate(channel_rate);
-	set_threshold(threshold_db);
-	
-	std::stringstream str;
-	str << name() << unique_id();
-	d_me = pmt::pmt_string_to_symbol(str.str());
-	d_key = pmt::pmt_string_to_symbol("preamble_found");
-	set_history(d_samples_per_symbol);
-}
-
-void air_modes_preamble::set_rate(int channel_rate)
+        gr::block ("modes_preamble",
+	       gr::io_signature::make2 (2, 2, sizeof(float), sizeof(float)), //stream 0 is received data, stream 1 is moving average for reference
+	       gr::io_signature::make (1, 1, sizeof(float))) //the output packets
 {
 	d_chip_rate = 2000000; //2Mchips per second
 	d_samples_per_chip = channel_rate / d_chip_rate; //must be integer number of samples per chip to work
 	d_samples_per_symbol = d_samples_per_chip * 2;
-	d_secs_per_sample = 1.0 / channel_rate;
-	d_check_width = 240 * d_samples_per_symbol; //only search to this far from the end of the stream buffer
-	set_output_multiple(1+d_check_width);
-}
-
-void air_modes_preamble::set_threshold(float threshold_db)
-{
+	d_check_width = 120 * d_samples_per_symbol; //only search to this far from the end of the stream buffer
 	d_threshold_db = threshold_db;
 	d_threshold = powf(10., threshold_db/20.); //the level that the sample must be above the moving average in order to qualify as a pulse
-}
-
-float air_modes_preamble::get_threshold(void)
-{
-	return d_threshold_db;
+	d_secs_per_sample = 1.0 / channel_rate;
+	set_output_multiple(1+d_check_width*2);
+	
+	std::stringstream str;
+	str << name() << unique_id();
+	d_me = pmt::string_to_symbol(str.str());
+	d_key = pmt::string_to_symbol("preamble_found");
+	set_history(d_samples_per_symbol);
 }
 
 static void integrate_and_dump(float *out, const float *in, int chips, int samps_per_chip) {
@@ -96,14 +81,14 @@ static double correlate_preamble(const float *in, int samples_per_chip) {
 }
 
 //todo: make it return a pair of some kind, otherwise you can lose precision
-static double tag_to_timestamp(gr_tag_t tstamp, uint64_t abs_sample_cnt, double secs_per_sample) {
+static double tag_to_timestamp(gr::tag_t tstamp, uint64_t abs_sample_cnt, double secs_per_sample) {
 	uint64_t ts_sample, last_whole_stamp;
 	double last_frac_stamp;
 
-	if(tstamp.key == NULL || pmt::pmt_symbol_to_string(tstamp.key) != "rx_time") return 0;
+	if(tstamp.key == NULL || pmt::symbol_to_string(tstamp.key) != "rx_time") return 0;
 
-	last_whole_stamp = pmt::pmt_to_uint64(pmt::pmt_tuple_ref(tstamp.value, 0));
-	last_frac_stamp = pmt::pmt_to_double(pmt::pmt_tuple_ref(tstamp.value, 1));
+	last_whole_stamp = pmt::to_uint64(pmt::tuple_ref(tstamp.value, 0));
+	last_frac_stamp = pmt::to_double(pmt::tuple_ref(tstamp.value, 1));
 	ts_sample = tstamp.offset;
 	
 	double tstime = double(abs_sample_cnt * secs_per_sample) + last_whole_stamp + last_frac_stamp;
@@ -137,8 +122,8 @@ int air_modes_preamble::general_work(int noutput_items,
 	                             };
 
 	uint64_t abs_sample_cnt = nitems_read(0);
-	std::vector<gr_tag_t> tstamp_tags;
-	get_tags_in_range(tstamp_tags, 0, abs_sample_cnt, abs_sample_cnt + ninputs, pmt::pmt_string_to_symbol("rx_time"));
+	std::vector<gr::tag_t> tstamp_tags;
+	get_tags_in_range(tstamp_tags, 0, abs_sample_cnt, abs_sample_cnt + ninputs, pmt::string_to_symbol("rx_time"));
 	//tags.back() is the most recent timestamp, then.
 	if(tstamp_tags.size() > 0) {
 		d_timestamp = tstamp_tags.back();
@@ -210,10 +195,10 @@ int air_modes_preamble::general_work(int noutput_items,
 			add_item_tag(0, //stream ID
 					 nitems_written(0), //sample
 					 d_key,      //frame_info
-			         pmt::pmt_make_tuple(pmt::pmt_from_double(tstamp), pmt::pmt_from_double(inavg[i])),
+			         pmt::from_double(tstamp),
 			         d_me        //block src id
 			        );
-
+					 
 			//std::cout << "PREAMBLE" << std::endl;
 			
 			//produce only one output per work call -- TODO this should probably change

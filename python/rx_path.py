@@ -19,7 +19,7 @@
 # Boston, MA 02110-1301, USA.
 # 
 
-from gnuradio import gr
+from gnuradio import gr, blocks
 import air_modes_swig
 
 class rx_path(gr.hier_block2):
@@ -35,17 +35,17 @@ class rx_path(gr.hier_block2):
         self._spc = int(rate/2e6)
 
         # Convert incoming I/Q baseband to amplitude
-        self._demod = gr.complex_to_mag()
+        self._demod = blocks.complex_to_mag()
         self._bb = self._demod
 
         # Pulse matched filter for 0.5us pulses
         if use_pmf:
-            self._pmf = gr.moving_average_ff(self._spc, 1.0/self._spc)#, self._rate)
+            self._pmf = blocks.moving_average_ff(self._spc, 1.0/self._spc)#, self._rate)
             self.connect(self._demod, self._pmf)
             self._bb = self._pmf
 
         # Establish baseline amplitude (noise, interference)
-        self._avg = gr.moving_average_ff(48*self._spc, 1.0/(48*self._spc))#, self._rate) # 3 preambles
+        self._avg = blocks.moving_average_ff(48*self._spc, 1.0/(48*self._spc))#, self._rate) # 3 preambles
 
         # Synchronize to Mode-S preamble
         self._sync = air_modes_swig.modes_preamble(self._rate, self._threshold)

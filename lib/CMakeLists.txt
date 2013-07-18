@@ -27,7 +27,7 @@ add_library(air_modes SHARED
     air_modes_slicer.cc
     modes_crc.cc
 )
-target_link_libraries(air_modes ${Boost_LIBRARIES} ${GRUEL_LIBRARIES} ${GNURADIO_CORE_LIBRARIES})
+target_link_libraries(air_modes ${Boost_LIBRARIES} ${GNURADIO_RUNTIME_LIBRARIES})
 set_target_properties(air_modes PROPERTIES DEFINE_SYMBOL "AIR_MODES_EXPORTS")
 set_target_properties(air_modes PROPERTIES SOVERSION "${gr-gr-air-modes_VERSION_MAJOR}")
 set_target_properties(air_modes PROPERTIES VERSION "${gr-gr-air-modes_VERSION_MAJOR}.${gr-gr-air-modes_VERSION_MINOR}")

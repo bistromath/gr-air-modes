@@ -74,7 +74,7 @@ class output_sql:
         #constructor.
         if self._db is None:
           self._db = sqlite3.connect(self.filename)
-          
+
         query = self.make_insert_query(message)
         if query is not None:
             c = self._db.cursor()

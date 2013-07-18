@@ -5,7 +5,7 @@
 def html_template(my_position, json_file):
     if my_position is None:
         my_position = [37, -122]
-        
+
     return """
 <html>
     <head>
@@ -20,7 +20,7 @@ def html_template(my_position, json_file):
                 font-size: 10px;
                 font-weight: bold;
                 text-align: center;
-                width: 40px;     
+                width: 40px;
                 border: 2px solid black;
                 white-space: nowrap;
             }
@@ -61,27 +61,33 @@ def html_template(my_position, json_file):
                         type: results[i].type,
                         ident: results[i].ident,
                         speed: results[i].speed,
-                        vertical: results[i].vertical
+                        vertical: results[i].vertical,
+                        highlight: results[i].highlight
                     };
                 }
                 refreshIcons();
             }
-            
+
             function refreshIcons() {
                 for (var airplane in airplanes) {
+                    if (airplanes[airplane].highlight != 0) {
+                        icon_file = "http://www.nerdnetworks.org/~bistromath/airplane_sprite_highlight.png";
+                    } else {
+                        icon_file = "http://www.nerdnetworks.org/~bistromath/airplane_sprite.png";
+                    };
                     var plane_icon = {
-                        url: "http://www.nerdnetworks.org/~bistromath/airplane_sprite.png",
+                        url: icon_file,
                         size: new google.maps.Size(128,128),
                         origin: new google.maps.Point(parseInt(airplanes[airplane].heading/10)*128,0),
                         anchor: new google.maps.Point(64,64),
                         //scaledSize: new google.maps.Size(4608,126)
                     };
-                    
+
                     identstr = airplanes[airplane].ident;
                     if (identstr === "" || !identstr) {
                         identstr = airplanes[airplane].icao;
                     };
-                    
+
                     var planeOptions = {
                         map: map,
                         position: airplanes[airplane].center,
@@ -99,13 +105,13 @@ def html_template(my_position, json_file):
 
             function initialize()
             {
-            	var myOptions = 
-            	{
-            		zoom: defaultZoomLevel,
-            		center: defaultLocation,
-            		disableDefaultUI: true,
-            		mapTypeId: google.maps.MapTypeId.TERRAIN
-            	};
+                var myOptions =
+                {
+                    zoom: defaultZoomLevel,
+                    center: defaultLocation,
+                    disableDefaultUI: true,
+                    mapTypeId: google.maps.MapTypeId.TERRAIN
+                };
 
                 map = new google.maps.Map(document.getElementById("map_canvas"), myOptions);
 

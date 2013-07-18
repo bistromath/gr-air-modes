@@ -30,7 +30,7 @@ class output_kml(threading.Thread):
         self.my_coords = localpos
         self._timeout = timeout
         self._lock = lock
-        
+
         self.shutdown = threading.Event()
         self.finished = threading.Event()
         self.setDaemon(1)
@@ -41,7 +41,7 @@ class output_kml(threading.Thread):
         while self.shutdown.is_set() is False:
             self.writekml()
             time.sleep(self._timeout)
-                
+
         self._db.close()
         self._db = None
         self.finished.set()
@@ -52,8 +52,8 @@ class output_kml(threading.Thread):
         #there's a bug here where self._timeout is long and close() has
         #to wait for the sleep to expire before closing. we just bail
         #instead with the 0.2 param above.
-        
-        
+
+
     def writekml(self):
         kmlstr = self.genkml()
         if kmlstr is not None:
@@ -64,7 +64,7 @@ class output_kml(threading.Thread):
     def locked_execute(self, c, query):
         with self._lock:
             c.execute(query)
-    
+
     def draw_circle(self, center, rng):
         retstr = ""
         steps=30
@@ -91,7 +91,7 @@ class output_kml(threading.Thread):
 
         retstr = string.lstrip(retstr)
         return retstr
-    
+
     def genkml(self):
         #first let's draw the static content
         retstr="""<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n\t<Style id="airplane">\n\t\t<IconStyle>\n\t\t\t<Icon><href>airports.png</href></Icon>\n\t\t</IconStyle>\n\t</Style>\n\t<Style id="rangering">\n\t<LineStyle>\n\t\t<color>9f4f4faf</color>\n\t\t<width>2</width>\n\t</LineStyle>\n\t</Style>\n\t<Style id="track">\n\t<LineStyle>\n\t\t<color>5fff8f8f</color>\n\t\t<width>4</width>\n\t</LineStyle>\n\t</Style>"""
@@ -101,7 +101,7 @@ class output_kml(threading.Thread):
             for rng in [100, 200, 300]:     
                 retstr += """\n\t\t<Placemark>\n\t\t\t<name>%inm</name>\n\t\t\t<styleUrl>#rangering</styleUrl>\n\t\t\t<LinearRing>\n\t\t\t\t<coordinates>%s</coordinates>\n\t\t\t</LinearRing>\n\t\t</Placemark>""" % (rng, self.draw_circle(self.my_coords, rng),)
             retstr += """\t</Folder>\n"""
-        
+
         retstr +=  """\t<Folder>\n\t\t<name>Aircraft locations</name>\n\t\t<open>0</open>"""
 
         #read the database and add KML
@@ -124,11 +124,11 @@ class output_kml(threading.Thread):
                 if lon is None: lon = 0
                 alt = track[0][2]
                 if alt is None: alt = 0
-                
+
                 metric_alt = alt * 0.3048 #google earth takes meters, the commie bastards
-                
+
                 trackstr = ""
-                
+
                 for pos in track:
                     trackstr += " %f,%f,%f" % (pos[4], pos[3], pos[2]*0.3048)
 
@@ -162,7 +162,7 @@ class output_kml(threading.Thread):
                 seen = 0
                 speed = 0
                 heading = 0
-                vertical = 0        
+                vertical = 0
             #now generate some KML
             retstr+= "\n\t\t<Placemark>\n\t\t\t<name>%s</name>\n\t\t\t<Style><IconStyle><heading>%i</heading></IconStyle></Style>\n\t\t\t<styleUrl>#airplane</styleUrl>\n\t\t\t<description>\n\t\t\t\t<![CDATA[Altitude: %s<br/>Heading: %i<br/>Speed: %i<br/>Vertical speed: %i<br/>ICAO: %x<br/>Last seen: %s]]>\n\t\t\t</description>\n\t\t\t<Point>\n\t\t\t\t<altitudeMode>absolute</altitudeMode>\n\t\t\t\t<extrude>1</extrude>\n\t\t\t\t<coordinates>%s,%s,%i</coordinates>\n\t\t\t</Point>\n\t\t</Placemark>" % (ident, heading, alt, heading, speed, vertical, icao[0], seen, lon, lat, metric_alt, )
 
@@ -173,15 +173,18 @@ class output_kml(threading.Thread):
 
 #we just inherit from output_kml because we're doing the same thing, only in a different format.
 class output_jsonp(output_kml):
+    def set_highlight(self, icao):
+        self.highlight = icao
+
     def genkml(self):
         retstr="""jsonp_callback(["""
 
 #        if self.my_coords is not None:
 #            retstr += """\n\t<Folder>\n\t\t<name>Range rings</name>\n\t\t<open>0</open>"""
-#            for rng in [100, 200, 300]:     
+#            for rng in [100, 200, 300]:
 #                retstr += """\n\t\t<Placemark>\n\t\t\t<name>%inm</name>\n\t\t\t<styleUrl>#rangering</styleUrl>\n\t\t\t<LinearRing>\n\t\t\t\t<coordinates>%s</coordinates>\n\t\t\t</LinearRing>\n\t\t</Placemark>""" % (rng, self.draw_circle(self.my_coords, rng),)
 #            retstr += """\t</Folder>\n"""
-        
+
 #        retstr +=  """\t<Folder>\n\t\t<name>Aircraft locations</name>\n\t\t<open>0</open>"""
 
         #read the database and add KML
@@ -193,33 +196,6 @@ class output_jsonp(output_kml):
 
         for icao in icaolist:
             icao = icao[0]
-            #print "ICAO: %x" % icao
-#            q = "select * from positions where icao=%i and seen > datetime('now', '-2 hour') ORDER BY seen DESC limit 1" % icao
-#            self.locked_execute(c, q)
-#            pos = c.fetchall()
-            #print "Track length: %i" % len(track)
-#            if len(track) != 0:
-#                lat = track[0][3]
-#                if lat is None: lat = 0
-#                lon = track[0][4]
-#                if lon is None: lon = 0
-#                alt = track[0][2]
-#                if alt is None: alt = 0
-                
-#                metric_alt = alt * 0.3048 #google earth takes meters, the commie bastards
-                
-#                trackstr = ""
-                
-#                for pos in track:
-#                    trackstr += " %f,%f,%f" % (pos[4], pos[3], pos[2]*0.3048)
-
-#                trackstr = string.lstrip(trackstr)
-#            else:
-#                alt = 0
-#                metric_alt = 0
-#                lat = 0
-#                lon = 0
-#                trackstr = str("")
 
             #now get metadata
             q = "select ident, type from ident where icao=%i" % icao
@@ -228,7 +204,9 @@ class output_jsonp(output_kml):
             if len(r) != 0:
                 ident = r[0][0]
                 actype = r[0][1]
-            else: ident=""
+            else: 
+                ident=""
+                actype = ""
             if ident is None: ident = ""
             #get most recent speed/heading/vertical
             q = "select seen, speed, heading, vertical from vectors where icao=%i order by seen desc limit 1" % icao
@@ -257,8 +235,14 @@ class output_jsonp(output_kml):
                 lat = 0
                 lon = 0
                 alt = 0
-            #now generate some KML
-            retstr+= """{"icao": "%.6x", "lat": %f, "lon": %f, "alt": %i, "hdg": %i, "speed": %i, "vertical": %i, "ident": "%s", "type": "%s"},""" % (icao, lat, lon, alt, heading, speed, vertical, ident, actype)
+
+            highlight = 0
+            if hasattr(self, 'highlight'):
+                if self.highlight == icao:
+                    highlight = 1
+
+            #now generate some JSONP
+            retstr+= """{"icao": "%.6x", "lat": %f, "lon": %f, "alt": %i, "hdg": %i, "speed": %i, "vertical": %i, "ident": "%s", "type": "%s", "highlight": %i},""" % (icao, lat, lon, alt, heading, speed, vertical, ident, actype, highlight)
 
         retstr+= """]);"""
         return retstr

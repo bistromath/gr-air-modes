@@ -85,7 +85,7 @@
            </sizepolicy>
           </property>
           <property name="currentIndex">
-           <number>3</number>
+           <number>0</number>
           </property>
           <widget class="QWidget" name="setup">
            <property name="sizePolicy">
@@ -934,9 +934,7 @@
            </attribute>
            <layout class="QGridLayout" name="gridLayout_8">
             <item row="0" column="0">
-             <widget class="QWebView" name="mapView" native="true">
-              <zorder>gridLayoutWidget</zorder>
-             </widget>
+             <widget class="QWebView" name="mapView" native="true"/>
             </item>
            </layout>
           </widget>

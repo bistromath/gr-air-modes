@@ -226,8 +226,11 @@ class mainwindow(QtGui.QMainWindow):
         self.ui.combo_ant.addItems(self.antennas)
 
         #set up recommended sample rate
-        lowest_rate_valid = min(x for x in self.rates if x >= 4e6)
-        self.ui.combo_rate.setCurrentIndex(self.rates.index(lowest_rate_valid))
+        recommended_rate = min(x for x in self.rates if x >= 4e6 and
+                             max(self.rates) % x == 0)
+        if recommended_rate >= 8.e6:
+            self.ui.check_pmf.setChecked(True)
+        self.ui.combo_rate.setCurrentIndex(self.rates.index(recommended_rate))
 
 ################ action handlers ####################
     def on_combo_source_currentIndexChanged(self, index):

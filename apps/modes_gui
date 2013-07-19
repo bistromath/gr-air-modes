@@ -179,7 +179,8 @@ class mainwindow(QtGui.QMainWindow):
             try:
                 from gnuradio import uhd
                 self.src = uhd.single_usrp_source("", uhd.io_type_t.COMPLEX_FLOAT32, 1)
-                self.rates = [rate.start() for rate in self.src.get_samp_rates() if (rate.start() % 2.e6) == 0]
+                self.rates = [rate.start() for rate in self.src.get_samp_rates()
+                              if (rate.start() % 2.e6) == 0 and rate >= 4e6]
                 self.antennas = self.src.get_antennas()
                 self.src = None #deconstruct UHD source for now
                 self.ui.combo_ant.setEnabled(True)
@@ -224,8 +225,9 @@ class mainwindow(QtGui.QMainWindow):
         self.ui.combo_ant.clear()
         self.ui.combo_ant.addItems(self.antennas)
 
-        if 4e6 in self.rates:
-            self.ui.combo_rate.setCurrentIndex(self.rates.index(4e6))
+        #set up recommended sample rate
+        lowest_rate_valid = min(x for x in self.rates if x >= 4e6)
+        self.ui.combo_rate.setCurrentIndex(self.rates.index(lowest_rate_valid))
 
 ################ action handlers ####################
     def on_combo_source_currentIndexChanged(self, index):
@@ -302,9 +304,9 @@ class mainwindow(QtGui.QMainWindow):
             self._htmlfile = open("/tmp/mode_s.html", 'wb+')#tempfile.NamedTemporaryFile()
             self._jsonfile = tempfile.NamedTemporaryFile()
 
-            self.livedata = air_modes.output_print(self._cpr_dec, self._publisher)
-            #add output for live data box
-            #self._relay.subscribe("dl_data", self.output_live_data)
+            self.livedata = air_modes.output_print(self._cpr_dec,
+                                                   self._publisher,
+                                                   self.live_data_changed_signal.emit)
 
             #create SQL database for KML and dashboard displays
             self.dbwriter = air_modes.output_sql(self._cpr_dec, self.dbname, self.lock, self._publisher)
@@ -322,7 +324,9 @@ class mainwindow(QtGui.QMainWindow):
 
             #output to update reports/sec widget
             self._relay.subscribe("dl_data", self.increment_reportspersec)
-            #self.updates.append(self.update_reportspersec) #TODO FIXME
+            self._rps_timer = QtCore.QTimer()
+            self._rps_timer.timeout.connect(self.update_reportspersec)
+            self._rps_timer.start(1000)
 
             #start the flowgraph
             self._radio.start()
@@ -336,6 +340,7 @@ class mainwindow(QtGui.QMainWindow):
             self._radio.close()
             self._relay = None
             self._radio = None
+            self._rps_timer = None
             try:
                 self.kmlgen.done = True
                 #TODO FIXME need a way to kill kmlgen safely without delay
@@ -356,14 +361,6 @@ class mainwindow(QtGui.QMainWindow):
 
         self.ui.text_livedata.append(msgstr)
         self.ui.text_livedata.verticalScrollBar().setSliderPosition(self.ui.text_livedata.verticalScrollBar().maximum())
-
-    def output_live_data(self, msg):
-        try:
-            msgstr = self.livedata.parse(msg)
-            if msgstr is not None:
-                self.live_data_changed_signal.emit(msgstr)
-        except ADSBError:
-            pass
 
 if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)

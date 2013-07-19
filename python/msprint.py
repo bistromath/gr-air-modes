@@ -28,9 +28,10 @@ import math
 #TODO get rid of class and convert to functions
 #no need for class here
 class output_print:
-  def __init__(self, cpr, publisher):
+  def __init__(self, cpr, publisher, callback=None):
     self._cpr = cpr
-    #sub to every function that starts with "print"
+    self._callback = callback
+    #sub to every function that starts with "handle"
     self._fns = [int(l[6:]) for l in dir(self) if l.startswith("handle")]
     for i in self._fns:
       publisher.subscribe("type%i_dl" % i, getattr(self, "handle%i" % i))
@@ -41,6 +42,12 @@ class output_print:
   def prefix(msg):
     return "(%i %.8f) " % (msg.rssi, msg.timestamp)
 
+  def _print(self, msg):
+    if self._callback is None:
+        print msg
+    else:
+        self._callback(msg)
+
   def catch_nohandler(self, msg):
     if msg.data.get_type() not in self._fns:
       retstr = output_print.prefix(msg)
@@ -49,7 +56,7 @@ class output_print:
         retstr += " from %.6x" % msg.ecc
       else:
         retstr += " from %.6x" % msg.data["aa"]
-      print retstr
+      self._print(retstr)
       
   def handle0(self, msg):
     try:
@@ -77,7 +84,7 @@ class output_print:
     if msg.data["vs"] is 1:
       retstr += " (aircraft is on the ground)"
 
-    print retstr
+    self._print(retstr)
 
   @staticmethod
   def fs_text(fs):
@@ -101,7 +108,7 @@ class output_print:
       retstr += output_print.fs_text(msg.data["fs"])    
     except ADSBError:
       return
-    print retstr
+    self._print(retstr)
 
   def handle5(self, msg):
     try:
@@ -110,7 +117,7 @@ class output_print:
       retstr += output_print.fs_text(msg.data["fs"])
     except ADSBError:
       return
-    print retstr
+    self._print(retstr)
 
   def handle11(self, msg):
     try:
@@ -118,7 +125,7 @@ class output_print:
       retstr += "Type 11 (all call reply) from %x in reply to interrogator %i with capability level %i" % (msg.data["aa"], msg.ecc & 0xF, msg.data["ca"]+1)
     except ADSBError:
       return
-    print retstr
+    self._print(retstr)
 
   #the only one which requires state
   def handle17(self, msg):
@@ -157,20 +164,20 @@ class output_print:
             [mag_hdg, vel_src, vel, vert_spd, geo_diff] = air_modes.parseBDS09_3(msg.data)
             retstr += "Type 17 BDS0,9-%i (air course report) from %x with %s %.0fkt magnetic heading %.0f VS %.0f geo. diff. from baro. alt. %.0fft" \
                      % (subtype, icao24, vel_src, vel, mag_hdg, vert_spd, geo_diff)
-        
+
           else:
             retstr += "Type 17 BDS0,9-%i from %x not implemented" % (subtype, icao24)
 
         elif bdsreg == 0x62:
           emerg_str = air_modes.parseBDS62(data)
           retstr += "Type 17 BDS6,2 (emergency) from %x type %s" % (icao24, emerg_str)
-          
+
         else:
           retstr += "Type 17 with FTC=%i from %x not implemented" % (msg.data["ftc"], icao24)
     except ADSBError:
         return
 
-    print retstr
+    self._print(retstr)
 
   def printTCAS(self, msg):
     msgtype = msg.data["df"]
@@ -222,8 +229,8 @@ class output_print:
       retstr += " at %ift" % air_modes.decode_alt(msg.data["ac"], True)
     else:
       retstr += " ident %x" % air_modes.decode_id(msg.data["id"])
-      
-    print retstr
+
+    self._print(retstr)
 
   handle16 = printTCAS
   handle20 = printTCAS

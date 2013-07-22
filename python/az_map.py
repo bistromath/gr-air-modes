@@ -85,18 +85,15 @@ class az_map_model(QtCore.QObject):
 
 # the azimuth map widget
 class az_map(QtGui.QWidget):
-    maxrange = 450
-    ringsize = 100
+    maxrange = 200
     bgcolor = QtCore.Qt.black
     ringpen =  QtGui.QPen(QtGui.QColor(0,   96,  127, 255), 1.3)
-    #rangepen = QtGui.QPen(QtGui.QColor(255, 255, 0,   255), 1.0)
-    
+
     def __init__(self, parent=None):
         super(az_map, self).__init__(parent)
         self._model = None
         self._paths = []
         self.maxrange = az_map.maxrange
-        self.ringsize = az_map.ringsize
 
     def minimumSizeHint(self):
         return QtCore.QSize(50, 50)
@@ -118,7 +115,7 @@ class az_map(QtGui.QWidget):
 
         #set background
         painter.fillRect(event.rect(), QtGui.QBrush(az_map.bgcolor))
-        
+
         #draw the range rings
         self.drawRangeRings(painter)
         for i in range(len(self._paths)):
@@ -136,12 +133,12 @@ class az_map(QtGui.QWidget):
                     bearing = (i+0.5) * 360./az_map_model.npoints
                     distance = self._model._data[i][alt]
                     radius = min(self.width(), self.height()) / 2.0
-                    scale = radius * distance / self.maxrange
+                    scale = radius * distance / self.get_range()
                     #convert bearing,distance to x,y
                     xpts = scale * math.sin(bearing * math.pi / 180)
                     ypts = scale * math.cos(bearing * math.pi / 180)
                     #get the bounding rectangle of the arc
-                    
+
                     arcrect = QtCore.QRectF(QtCore.QPointF(0-scale, 0-scale),
                                             QtCore.QPointF(scale, scale))
 
@@ -153,44 +150,53 @@ class az_map(QtGui.QWidget):
 
                 self._paths.append(path)
 
+    #this is just to add a little buffer space for showing the ring & range
+    def get_range(self):
+        return int(self.maxrange * 1.1)
+
     def drawRangeRings(self, painter):
         painter.translate(self.width()/2, self.height()/2)
-        painter.setPen(az_map.ringpen)
-        for i in range(0, self.maxrange, self.ringsize):
-            diameter = (float(i) / az_map.maxrange) * min(self.width(), self.height())
+        #choose intelligent range step -- keep it between 3-5 rings
+        rangestep = 25
+        while self.get_range() / rangestep > 5:
+            rangestep *= 2
+        for i in range(rangestep, self.get_range(), rangestep):
+            diameter = (float(i) / self.get_range()) * min(self.width(), self.height())
+            painter.setPen(az_map.ringpen)
             painter.drawEllipse(QtCore.QRectF(-diameter / 2.0,
                                 -diameter / 2.0, diameter, diameter))
+            painter.setPen(QtGui.QColor(255,127,0,255))
+
+            painter.drawText(0-50/2.0, diameter/2.0, 50, 30, QtCore.Qt.AlignHCenter,
+                             "%.0fnm" % i)
 
     def setMaxRange(self, maxrange):
         self.maxrange = maxrange
-        self.drawPath()
+        self.repaint()
 
-    def setRingSize(self, ringsize):
-        self.ringsize = ringsize
-        self.drawPath()
+    def wheelEvent(self, event):
+        self.setMaxRange(self.maxrange + (event.delta()/120.)*self.maxrange/4.)
 
 class az_map_output:
     def __init__(self, cprdec, model, pub):
         self._cpr = cprdec
         self.model = model
         pub.subscribe("type17_dl", self.output)
-        
+
     def output(self, msg):
         try:
-            msgtype = msg.data["df"]
             now = time.time()
-        
-            if msgtype == 17:
-                icao = msg.data["aa"]
-                subtype = msg.data["ftc"]
-                distance, altitude, bearing = [0,0,0]
-                if 5 <= subtype <= 8:
-                    (ground_track, decoded_lat, decoded_lon, distance, bearing) = air_modes.parseBDS06(msg.data, self._cpr)
-                    altitude = 0
-                elif 9 <= subtype <= 18:
+
+            icao = msg.data["aa"]
+            subtype = msg.data["ftc"]
+            distance, altitude, bearing = [0,0,0]
+            if 5 <= subtype <= 8:
+                (ground_track, decoded_lat, decoded_lon, distance, bearing) = air_modes.parseBDS06(msg.data, self._cpr)
+                altitude = 0
+            elif 9 <= subtype <= 18:
                     (altitude, decoded_lat, decoded_lon, distance, bearing) = air_modes.parseBDS05(msg.data, self._cpr)
 
-                self.model.addRecord(bearing, altitude, distance)
+            self.model.addRecord(bearing, altitude, distance)
         except ADSBError:
             pass
 

@@ -14,14 +14,14 @@ def html_template(my_position, json_file):
         <meta http-equiv="content-type" content="text/html;charset=utf-8" />
         <style type="text/css">
             .labels {
-                color: red;
+                color: blue;
                 background-color: white;
                 font-family: "Lucida Grande", "Arial", sans-serif;
-                font-size: 10px;
+                font-size: 13px;
                 font-weight: bold;
                 text-align: center;
-                width: 40px;
-                border: 2px solid black;
+                width: 70px;
+                border: none;
                 white-space: nowrap;
             }
         </style>
@@ -95,7 +95,7 @@ def html_template(my_position, json_file):
                         position: airplanes[airplane].center,
                         icon: plane_icon,
                         labelContent: identstr,
-                        labelAnchor: new google.maps.Point(64, 0),
+                        labelAnchor: new google.maps.Point(35, -32),
                         labelClass: "labels",
                         labelStyle: {opacity: 0.75}
                     };

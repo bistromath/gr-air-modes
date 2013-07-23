@@ -19,7 +19,7 @@
 # Boston, MA 02110-1301, USA.
 # 
 
-import os, sys, time, threading, datetime, math, csv, tempfile
+import os, sys, time, threading, datetime, math, csv, tempfile, ConfigParser
 from optparse import OptionParser
 from PyQt4 import QtCore,QtGui,QtWebKit
 from PyQt4.Qwt5 import Qwt
@@ -48,27 +48,42 @@ class mainwindow(QtGui.QMainWindow):
         #populate antenna, rate combo boxes based on source
         self.populate_source_options()
 
+        defaults = self.get_defaults()
+
         #should round to actual achieved gain
-        self.ui.line_gain.insert("30")
+        self.ui.line_gain.insert(defaults["gain"])
 
         #default to 5dB
-        self.ui.line_threshold.insert("5")
+        self.ui.line_threshold.insert(defaults["threshold"])
+
+        if defaults["pmf"] is not None:
+            self.ui.check_pmf.setChecked(bool(defaults["pmf"]))
+        if defaults["samplerate"] is not None:
+            self.ui.combo_rate.setCurrentIndex(self.rates.index(int(defaults["samplerate"])))
 
         self.ui.prog_rssi.setMinimum(0)
         self.ui.prog_rssi.setMaximum(40)
 
-        self.ui.combo_ant.setCurrentIndex(self.ui.combo_ant.findText("RX2"))
+        if defaults["antenna"] is None:
+            self.ui.combo_ant.setCurrentIndex(self.ui.combo_ant.findText("RX2"))
+        else:
+            self.ui.combo_ant.setCurrentIndex(self.ui.combo_ant.findText(defaults["antenna"]))
 
         #check KML by default, leave the rest unchecked.
-        self.ui.check_sbs1.setCheckState(QtCore.Qt.Unchecked)
-        self.ui.check_raw.setCheckState(QtCore.Qt.Unchecked)
-        self.ui.check_fgfs.setCheckState(QtCore.Qt.Unchecked)
-        self.ui.check_kml.setCheckState(QtCore.Qt.Checked)
+        self.ui.check_sbs1.setChecked(bool(defaults["sbs1"] == "1"))
+        self.ui.check_raw.setChecked(bool(defaults["raw"] == "1"))
+        self.ui.check_fgfs.setChecked(bool(defaults["fgfs"] == "1"))
+        self.ui.check_kml.setChecked(bool(defaults["kml"] == "1"))
 
-        self.ui.line_sbs1port.insert("30003")
-        self.ui.line_rawport.insert("9988")
-        self.ui.line_fgfsport.insert("5500")
-        self.ui.line_kmlfilename.insert("modes.kml")
+        self.ui.line_sbs1port.insert(defaults["sbs1port"])#"30003")
+        self.ui.line_rawport.insert(defaults["rawport"])#"9988")
+        self.ui.line_fgfsport.insert(defaults["fgfsport"])#"5500")
+        self.ui.line_kmlfilename.insert(defaults["kmlfile"])#"modes.kml")
+
+        if defaults["latitude"] is not None:
+            self.ui.line_my_lat.insert(defaults["latitude"])
+        if defaults["longitude"] is not None:
+            self.ui.line_my_lon.insert(defaults["longitude"])
 
         #disable by default
         self.ui.check_adsbonly.setCheckState(QtCore.Qt.Unchecked)
@@ -127,6 +142,8 @@ class mainwindow(QtGui.QMainWindow):
 
         self._last_live_data_update = time.time()
         self._pending_msgstr = ""
+
+        self.prefs = None
 
 ############ widget update functions for non-mapped widgets ############
     def update_heading_widget(self, index):
@@ -340,6 +357,28 @@ class mainwindow(QtGui.QMainWindow):
             self.ui.button_start.setText("Stop")
             self.running = True
 
+            #grab prefs and save them
+            self.prefs = {}
+            self.prefs["samplerate"] = options.rate
+            self.prefs["antenna"] = options.antenna
+            self.prefs["gain"] = options.gain
+            self.prefs["pmf"] = options.pmf
+            self.prefs["source"] = self.ui.combo_source.currentText()
+            self.prefs["threshold"] = options.threshold
+            self.prefs["sbs1"] = self.ui.check_sbs1.isChecked()
+            self.prefs["sbs1port"] = int(self.ui.line_sbs1port.text())
+            self.prefs["fgfs"] = self.ui.check_fgfs.isChecked()
+            self.prefs["fgfsport"] = int(self.ui.line_fgfsport.text())
+            self.prefs["raw"] = self.ui.check_raw.isChecked()
+            self.prefs["rawport"] = int(self.ui.line_rawport.text())
+            self.prefs["kml"] = self.ui.check_kml.isChecked()
+            self.prefs["kmlfile"] = self.ui.line_kmlfilename.text()
+            try:
+                self.prefs["latitude"] = float(self.ui.line_my_lat.text())
+                self.prefs["longitude"] = float(self.ui.line_my_lon.text())
+            except:
+                pass
+
     def on_quit(self):
         if self.running is True:
             self._relay.close()
@@ -354,6 +393,9 @@ class mainwindow(QtGui.QMainWindow):
                 #self.kmlgen = None
             except:
                 pass
+
+        if self.prefs is not None:
+            self.write_defaults(self.prefs)
 
     #slot to catch signal emitted by output_live_data (necessary for
     #thread safety since output_live_data is called by another thread)
@@ -374,6 +416,55 @@ class mainwindow(QtGui.QMainWindow):
 
         self.ui.text_livedata.append(msgstr)
         self.ui.text_livedata.verticalScrollBar().setSliderPosition(self.ui.text_livedata.verticalScrollBar().maximum())
+
+    opt_file = "~/.gr-air-modes/prefs"
+    def get_defaults(self):
+        defaults = {}
+        defaults["samplerate"] = None #let app pick it
+        defaults["pmf"] = None
+        defaults["antenna"] = None
+        defaults["gain"] = "25"
+        defaults["kml"] = "1"
+        defaults["kmlfile"] = "modes.kml"
+        defaults["sbs1"] = "0"
+        defaults["sbs1port"] = "30003"
+        defaults["raw"] = "0"
+        defaults["rawport"] = "9988"
+        defaults["fgfs"] = "0"
+        defaults["fgfsport"] = "5500"
+        defaults["source"] = "UHD"
+        defaults["threshold"] = "5"
+        defaults["latitude"] = None
+        defaults["longitude"] = None
+
+        prefs = ConfigParser.ConfigParser(defaults)
+        prefs.optionxform = str
+
+        try:
+            prefs.read(os.path.expanduser(self.opt_file))
+            for item in prefs.items("GUI"):
+                defaults[item[0]] = item[1]
+        except IOError:
+            print "No preferences file %s found, creating..." % os.path.expanduser(self.opt_file)
+            self.write_defaults(defaults)
+
+        return defaults
+
+
+    def write_defaults(self, defaults):
+        config = ConfigParser.RawConfigParser()
+        config.add_section('GUI')
+
+        for item in defaults:
+            config.set('GUI', item, str(defaults[item]))
+
+        dirname = os.path.dirname(os.path.expanduser(self.opt_file))
+        if not os.path.exists(dirname):
+            os.makedirs(dirname)
+
+        with open(os.path.expanduser(self.opt_file), 'wb') as prefsfile:
+            config.write(prefsfile)
+
 
 if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)

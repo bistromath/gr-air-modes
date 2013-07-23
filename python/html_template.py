@@ -27,6 +27,8 @@ def html_template(my_position, json_file):
         </style>
         <script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=false">
         </script>
+        <script type="text/javascript" src="http://google-maps-utility-library-v3.googlecode.com/svn/tags/markerwithlabel/1.1.9/src/markerwithlabel.js">
+        </script>
         <script type="text/javascript">
             var map;
             var markers = [];
@@ -92,13 +94,12 @@ def html_template(my_position, json_file):
                         map: map,
                         position: airplanes[airplane].center,
                         icon: plane_icon,
-                        //label content meaningless unless you use the MarkerWithLabel class from the Maps Utility Library
                         labelContent: identstr,
                         labelAnchor: new google.maps.Point(64, 0),
                         labelClass: "labels",
                         labelStyle: {opacity: 0.75}
                     };
-                    planeMarker = new google.maps.Marker(planeOptions);
+                    planeMarker = new MarkerWithLabel(planeOptions);
                     planes.push(planeMarker);
                 };
             };

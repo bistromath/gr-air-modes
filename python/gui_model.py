@@ -131,7 +131,7 @@ class dashboard_data_model(QtCore.QAbstractTableModel):
         self.lock.release()
         self.prune()
 
-    #weeds out ICAOs older than 5 minutes
+    #weeds out ICAOs older than 1 minute
     def prune(self):
         self.lock.acquire()
         for (index,row) in enumerate(self._data):

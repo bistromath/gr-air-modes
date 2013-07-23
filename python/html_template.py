@@ -85,9 +85,10 @@ def html_template(my_position, json_file):
                         //scaledSize: new google.maps.Size(4608,126)
                     };
 
-                    identstr = airplanes[airplane].ident;
-                    if (identstr === "" || !identstr) {
-                        identstr = airplanes[airplane].icao;
+                    if (airplanes[airplane].ident.length != 8) {
+                        identstr = airplane; 
+                    } else {
+                        identstr = airplanes[airplane].ident;
                     };
 
                     var planeOptions = {

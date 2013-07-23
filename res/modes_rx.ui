@@ -835,12 +835,12 @@
              <rect>
               <x>483</x>
               <y>125</y>
-              <width>31</width>
+              <width>51</width>
               <height>17</height>
              </rect>
             </property>
             <property name="text">
-             <string>ft/s</string>
+             <string>ft/min</string>
             </property>
            </widget>
            <widget class="QLabel" name="label_31">

@@ -125,6 +125,9 @@ class mainwindow(QtGui.QMainWindow):
         #hook up live data text box update signal
         self.live_data_changed_signal.connect(self.on_append_live_data)
 
+        self._last_live_data_update = time.time()
+        self._pending_msgstr = ""
+
 ############ widget update functions for non-mapped widgets ############
     def update_heading_widget(self, index):
         if index.model() is not None:
@@ -355,6 +358,13 @@ class mainwindow(QtGui.QMainWindow):
     #slot to catch signal emitted by output_live_data (necessary for
     #thread safety since output_live_data is called by another thread)
     def on_append_live_data(self, msgstr):
+        self._pending_msgstr += msgstr + "\n"
+        if time.time() - self._last_live_data_update >= 0.1:
+            self._last_live_data_update = time.time()
+            self.update_live_data(self._pending_msgstr)
+            self._pending_msgstr = ""
+
+    def update_live_data(self, msgstr):
         #limit scrollback buffer size -- is there a faster way?
         if(self.ui.text_livedata.document().lineCount() > 500):
             cursor = self.ui.text_livedata.textCursor()

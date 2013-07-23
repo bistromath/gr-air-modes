@@ -279,7 +279,7 @@ class mainwindow(QtGui.QMainWindow):
             options.antenna = str(self.ui.combo_ant.currentText())
             options.gain = float(self.ui.line_gain.text())
             options.threshold = float(self.ui.line_threshold.text())
-            options.pmf = self.ui.check_pmf.checkState()
+            options.pmf = self.ui.check_pmf.isChecked()
 
             self._servers = ["inproc://modes-radio-pub"] #TODO ADD REMOTES
             self._relay = air_modes.zmq_pubsub_iface(self.context, subaddr=self._servers, pubaddr=None)
@@ -362,16 +362,16 @@ class mainwindow(QtGui.QMainWindow):
             self.prefs["samplerate"] = options.rate
             self.prefs["antenna"] = options.antenna
             self.prefs["gain"] = options.gain
-            self.prefs["pmf"] = options.pmf
+            self.prefs["pmf"] = "1" if options.pmf else "0"
             self.prefs["source"] = self.ui.combo_source.currentText()
             self.prefs["threshold"] = options.threshold
-            self.prefs["sbs1"] = self.ui.check_sbs1.isChecked()
+            self.prefs["sbs1"] = "1" if self.ui.check_sbs1.isChecked() else "0"
             self.prefs["sbs1port"] = int(self.ui.line_sbs1port.text())
-            self.prefs["fgfs"] = self.ui.check_fgfs.isChecked()
+            self.prefs["fgfs"] = "1" if self.ui.check_fgfs.isChecked() else "0"
             self.prefs["fgfsport"] = int(self.ui.line_fgfsport.text())
-            self.prefs["raw"] = self.ui.check_raw.isChecked()
+            self.prefs["raw"] = "1" if self.ui.check_raw.isChecked() else "0"
             self.prefs["rawport"] = int(self.ui.line_rawport.text())
-            self.prefs["kml"] = self.ui.check_kml.isChecked()
+            self.prefs["kml"] = "1" if self.ui.check_kml.isChecked() else "0"
             self.prefs["kmlfile"] = self.ui.line_kmlfilename.text()
             try:
                 self.prefs["latitude"] = float(self.ui.line_my_lat.text())

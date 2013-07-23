@@ -27,7 +27,7 @@ import threading
 import math
 import air_modes
 from air_modes.exceptions import *
-
+import numpy as np
 
 # model has max range vs. azimuth in n-degree increments
 # contains separate max range for a variety of altitudes so
@@ -53,7 +53,7 @@ class az_map_model(QtCore.QObject):
 
     def data(self, row, col):
         return self._data[row][col]
-    
+
     def addRecord(self, bearing, altitude, distance):
         with self.lock:
             #round up to nearest altitude in altitudes list
@@ -157,20 +157,22 @@ class az_map(QtGui.QWidget):
     def drawRangeRings(self, painter):
         painter.translate(self.width()/2, self.height()/2)
         #choose intelligent range step -- keep it between 3-5 rings
-        rangestep = 25
-        while self.get_range() / rangestep > 5:
-            rangestep *= 2
-        for i in range(rangestep, self.get_range(), rangestep):
+        rangestep = 100
+        while self.get_range() / rangestep < 3:
+            rangestep /= 2.0
+        for i in np.arange(rangestep, self.get_range(), rangestep): 
             diameter = (float(i) / self.get_range()) * min(self.width(), self.height())
             painter.setPen(az_map.ringpen)
             painter.drawEllipse(QtCore.QRectF(-diameter / 2.0,
                                 -diameter / 2.0, diameter, diameter))
             painter.setPen(QtGui.QColor(255,127,0,255))
 
-            painter.drawText(0-50/2.0, diameter/2.0, 50, 30, QtCore.Qt.AlignHCenter,
-                             "%.0fnm" % i)
+            painter.drawText(0-70/2.0, diameter/2.0, 70, 30, QtCore.Qt.AlignHCenter,
+                             "%.1fnm" % i)
 
     def setMaxRange(self, maxrange):
+        maxrange = max(3.25, maxrange)
+        maxrange = min(500., maxrange)
         self.maxrange = maxrange
         self.repaint()
 

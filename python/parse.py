@@ -427,7 +427,7 @@ def make_parser(pub):
     try:
       ret = air_modes.modes_report(modes_reply(int(data, 16)),
                                    int(ecc, 16),
-                                   20.0*math.log10(float(reference)),
+                                   10.0*math.log10(float(reference)),
                                    air_modes.stamp(0, float(timestamp)))
       pub["modes_dl"] = ret
       pub["type%i_dl" % ret.data.get_type()] = ret

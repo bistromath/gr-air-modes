@@ -35,7 +35,7 @@ class rx_path(gr.hier_block2):
         self._spc = int(rate/2e6)
 
         # Convert incoming I/Q baseband to amplitude
-        self._demod = blocks.complex_to_mag()
+        self._demod = blocks.complex_to_mag_squared()
         self._bb = self._demod
 
         # Pulse matched filter for 0.5us pulses

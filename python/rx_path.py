@@ -48,10 +48,10 @@ class rx_path(gr.hier_block2):
         self._avg = blocks.moving_average_ff(48*self._spc, 1.0/(48*self._spc))#, self._rate) # 3 preambles
 
         # Synchronize to Mode-S preamble
-        self._sync = air_modes_swig.modes_preamble(self._rate, self._threshold)
+        self._sync = air_modes_swig.preamble(self._rate, self._threshold)
 
         # Slice Mode-S bits and send to message queue
-        self._slicer = air_modes_swig.modes_slicer(self._rate, self._queue)
+        self._slicer = air_modes_swig.slicer(self._queue)
 
         # Wire up the flowgraph
         self.connect(self, self._demod)
@@ -61,7 +61,6 @@ class rx_path(gr.hier_block2):
 
     def set_rate(self, rate):
         self._sync.set_rate(rate)
-        self._slicer.set_rate(rate)
         self._spc = int(rate/2e6)
         self._avg.set_length_and_scale(48*self._spc, 1.0/(48*self._spc))
         if self._bb != self._demod:
@@ -79,4 +78,4 @@ class rx_path(gr.hier_block2):
 
     def get_threshold(self, threshold):
         return self._sync.get_threshold()
-            
+

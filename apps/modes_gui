@@ -137,6 +137,10 @@ class mainwindow(QtGui.QMainWindow):
         self.ui.list_aircraft.selectionModel().currentRowChanged.connect(self.update_map_highlight)
         self.datamodel.dataChanged.connect(self.unmapped_widgets_dataChanged)
 
+        #hook up parameter-changed signals so we can change gain, rate, etc. while running
+        self.ui.combo_rate.currentIndexChanged['QString'].connect(self.update_sample_rate)
+#        self.ui.
+
         #hook up live data text box update signal
         self.live_data_changed_signal.connect(self.on_append_live_data)
 
@@ -144,6 +148,10 @@ class mainwindow(QtGui.QMainWindow):
         self._pending_msgstr = ""
 
         self.prefs = None
+
+    def update_sample_rate(self, rate):
+        if self.running:
+            self._radio.set_rate(int(float(rate)*1e6))
 
 ############ widget update functions for non-mapped widgets ############
     def update_heading_widget(self, index):

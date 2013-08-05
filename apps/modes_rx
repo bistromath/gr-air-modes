@@ -86,8 +86,9 @@ def main():
     sbs1port = air_modes.output_sbs1(cpr_dec, 30003, publisher)
 
   tb.run()
+  time.sleep(0.2)
   tb.close()
-
+  time.sleep(0.2)
   relay.close()
 
   if options.kml is not None:

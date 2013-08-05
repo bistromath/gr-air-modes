@@ -113,13 +113,17 @@ class modes_radio (gr.top_block, pubsub):
     return self._options.source is 'uhd' or self._options.source is 'osmocom'
 
   def set_freq(self, freq):
-    return self._u.set_center_freq(freq, 0) if live_source() else 0
+    return self._u.set_center_freq(freq, 0) if self.live_source() else 0
 
   def set_gain(self, gain):
-    return self._u.set_gain(gain) if live_source() else 0
+    return self._u.set_gain(gain) if self.live_source() else 0
 
   def set_rate(self, rate):
-    return self._u.set_rate(rate) if live_source() else 0
+    self._rx_path.set_rate(rate)
+    return self._u.set_rate(rate) if self.live_source() else 0
+
+  def set_threshold(self, threshold):
+    self._rx_path.set_threshold(threshold)
 
   def get_freq(self, freq):
     return self._u.get_center_freq(freq, 0) if live_source() else 1090e6

@@ -26,12 +26,12 @@
 #endif
 
 #include <ciso646>
-#include <air_modes_slicer.h>
+#include "slicer_impl.h"
 #include <gnuradio/io_signature.h>
-#include <air_modes_types.h>
+#include <gr_air_modes/types.h>
 #include <sstream>
 #include <iomanip>
-#include <modes_crc.h>
+#include <gr_air_modes/modes_crc.h>
 #include <iostream>
 #include <gnuradio/tags.h>
 
@@ -41,14 +41,15 @@ extern "C"
 #include <string.h>
 }
 
-air_modes_slicer_sptr air_make_modes_slicer(int channel_rate, gr::msg_queue::sptr queue)
-{
-    return air_modes_slicer_sptr (new air_modes_slicer(channel_rate, queue));
+namespace gr {
+
+air_modes::slicer::sptr air_modes::slicer::make(gr::msg_queue::sptr queue) {
+    return gnuradio::get_initial_sptr(new air_modes::slicer_impl(queue));
 }
 
-air_modes_slicer::air_modes_slicer(int channel_rate, gr::msg_queue::sptr queue) :
-  gr::sync_block ("modes_slicer",
-          gr::io_signature::make (1, 1, sizeof(float)), //stream 0 is received data, stream 1 is binary preamble detector output
+air_modes::slicer_impl::slicer_impl(gr::msg_queue::sptr queue) :
+  gr::sync_block ("slicer",
+                  gr::io_signature::make (1, 1, sizeof(float)),
                   gr::io_signature::make (0, 0, 0) )
 {
     //initialize private data here
@@ -63,13 +64,13 @@ air_modes_slicer::air_modes_slicer(int channel_rate, gr::msg_queue::sptr queue) 
 
 //this slicer is courtesy of Lincoln Labs. supposedly it is more resistant to mode A/C FRUIT.
 //see http://adsb.tc.faa.gov/WG3_Meetings/Meeting8/Squitter-Lon.pdf
-static slice_result_t slicer(const float bit0, const float bit1, const float ref) {
+static slice_result_t llslicer(const float bit0, const float bit1, const float ref) {
     slice_result_t result;
 
     //3dB limits for bit slicing and confidence measurement
     float highlimit=ref*1.414;
     float lowlimit=ref*0.707;
-    
+
     bool firstchip_inref  = ((bit0 > lowlimit) && (bit0 < highlimit));
     bool secondchip_inref = ((bit1 > lowlimit) && (bit1 < highlimit));
 
@@ -98,7 +99,7 @@ static slice_result_t slicer(const float bit0, const float bit1, const float ref
     return result;
 }
 
-int air_modes_slicer::work(int noutput_items,
+int air_modes::slicer_impl::work(int noutput_items,
                           gr_vector_const_void_star &input_items,
                           gr_vector_void_star &output_items)
 {
@@ -106,7 +107,7 @@ int air_modes_slicer::work(int noutput_items,
     int size = noutput_items - d_check_width; //since it's a sync block, i assume that it runs with ninput_items = noutput_items
 
     if(0) std::cout << "Slicer called with " << size << " samples" << std::endl;
-    
+
     std::vector<gr::tag_t> tags;
     uint64_t abs_sample_cnt = nitems_read(0);
     get_tags_in_range(tags, 0, abs_sample_cnt, abs_sample_cnt + size, pmt::string_to_symbol("preamble_found"));
@@ -133,7 +134,7 @@ int air_modes_slicer::work(int noutput_items,
         //now let's slice the header so we can determine if it's a short pkt or a long pkt
         unsigned char pkt_hdr = 0;
         for(int j=0; j < 5; j++) {
-            slice_result_t slice_result = slicer(in[i+j*2], in[i+j*2+1], rx_packet.reference_level);
+            slice_result_t slice_result = llslicer(in[i+j*2], in[i+j*2+1], rx_packet.reference_level);
             if(slice_result.decision) pkt_hdr += 1 << (4-j);
         }
         if(pkt_hdr == 16 or pkt_hdr == 17 or pkt_hdr == 20 or pkt_hdr == 21) rx_packet.type = Long_Packet;
@@ -143,7 +144,7 @@ int air_modes_slicer::work(int noutput_items,
         //it's slice time!
         //TODO: don't repeat your work here, you already have the first 5 bits
         for(int j = 0; j < packet_length; j++) {
-            slice_result_t slice_result = slicer(in[i+j*2], in[i+j*2+1], rx_packet.reference_level);
+            slice_result_t slice_result = llslicer(in[i+j*2], in[i+j*2+1], rx_packet.reference_level);
 
             //put the data into the packet
             if(slice_result.decision) {
@@ -156,12 +157,8 @@ int air_modes_slicer::work(int noutput_items,
                 if(rx_packet.numlowconf < 24) rx_packet.lowconfbits[rx_packet.numlowconf++] = j;
             }
         }
-            
-        /******************** BEGIN TIMESTAMP BS ******************/
+
         rx_packet.timestamp = pmt::to_double(tag_iter->value);
-        /******************* END TIMESTAMP BS *********************/
-            
-        //increment for the next round
 
         //here you might want to traverse the whole packet and if you find all 0's, just toss it. don't know why these packets turn up, but they pass ECC.
         bool zeroes = 1;
@@ -174,7 +171,7 @@ int air_modes_slicer::work(int noutput_items,
 
         if(rx_packet.type == Short_Packet && rx_packet.message_type != 11 && rx_packet.numlowconf > 0) {continue;}
         if(rx_packet.message_type == 11 && rx_packet.numlowconf >= 10) {continue;}
-            
+
         rx_packet.crc = modes_check_crc(rx_packet.data, packet_length);
 
         //crc for packets that aren't type 11 or type 17 is encoded with the transponder ID, which we don't know
@@ -195,3 +192,5 @@ int air_modes_slicer::work(int noutput_items,
     if(0) std::cout << "Slicer consumed " << size << ", returned " << size << std::endl;
     return size;
 }
+
+} //namespace gr

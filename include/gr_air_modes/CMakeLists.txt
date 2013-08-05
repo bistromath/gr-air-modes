@@ -21,9 +21,9 @@
 # Install public header files
 ########################################################################
 install(FILES
-    air_modes_preamble.h
-    air_modes_slicer.h
-    air_modes_types.h
-    air_modes_api.h
-    DESTINATION include/gr-air-modes
+    preamble.h
+    slicer.h
+    types.h
+    api.h
+    DESTINATION include/gr_air_modes
 )

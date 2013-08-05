@@ -1,45 +1,17 @@
 /* -*- c++ -*- */
 
-%include "gnuradio.i"			// the common stuff
+#define AIR_MODES_API
+
+%include "gnuradio.i"
 
 %{
-#include "air_modes_preamble.h"
-#include "air_modes_slicer.h"
-#include <gnuradio/msg_queue.h>
+#include "gr_air_modes/preamble.h"
+#include "gr_air_modes/slicer.h"
 %}
 
-// ----------------------------------------------------------------
+%include "gr_air_modes/preamble.h"
+%include "gr_air_modes/slicer.h"
 
-/*
- * First arg is the package prefix.
- * Second arg is the name of the class minus the prefix.
- *
- * This does some behind-the-scenes magic so we can
- * access howto_square_ff from python as howto.square_ff
- */
-GR_SWIG_BLOCK_MAGIC(air,modes_preamble);
-
-air_modes_preamble_sptr air_make_modes_preamble (int channel_rate, float threshold_db);
-
-class air_modes_preamble : public gr::sync_block
-{
-  set_rate(int channel_rate);
-  set_threshold(float threshold_db);
-  int get_threshold(void);
-private:
-  air_modes_preamble (int channel_rate, float threshold_db);
-};
-
-GR_SWIG_BLOCK_MAGIC(air,modes_slicer);
-
-air_modes_slicer_sptr air_make_modes_slicer (int channel_rate, gr::msg_queue::sptr queue);
-
-class air_modes_slicer : public gr::block
-{
-  set_rate(int channel_rate);
-private:
-    air_modes_slicer (int channel_rate, gr::msg_queue::sptr queue);
-};
-
-// ----------------------------------------------------------------
+GR_SWIG_BLOCK_MAGIC2(air_modes,preamble);
+GR_SWIG_BLOCK_MAGIC2(air_modes,slicer);
 

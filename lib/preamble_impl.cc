@@ -26,36 +26,53 @@
 #endif
 
 #include <ciso646>
-#include <air_modes_preamble.h>
+#include "preamble_impl.h"
 #include <gnuradio/io_signature.h>
 #include <string.h>
 #include <iostream>
 #include <gnuradio/tags.h>
 
-air_modes_preamble_sptr air_make_modes_preamble(int channel_rate, float threshold_db)
-{
-    return air_modes_preamble_sptr (new air_modes_preamble(channel_rate, threshold_db));
+namespace gr {
+
+air_modes::preamble::sptr air_modes::preamble::make(int channel_rate, float threshold_db) {
+    return gnuradio::get_initial_sptr(new air_modes::preamble_impl(channel_rate, threshold_db));
 }
 
-air_modes_preamble::air_modes_preamble(int channel_rate, float threshold_db) :
-        gr::block ("modes_preamble",
+air_modes::preamble_impl::preamble_impl(int channel_rate, float threshold_db) :
+        gr::block ("preamble",
            gr::io_signature::make2 (2, 2, sizeof(float), sizeof(float)), //stream 0 is received data, stream 1 is moving average for reference
-           gr::io_signature::make (1, 1, sizeof(float))) //the output packets
+           gr::io_signature::make (1, 1, sizeof(float))) //the output soft symbols
 {
     d_chip_rate = 2000000; //2Mchips per second
-    d_samples_per_chip = channel_rate / d_chip_rate; //must be integer number of samples per chip to work
-    d_samples_per_symbol = d_samples_per_chip * 2;
-    d_check_width = 120 * d_samples_per_symbol; //only search to this far from the end of the stream buffer
-    d_threshold_db = threshold_db;
-    d_threshold = powf(10., threshold_db/20.); //the level that the sample must be above the moving average in order to qualify as a pulse
-    d_secs_per_sample = 1.0 / channel_rate;
-    set_output_multiple(1+d_check_width*2);
-    
+    set_rate(channel_rate);
+    set_threshold(threshold_db);
+
     std::stringstream str;
     str << name() << unique_id();
     d_me = pmt::string_to_symbol(str.str());
     d_key = pmt::string_to_symbol("preamble_found");
+}
+
+void air_modes::preamble_impl::set_rate(int channel_rate) {
+    d_samples_per_chip = channel_rate / d_chip_rate;
+    d_samples_per_symbol = d_samples_per_chip * 2;
+    d_check_width = 120 * d_samples_per_symbol;
+    d_secs_per_sample = 1.0/channel_rate;
+    set_output_multiple(1+d_check_width*2);
     set_history(d_samples_per_symbol);
+}
+
+void air_modes::preamble_impl::set_threshold(float threshold_db) {
+    d_threshold_db = threshold_db;
+    d_threshold = powf(10., threshold_db/20.); //the level that the sample must be above the moving average in order to qualify as a pulse
+}
+
+float air_modes::preamble_impl::get_threshold(void) {
+    return d_threshold_db;
+}
+
+int air_modes::preamble_impl::get_rate(void) {
+    return d_samples_per_chip * d_chip_rate;
 }
 
 static void integrate_and_dump(float *out, const float *in, int chips, int samps_per_chip) {
@@ -90,13 +107,13 @@ static double tag_to_timestamp(gr::tag_t tstamp, uint64_t abs_sample_cnt, double
     last_whole_stamp = pmt::to_uint64(pmt::tuple_ref(tstamp.value, 0));
     last_frac_stamp = pmt::to_double(pmt::tuple_ref(tstamp.value, 1));
     ts_sample = tstamp.offset;
-    
+
     double tstime = double(abs_sample_cnt * secs_per_sample) + last_whole_stamp + last_frac_stamp;
     if(0) std::cout << "HEY WE GOT A STAMP AT " << tstime << " TICKS AT SAMPLE " << ts_sample << " ABS SAMPLE CNT IS " << abs_sample_cnt << std::endl;
     return tstime;
 }
 
-int air_modes_preamble::general_work(int noutput_items,
+int air_modes::preamble_impl::general_work(int noutput_items,
                           gr_vector_int &ninput_items,
                           gr_vector_const_void_star &input_items,
                           gr_vector_void_star &output_items)
@@ -109,7 +126,7 @@ int air_modes_preamble::general_work(int noutput_items,
     //we also subtract off d_samples_per_chip to allow the bit center finder some leeway
     const int ninputs = std::max(mininputs - (mininputs % d_samples_per_chip) - d_samples_per_chip, 0);
     if (ninputs <= 0) { consume_each(0); return 0; }
-    
+
     float *out = (float *) output_items[0];
 
     if(0) std::cout << "Preamble called with " << ninputs << " samples" << std::endl;
@@ -206,3 +223,5 @@ int air_modes_preamble::general_work(int noutput_items,
     consume_each(ninputs);
     return 0;
 }
+
+} //namespace gr

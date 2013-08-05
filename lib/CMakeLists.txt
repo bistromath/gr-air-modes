@@ -23,8 +23,8 @@
 include(GrPlatform) #define LIB_SUFFIX
 
 add_library(air_modes SHARED
-    air_modes_preamble.cc
-    air_modes_slicer.cc
+    preamble_impl.cc
+    slicer_impl.cc
     modes_crc.cc
 )
 target_link_libraries(air_modes ${Boost_LIBRARIES} ${GNURADIO_RUNTIME_LIBRARIES})

@@ -1,5 +1,5 @@
 /*
-# Copyright 2010 Nick Foster
+# Copyright 2013 Nick Foster
 # 
 # This file is part of gr-air-modes
 # 
@@ -20,28 +20,20 @@
 # 
 */
 
-#ifndef INCLUDED_AIR_MODES_slicer_H
-#define INCLUDED_AIR_MODES_slicer_H
+#ifndef INCLUDED_AIR_MODES_SLICER_IMPL_H
+#define INCLUDED_AIR_MODES_SLICER_IMPL_H
 
 #include <gnuradio/sync_block.h>
 #include <gnuradio/msg_queue.h>
-#include <air_modes_api.h>
+#include <gr_air_modes/api.h>
+#include <gr_air_modes/slicer.h>
 
-class air_modes_slicer;
-typedef boost::shared_ptr<air_modes_slicer> air_modes_slicer_sptr;
+namespace gr {
+namespace air_modes {
 
-AIR_MODES_API air_modes_slicer_sptr air_make_modes_slicer(int channel_rate, gr::msg_queue::sptr queue);
-
-/*!
- * \brief mode select slicer detection
- * \ingroup block
- */
-class AIR_MODES_API air_modes_slicer : public gr::sync_block
+class AIR_MODES_API slicer_impl : public slicer
 {
 private:
-    friend air_modes_slicer_sptr air_make_modes_slicer(int channel_rate, gr::msg_queue::sptr queue);
-    air_modes_slicer(int channel_rate, gr::msg_queue::sptr queue);
-
     int d_check_width;
     int d_chip_rate;
     int d_samples_per_chip;
@@ -50,9 +42,14 @@ private:
     std::ostringstream d_payload;
 
 public:
+    slicer_impl(gr::msg_queue::sptr queue);
+
     int work (int noutput_items,
               gr_vector_const_void_star &input_items,
               gr_vector_void_star &output_items);
 };
 
-#endif /* INCLUDED_AIR_MODES_slicer_H */
+} //namespace air_modes
+} //namespace gr
+
+#endif /* INCLUDED_AIR_MODES_SLICER_IMPL_H */

@@ -128,7 +128,7 @@ int air_modes_preamble::general_work(int noutput_items,
     if(tstamp_tags.size() > 0) {
         d_timestamp = tstamp_tags.back();
     }
-    
+
     for(int i=0; i < ninputs; i++) {
         float pulse_threshold = inavg[i] * d_threshold;
         if(in[i] > pulse_threshold) { //hey we got a candidate
@@ -175,17 +175,9 @@ int air_modes_preamble::general_work(int noutput_items,
                 return 0;
             }
 
-            //all right i'm prepared to call this a preamble            
-            //let's integrate and dump the output
-            //FIXME: disable and use center sample
-            bool life_sucks = true;
-            if(life_sucks) {
-                for(int j=0; j<240; j++) {
-                    out[j] = in[i+j*d_samples_per_chip];
-                }
-            } else {
-                i -= d_samples_per_chip-1;
-                integrate_and_dump(out, &in[i], 240, d_samples_per_chip);
+            //all right i'm prepared to call this a preamble
+            for(int j=0; j<240; j++) {
+                out[j] = in[i+j*d_samples_per_chip] - inavg[i];
             }
 
             //get the timestamp of the preamble
@@ -198,9 +190,9 @@ int air_modes_preamble::general_work(int noutput_items,
                      pmt::from_double(tstamp),
                      d_me        //block src id
                     );
-                     
+
             //std::cout << "PREAMBLE" << std::endl;
-            
+
             //produce only one output per work call -- TODO this should probably change
             if(0) std::cout << "Preamble consumed " << i+240*d_samples_per_chip << "with i=" << i << ", returned 240" << std::endl;
 
@@ -208,7 +200,7 @@ int air_modes_preamble::general_work(int noutput_items,
             return 240;
         }
     }
-    
+
     //didn't get anything this time
     if(0) std::cout << "Preamble consumed " << ninputs << ", returned 0" << std::endl;
     consume_each(ninputs);

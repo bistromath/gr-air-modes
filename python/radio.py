@@ -23,7 +23,7 @@
 # You pass it options, it gives you data.
 # It uses the pubsub interface to allow clients to subscribe to its data feeds.
 
-from gnuradio import gr, gru, eng_notation, filter
+from gnuradio import gr, gru, eng_notation, filter, blocks
 from gnuradio.filter import optfir
 from gnuradio.eng_option import eng_option
 from gnuradio.gr.pubsub import pubsub
@@ -199,7 +199,7 @@ class modes_radio (gr.top_block, pubsub):
         self._u = gr.udp_source(gr.sizeof_gr_complex, ip, int(port))
         print "Using UDP source %s:%s" % (ip, port)
       else:
-        self._u = gr.file_source(gr.sizeof_gr_complex, options.source)
+        self._u = blocks.file_source(gr.sizeof_gr_complex, options.source)
         print "Using file source %s" % options.source
 
     print "Rate is %i" % (options.rate,)

@@ -139,7 +139,7 @@ class mainwindow(QtGui.QMainWindow):
 
         #hook up parameter-changed signals so we can change gain, rate, etc. while running
         self.ui.combo_rate.currentIndexChanged['QString'].connect(self.update_sample_rate)
-#        self.ui.
+        self.ui.line_gain.editingFinished.connect(self.update_gain)
 
         #hook up live data text box update signal
         self.live_data_changed_signal.connect(self.on_append_live_data)
@@ -152,6 +152,10 @@ class mainwindow(QtGui.QMainWindow):
     def update_sample_rate(self, rate):
         if self.running:
             self._radio.set_rate(int(float(rate)*1e6))
+
+    def update_gain(self):
+        if self.running:
+            self._radio.set_gain(float(self.ui.line_gain.text()))
 
 ############ widget update functions for non-mapped widgets ############
     def update_heading_widget(self, index):

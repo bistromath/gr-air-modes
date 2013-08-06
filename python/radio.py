@@ -110,13 +110,17 @@ class modes_radio (gr.top_block, pubsub):
     parser.add_option_group(group)
 
   def live_source(self):
-    return self._options.source is 'uhd' or self._options.source is 'osmocom'
+    return self._options.source=="uhd" or self._options.source=="osmocom"
 
   def set_freq(self, freq):
     return self._u.set_center_freq(freq, 0) if self.live_source() else 0
 
   def set_gain(self, gain):
-    return self._u.set_gain(gain) if self.live_source() else 0
+    if self.live_source():
+        self._u.set_gain(gain)
+        print "Gain is %f" % self.get_gain()
+
+    return self.get_gain()
 
   def set_rate(self, rate):
     self._rx_path.set_rate(rate)
@@ -126,13 +130,13 @@ class modes_radio (gr.top_block, pubsub):
     self._rx_path.set_threshold(threshold)
 
   def get_freq(self, freq):
-    return self._u.get_center_freq(freq, 0) if live_source() else 1090e6
+    return self._u.get_center_freq(freq, 0) if self.live_source() else 1090e6
     
-  def get_gain(self, gain):
-    return self._u.get_gain() if live_source() else 0
+  def get_gain(self):
+    return self._u.get_gain() if self.live_source() else 0
 
-  def get_rate(self, rate):
-    return self._u.get_rate() if live_source() else self._rate
+  def get_rate(self):
+    return self._u.get_rate() if self.live_source() else self._rate
 
   def _setup_source(self, options):
     if options.source == "uhd":

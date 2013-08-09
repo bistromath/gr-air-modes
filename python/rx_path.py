@@ -24,7 +24,7 @@ import air_modes_swig
 
 class rx_path(gr.hier_block2):
 
-    def __init__(self, rate, threshold, queue, use_pmf=False):
+    def __init__(self, rate, threshold, queue, use_pmf=False, use_dcblock=False):
         gr.hier_block2.__init__(self, "modes_rx_path",
                                 gr.io_signature(1, 1, gr.sizeof_gr_complex),
                                 gr.io_signature(0,0,0))
@@ -36,9 +36,13 @@ class rx_path(gr.hier_block2):
 
         # Convert incoming I/Q baseband to amplitude
         self._demod = blocks.complex_to_mag_squared()
-#        self._dcblock = filter.dc_blocker_ff(128, False)
-        self._bb = self._demod
+        if use_dcblock:
+            self._dcblock = filter.dc_blocker_cc(100*self._spc,True)
+            self.connect(self, self._dcblock, self._demod)
+        else:
+            self.connect(self, self._demod)
 
+        self._bb = self._demod
         # Pulse matched filter for 0.5us pulses
         if use_pmf:
             self._pmf = blocks.moving_average_ff(self._spc, 1.0/self._spc)#, self._rate)
@@ -55,7 +59,6 @@ class rx_path(gr.hier_block2):
         self._slicer = air_modes_swig.slicer(self._queue)
 
         # Wire up the flowgraph
-        self.connect(self, self._demod)#, self._dcblock)
         self.connect(self._bb, (self._sync, 0))
         self.connect(self._bb, self._avg, (self._sync, 1))
         self.connect(self._sync, self._slicer)

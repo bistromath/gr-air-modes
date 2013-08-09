@@ -45,7 +45,8 @@ class modes_radio (gr.top_block, pubsub):
     self._resample = None
     self._setup_source(options)
 
-    self._rx_path = air_modes.rx_path(self._rate, options.threshold, self._queue, options.pmf)
+    self._rx_path = air_modes.rx_path(self._rate, options.threshold,
+                                      self._queue, options.pmf, options.dcblock)
 
     #now subscribe to set various options via pubsub
     self.subscribe("freq", self.set_freq)
@@ -106,6 +107,8 @@ class modes_radio (gr.top_block, pubsub):
                       help="set pulse detection threshold above noise in dB [default=%default]")
     group.add_option("-p","--pmf", action="store_true", default=False,
                       help="Use pulse matched filtering [default=%default]")
+    group.add_option("-d","--dcblock", action="store_true", default=False,
+                      help="Use a DC blocking filter (best for HackRF Jawbreaker) [default=%default]")
 
     parser.add_option_group(group)
 
@@ -186,8 +189,9 @@ class modes_radio (gr.top_block, pubsub):
             options.gain = 34
 ###DO NOT COMMIT
         self._u.set_gain(14, "RF", 0)
-        self._u.set_gain(40, "IF", 0)
+        self._u.set_gain(30, "IF", 0)
         self._u.set_gain(6, "BB", 0)
+        self._u.set_bandwidth(4e6)
 ###DO NOT COMMIT
 #        self._u.set_gain(options.gain)
         print "Gain is %i" % self._u.get_gain()

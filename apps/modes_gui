@@ -58,12 +58,14 @@ class mainwindow(QtGui.QMainWindow):
 
         if defaults["pmf"] is not None:
             self.ui.check_pmf.setChecked(bool(defaults["pmf"]))
+        if defaults["dcblock"] is not None:
+            self.ui.check_dcblock.setChecked(bool(defaults["dcblock"]))
         if defaults["samplerate"] is not None:
             if defaults["samplerate"] in self.rates:
                 self.ui.combo_rate.setCurrentIndex(self.rates.index(int(defaults["samplerate"])))
 
-        self.ui.prog_rssi.setMinimum(0)
-        self.ui.prog_rssi.setMaximum(40)
+        self.ui.prog_rssi.setMinimum(-60)
+        self.ui.prog_rssi.setMaximum(0)
 
         if defaults["antenna"] is None:
             self.ui.combo_ant.setCurrentIndex(self.ui.combo_ant.findText("RX2"))
@@ -295,6 +297,7 @@ class mainwindow(QtGui.QMainWindow):
             options.gain = float(self.ui.line_gain.text())
             options.threshold = float(self.ui.line_threshold.text())
             options.pmf = self.ui.check_pmf.isChecked()
+            options.dcblock = self.ui.check_dcblock.isChecked()
 
             self._servers = ["inproc://modes-radio-pub"] #TODO ADD REMOTES
             self._relay = air_modes.zmq_pubsub_iface(self.context, subaddr=self._servers, pubaddr=None)
@@ -378,6 +381,7 @@ class mainwindow(QtGui.QMainWindow):
             self.prefs["antenna"] = options.antenna
             self.prefs["gain"] = options.gain
             self.prefs["pmf"] = "1" if options.pmf else "0"
+            self.prefs["dcblock"] = "1" if options.dcblock else "0"
             self.prefs["source"] = self.ui.combo_source.currentText()
             self.prefs["threshold"] = options.threshold
             self.prefs["sbs1"] = "1" if self.ui.check_sbs1.isChecked() else "0"
@@ -437,6 +441,7 @@ class mainwindow(QtGui.QMainWindow):
         defaults = {}
         defaults["samplerate"] = None #let app pick it
         defaults["pmf"] = None
+        defaults["dcblock"] = None
         defaults["antenna"] = None
         defaults["gain"] = "25"
         defaults["kml"] = "1"

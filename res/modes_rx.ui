@@ -316,6 +316,19 @@
               <string>Use Pulse Matched Filtering</string>
              </property>
             </widget>
+            <widget class="QCheckBox" name="check_dcblock">
+             <property name="geometry">
+              <rect>
+               <x>10</x>
+               <y>220</y>
+               <width>221</width>
+               <height>22</height>
+              </rect>
+             </property>
+             <property name="text">
+              <string>Use DC blocking filter</string>
+             </property>
+            </widget>
            </widget>
            <widget class="QGroupBox" name="group_output">
             <property name="geometry">

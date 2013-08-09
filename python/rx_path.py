@@ -41,6 +41,7 @@ class rx_path(gr.hier_block2):
             self.connect(self, self._dcblock, self._demod)
         else:
             self.connect(self, self._demod)
+            self._dcblock = None
 
         self._bb = self._demod
         # Pulse matched filter for 0.5us pulses
@@ -69,6 +70,8 @@ class rx_path(gr.hier_block2):
         self._avg.set_length_and_scale(48*self._spc, 1.0/(48*self._spc))
         if self._bb != self._demod:
             self._pmf.set_length_and_scale(self._spc, 1.0/self._spc)
+        if self._dcblock is not None:
+            self._dcblock.set_length(100*self._spc)
 
     def set_threshold(self, threshold):
         self._sync.set_threshold(threshold)

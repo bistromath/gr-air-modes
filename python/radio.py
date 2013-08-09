@@ -174,8 +174,6 @@ class modes_radio (gr.top_block, pubsub):
 
     #TODO: detect if you're using an RTLSDR or Jawbreaker
     #and set up accordingly.
-    #ALSO TODO: Actually set gain appropriately using gain bins in HackRF driver.
-    #osmocom doesn't have gain bucket distribution like UHD does
     elif options.source == "osmocom": #RTLSDR dongle or HackRF Jawbreaker
         import osmosdr
         self._u = osmosdr.source(options.args)
@@ -184,22 +182,16 @@ class modes_radio (gr.top_block, pubsub):
         if not self._u.set_center_freq(options.freq):
             print "Failed to set initial frequency"
 
-        self._u.set_gain_mode(0) #manual gain mode
+#        self._u.set_gain_mode(0) #manual gain mode
         if options.gain is None:
             options.gain = 34
-###DO NOT COMMIT
-        self._u.set_gain(14, "RF", 0)
-        self._u.set_gain(30, "IF", 0)
-        self._u.set_gain(6, "BB", 0)
-        self._u.set_bandwidth(4e6)
-###DO NOT COMMIT
-#        self._u.set_gain(options.gain)
+        self._u.set_gain(options.gain)
         print "Gain is %i" % self._u.get_gain()
 
         #Note: this should only come into play if using an RTLSDR.
 #        lpfiltcoeffs = gr.firdes.low_pass(1, 5*3.2e6, 1.6e6, 300e3)
 #        self._resample = filter.rational_resampler_ccf(interpolation=5, decimation=4, taps=lpfiltcoeffs)
-                
+
     else:
       #semantically detect whether it's ip.ip.ip.ip:port or filename
       if ':' in options.source:

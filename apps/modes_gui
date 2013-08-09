@@ -59,7 +59,8 @@ class mainwindow(QtGui.QMainWindow):
         if defaults["pmf"] is not None:
             self.ui.check_pmf.setChecked(bool(defaults["pmf"]))
         if defaults["samplerate"] is not None:
-            self.ui.combo_rate.setCurrentIndex(self.rates.index(int(defaults["samplerate"])))
+            if defaults["samplerate"] in self.rates:
+                self.ui.combo_rate.setCurrentIndex(self.rates.index(int(defaults["samplerate"])))
 
         self.ui.prog_rssi.setMinimum(0)
         self.ui.prog_rssi.setMaximum(40)
@@ -140,6 +141,7 @@ class mainwindow(QtGui.QMainWindow):
         #hook up parameter-changed signals so we can change gain, rate, etc. while running
         self.ui.combo_rate.currentIndexChanged['QString'].connect(self.update_sample_rate)
         self.ui.line_gain.editingFinished.connect(self.update_gain)
+        self.ui.combo_source.currentIndexChanged['QString'].connect(self.populate_source_options)
 
         #hook up live data text box update signal
         self.live_data_changed_signal.connect(self.on_append_live_data)
@@ -228,7 +230,7 @@ class mainwindow(QtGui.QMainWindow):
         elif sourceid == "Osmocom":
             try:
                 import osmosdr
-                self.src = osmosdr.source_c("")
+                self.src = osmosdr.source("")
                 self.rates = [rate.start() for rate in self.src.get_sample_rates() if (rate.start() % 2.e6) == 0]
                 self.antennas = ["RX"]
                 self.src = None
@@ -258,11 +260,12 @@ class mainwindow(QtGui.QMainWindow):
         self.ui.combo_ant.addItems(self.antennas)
 
         #set up recommended sample rate
-        recommended_rate = min(x for x in self.rates if x >= 4e6 and
-                             max(self.rates) % x == 0)
-        if recommended_rate >= 8.e6:
-            self.ui.check_pmf.setChecked(True)
-        self.ui.combo_rate.setCurrentIndex(self.rates.index(recommended_rate))
+        if len(self.rates) > 1:
+            recommended_rate = min(x for x in self.rates if x >= 4e6 and
+                                 max(self.rates) % x == 0)
+            if recommended_rate >= 8.e6:
+                self.ui.check_pmf.setChecked(True)
+            self.ui.combo_rate.setCurrentIndex(self.rates.index(recommended_rate))
 
 ################ action handlers ####################
     def on_combo_source_currentIndexChanged(self, index):

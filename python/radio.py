@@ -102,7 +102,7 @@ class modes_radio (gr.top_block, pubsub):
     #RX path args
     group.add_option("-r", "--rate", type="eng_float", default=4e6,
                       help="set sample rate [default=%default]")
-    group.add_option("-T", "--threshold", type="eng_float", default=5.0,
+    group.add_option("-T", "--threshold", type="eng_float", default=7.0,
                       help="set pulse detection threshold above noise in dB [default=%default]")
     group.add_option("-p","--pmf", action="store_true", default=False,
                       help="Use pulse matched filtering [default=%default]")
@@ -119,7 +119,6 @@ class modes_radio (gr.top_block, pubsub):
     if self.live_source():
         self._u.set_gain(gain)
         print "Gain is %f" % self.get_gain()
-
     return self.get_gain()
 
   def set_rate(self, rate):
@@ -131,7 +130,7 @@ class modes_radio (gr.top_block, pubsub):
 
   def get_freq(self, freq):
     return self._u.get_center_freq(freq, 0) if self.live_source() else 1090e6
-    
+
   def get_gain(self):
     return self._u.get_gain() if self.live_source() else 0
 
@@ -176,7 +175,7 @@ class modes_radio (gr.top_block, pubsub):
     #osmocom doesn't have gain bucket distribution like UHD does
     elif options.source == "osmocom": #RTLSDR dongle or HackRF Jawbreaker
         import osmosdr
-        self._u = osmosdr.source_c(options.args)
+        self._u = osmosdr.source(options.args)
 #        self._u.set_sample_rate(3.2e6) #fixed for RTL dongles
         self._u.set_sample_rate(options.rate)
         if not self._u.set_center_freq(options.freq):
@@ -188,7 +187,7 @@ class modes_radio (gr.top_block, pubsub):
 ###DO NOT COMMIT
         self._u.set_gain(14, "RF", 0)
         self._u.set_gain(40, "IF", 0)
-        #self._u.set_gain(14, "BB", 0)
+        self._u.set_gain(6, "BB", 0)
 ###DO NOT COMMIT
 #        self._u.set_gain(options.gain)
         print "Gain is %i" % self._u.get_gain()
@@ -214,3 +213,4 @@ class modes_radio (gr.top_block, pubsub):
 
   def close(self):
     self._sender.close()
+    self._u = None

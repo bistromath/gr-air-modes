@@ -19,7 +19,7 @@
 # Boston, MA 02110-1301, USA.
 # 
 
-from gnuradio import gr, blocks
+from gnuradio import gr, blocks, filter
 import air_modes_swig
 
 class rx_path(gr.hier_block2):
@@ -36,6 +36,7 @@ class rx_path(gr.hier_block2):
 
         # Convert incoming I/Q baseband to amplitude
         self._demod = blocks.complex_to_mag_squared()
+#        self._dcblock = filter.dc_blocker_ff(128, False)
         self._bb = self._demod
 
         # Pulse matched filter for 0.5us pulses
@@ -54,7 +55,7 @@ class rx_path(gr.hier_block2):
         self._slicer = air_modes_swig.slicer(self._queue)
 
         # Wire up the flowgraph
-        self.connect(self, self._demod)
+        self.connect(self, self._demod)#, self._dcblock)
         self.connect(self._bb, (self._sync, 0))
         self.connect(self._bb, self._avg, (self._sync, 1))
         self.connect(self._sync, self._slicer)

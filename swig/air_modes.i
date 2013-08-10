@@ -7,6 +7,7 @@
 %{
 #include "gr_air_modes/preamble.h"
 #include "gr_air_modes/slicer.h"
+#include "gr_air_modes/uplink.h"
 %}
 
 %include "gr_air_modes/preamble.h"

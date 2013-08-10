@@ -1,5 +1,5 @@
 /*
-# Copyright 2010 Nick Foster
+# Copyright 2013 Nick Foster
 # 
 # This file is part of gr-air-modes
 # 
@@ -24,51 +24,66 @@
 #include "config.h"
 #endif
 
-#include <air_modes_uplink.h>
-#include <gr_io_signature.h>
+#include <gnuradio/io_signature.h>
 #include <string.h>
 #include <iostream>
 #include <iomanip>
-#include <gr_tags.h>
+#include <gnuradio/tags.h>
+#include "uplink_impl.h"
 
-air_modes_uplink_sptr air_make_modes_uplink(int channel_rate, float threshold_db, gr_msg_queue_sptr queue)
-{
-	return air_modes_uplink_sptr (new air_modes_uplink(channel_rate, threshold_db, queue));
+namespace gr {
+
+air_modes::uplink::sptr air_modes::uplink::make(int channel_rate, float threshold_db, gr::msg_queue::sptr queue) {
+    return gnuradio::get_initial_sptr(new air_modes::uplink_impl(channel_rate, threshold_db, queue));
 }
 
-air_modes_uplink::air_modes_uplink(int channel_rate, float threshold_db, gr_msg_queue_sptr queue) :
-    gr_block ("modes_uplink",
-                   gr_make_io_signature2 (2, 2, sizeof(float), sizeof(float)), //stream 0 is received data, stream 1 is moving average for reference
-                   gr_make_io_signature (1, 1, sizeof(float))) //the output packets
+air_modes::uplink_impl::uplink_impl(int channel_rate, float threshold_db, gr::msg_queue::sptr queue) :
+    gr::block ("uplink",
+                   gr::io_signature::make2 (2, 2, sizeof(float), sizeof(float)), //stream 0 is received data, stream 1 is moving average for reference
+                   gr::io_signature::make (1, 1, sizeof(float))) //the output packets
 {
-	d_symbol_rate = 4000000; //2Mchips per second
-	d_samples_per_symbol = channel_rate / d_symbol_rate; //must be integer number of samples per chip to work
-	d_check_width = 120 * d_samples_per_symbol; //only search to this far from the end of the stream buffer
-	d_threshold_db = threshold_db;
-	d_threshold = powf(10., threshold_db/20.); //the level that the sample must be above the moving average in order to qualify as a pulse
-	d_secs_per_sample = 1.0 / channel_rate;
-	set_output_multiple(1+d_check_width*2);
-	
-	std::stringstream str;
-	str << name() << unique_id();
-	d_me = pmt::pmt_string_to_symbol(str.str());
-	d_key = pmt::pmt_string_to_symbol("uplink_found");
-	set_history(d_samples_per_symbol);
-	d_queue = queue;
+    d_chip_rate = 4000000;
+    set_rate(channel_rate);
+    set_threshold(threshold_db);
+
+    std::stringstream str;
+    str << name() << unique_id();
+    d_me = pmt::string_to_symbol(str.str());
+    d_key = pmt::string_to_symbol("uplink_found");
+    d_queue = queue;
 }
 
-//the uplink pattern in bits
-//fixme goes in .h
+void air_modes::uplink_impl::set_rate(int channel_rate) {
+    d_samples_per_chip = channel_rate / d_chip_rate;
+    d_samples_per_symbol = d_samples_per_chip * 2;
+    d_check_width = 120 * d_samples_per_symbol;
+    d_secs_per_sample = 1.0/channel_rate;
+    set_output_multiple(1+d_check_width*2);
+    set_history(d_samples_per_symbol);
+}
+
+void air_modes::uplink_impl::set_threshold(float threshold_db) {
+    d_threshold_db = threshold_db;
+    d_threshold = powf(10., threshold_db/20.);
+}
+
+float air_modes::uplink_impl::get_threshold(void) {
+    return d_threshold_db;
+}
+
+int air_modes::uplink_impl::get_rate(void) {
+    return d_samples_per_chip * d_chip_rate;
+}
 
 //todo: make it return a pair of some kind, otherwise you can lose precision
-static double tag_to_timestamp(gr_tag_t tstamp, uint64_t abs_sample_cnt, double secs_per_sample) {
+static double tag_to_timestamp(gr::tag_t tstamp, uint64_t abs_sample_cnt, double secs_per_sample) {
 	uint64_t ts_sample, last_whole_stamp;
 	double last_frac_stamp;
 
-	if(tstamp.key == NULL || pmt::pmt_symbol_to_string(tstamp.key) != "rx_time") return 0;
+	if(tstamp.key == NULL || pmt::symbol_to_string(tstamp.key) != "rx_time") return 0;
 
-	last_whole_stamp = pmt::pmt_to_uint64(pmt::pmt_tuple_ref(tstamp.value, 0));
-	last_frac_stamp = pmt::pmt_to_double(pmt::pmt_tuple_ref(tstamp.value, 1));
+	last_whole_stamp = pmt::to_uint64(pmt::tuple_ref(tstamp.value, 0));
+	last_frac_stamp = pmt::to_double(pmt::tuple_ref(tstamp.value, 1));
 	ts_sample = tstamp.offset;
 	
 	double tstime = double(abs_sample_cnt * secs_per_sample) + last_whole_stamp + last_frac_stamp;
@@ -89,7 +104,7 @@ static double correlate_preamble(const float *in, int samples_per_chip) {
 	return corr/(20*samples_per_chip);
 }
 
-int air_modes_uplink::general_work(int noutput_items,
+int air_modes::uplink_impl::general_work(int noutput_items,
 						  gr_vector_int &ninput_items,
                           gr_vector_const_void_star &input_items,
 		                  gr_vector_void_star &output_items)
@@ -108,8 +123,8 @@ int air_modes_uplink::general_work(int noutput_items,
 	if(0) std::cout << "Uplink called with " << ninputs << " samples" << std::endl;
 
 	uint64_t abs_sample_cnt = nitems_read(0);
-	std::vector<gr_tag_t> tstamp_tags;
-	get_tags_in_range(tstamp_tags, 0, abs_sample_cnt, abs_sample_cnt + ninputs, pmt::pmt_string_to_symbol("rx_time"));
+	std::vector<gr::tag_t> tstamp_tags;
+	get_tags_in_range(tstamp_tags, 0, abs_sample_cnt, abs_sample_cnt + ninputs, pmt::string_to_symbol("rx_time"));
 	//tags.back() is the most recent timestamp, then.
 	if(tstamp_tags.size() > 0) {
 		d_timestamp = tstamp_tags.back();
@@ -175,7 +190,7 @@ int air_modes_uplink::general_work(int noutput_items,
 
 			d_payload << " " << std::setw(6) << 0 << " " << std::dec << ref_level
 					  << " " << std::setprecision(10) << std::setw(10) << tstamp;
-			gr_message_sptr msg = gr_make_message_from_string(std::string(d_payload.str()));
+            gr::message::sptr msg = gr::message::make_from_string(std::string(d_payload.str()));
 			d_queue->handle(msg);
 			
 			//produce only one output per work call -- TODO this should probably change
@@ -191,3 +206,5 @@ int air_modes_uplink::general_work(int noutput_items,
 	consume_each(ninputs);
 	return 0;
 }
+
+} //namespace gr

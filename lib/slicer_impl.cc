@@ -172,7 +172,11 @@ int air_modes::slicer_impl::work(int noutput_items,
         if(rx_packet.type == Short_Packet && rx_packet.message_type != 11 && rx_packet.numlowconf > 0) {continue;}
         if(rx_packet.message_type == 11 && rx_packet.numlowconf >= 10) {continue;}
 
-        rx_packet.crc = modes_check_crc(rx_packet.data, packet_length);
+        rx_packet.crc = modes_check_crc(rx_packet.data, (packet_length/8)-3);
+        unsigned int ap = rx_packet.data[packet_length/8-3] << 16
+                        | rx_packet.data[packet_length/8-2] << 8
+                        | rx_packet.data[packet_length/8-1] << 0;
+        rx_packet.crc ^= ap;
 
         //crc for packets that aren't type 11 or type 17 is encoded with the transponder ID, which we don't know
         //therefore we toss 'em if there's syndrome

@@ -33,6 +33,7 @@ import zmq
 import threading
 import time
 import re
+import fractions
 
 class modes_radio (gr.top_block, pubsub):
   def __init__(self, options, context):
@@ -44,6 +45,8 @@ class modes_radio (gr.top_block, pubsub):
 
     self._resample = None
     self._setup_source(options)
+    if self._resample is not None:
+        self._rate = 4.0e6 #fixed rate we resample to in RTL case
 
     self._rx_path = air_modes.rx_path(self._rate, options.threshold,
                                       self._queue, options.pmf, options.dcblock)
@@ -81,7 +84,7 @@ class modes_radio (gr.top_block, pubsub):
   @staticmethod
   def add_radio_options(parser):
     group = OptionGroup(parser, "Receiver setup options")
-      
+
     #Choose source
     group.add_option("-s","--source", type="string", default="uhd",
                       help="Choose source: uhd, osmocom, <filename>, or <ip:port> [default=%default]")
@@ -172,13 +175,14 @@ class modes_radio (gr.top_block, pubsub):
       self._u.set_gain(options.gain)
       print "Gain is %i" % self._u.get_gain()
 
-    #TODO: detect if you're using an RTLSDR or Jawbreaker
-    #and set up accordingly.
     elif options.source == "osmocom": #RTLSDR dongle or HackRF Jawbreaker
         import osmosdr
         self._u = osmosdr.source(options.args)
-#        self._u.set_sample_rate(3.2e6) #fixed for RTL dongles
+        rates = self._u.get_sample_rates()
+
         self._u.set_sample_rate(options.rate)
+        actual_rate = int(self._u.get_sample_rate())
+
         if not self._u.set_center_freq(options.freq):
             print "Failed to set initial frequency"
 
@@ -188,9 +192,14 @@ class modes_radio (gr.top_block, pubsub):
         self._u.set_gain(options.gain)
         print "Gain is %i" % self._u.get_gain()
 
-        #Note: this should only come into play if using an RTLSDR.
-#        lpfiltcoeffs = gr.firdes.low_pass(1, 5*3.2e6, 1.6e6, 300e3)
-#        self._resample = filter.rational_resampler_ccf(interpolation=5, decimation=4, taps=lpfiltcoeffs)
+        if actual_rate < 4.0e6:
+            gcd = fractions.gcd(4.0e6, actual_rate)
+            interp = 4.0e6 / gcd
+            decim = actual_rate / gcd
+            lpfiltcoeffs = filter.firdes.low_pass(1, interp*actual_rate, 1.6e6, 300e3)
+            self._resample = filter.rational_resampler_ccf(interpolation=interp,
+                                                           decimation=decim,
+                                                           taps=lpfiltcoeffs)
 
     else:
       #semantically detect whether it's ip.ip.ip.ip:port or filename
@@ -205,7 +214,7 @@ class modes_radio (gr.top_block, pubsub):
         self._u = blocks.file_source(gr.sizeof_gr_complex, options.source)
         print "Using file source %s" % options.source
 
-    print "Rate is %i" % (options.rate,)
+    print "Rate is %i" % actual_rate
 
   def close(self):
     self._sender.close()

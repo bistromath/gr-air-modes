@@ -464,7 +464,7 @@ class mainwindow(QtGui.QMainWindow):
             prefs.read(os.path.expanduser(self.opt_file))
             for item in prefs.items("GUI"):
                 defaults[item[0]] = item[1]
-        except IOError:
+        except (IOError, ConfigParser.NoSectionError):
             print "No preferences file %s found, creating..." % os.path.expanduser(self.opt_file)
             self.write_defaults(defaults)
 

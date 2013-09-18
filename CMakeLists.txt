@@ -76,6 +76,20 @@ if(NOT GNURADIO_RUNTIME_FOUND)
 endif()
 
 ########################################################################
+# Find ZMQ and get version
+########################################################################
+include(FindZeroMQ)
+
+########################################################################
+# Find PyZMQ bindings
+########################################################################
+include(GrPython)
+GR_PYTHON_CHECK_MODULE("PyZMQ" "zmq" "int(zmq.__version__.split('.')[0]) >= 13" ZMQ_FOUND)
+if(NOT ZMQ_FOUND)
+    message(FATAL_ERROR "Python ZMQ bindings not found.")
+endif()
+
+########################################################################
 # Setup the include and linker paths
 ########################################################################
 include_directories(

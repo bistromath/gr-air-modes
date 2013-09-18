@@ -79,13 +79,16 @@ endif()
 # Find ZMQ and get version
 ########################################################################
 include(FindZeroMQ)
+if(NOT ZEROMQ_FOUND)
+    message(FATAL_ERROR "ZMQ not found.")
+endif()
 
 ########################################################################
 # Find PyZMQ bindings
 ########################################################################
 include(GrPython)
-GR_PYTHON_CHECK_MODULE("PyZMQ" "zmq" "int(zmq.__version__.split('.')[0]) >= 13" ZMQ_FOUND)
-if(NOT ZMQ_FOUND)
+GR_PYTHON_CHECK_MODULE("PyZMQ" "zmq" "int(zmq.__version__.split('.')[0]) >= 13" PYZMQ_FOUND)
+if(NOT PYZMQ_FOUND)
     message(FATAL_ERROR "Python ZMQ bindings not found.")
 endif()
 

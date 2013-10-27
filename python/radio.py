@@ -81,7 +81,7 @@ class modes_radio (gr.top_block, pubsub):
   @staticmethod
   def add_radio_options(parser):
     group = OptionGroup(parser, "Receiver setup options")
-      
+
     #Choose source
     group.add_option("-s","--source", type="string", default="uhd",
                       help="Choose source: uhd, osmocom, <filename>, or <ip:port> [default=%default]")

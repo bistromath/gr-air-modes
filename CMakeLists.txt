@@ -76,14 +76,6 @@ if(NOT GNURADIO_RUNTIME_FOUND)
 endif()
 
 ########################################################################
-# Find ZMQ and get version
-########################################################################
-include(FindZeroMQ)
-if(NOT ZEROMQ_FOUND)
-    message(FATAL_ERROR "ZMQ not found.")
-endif()
-
-########################################################################
 # Find PyZMQ bindings
 ########################################################################
 include(GrPython)

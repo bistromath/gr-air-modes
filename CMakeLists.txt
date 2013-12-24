@@ -22,7 +22,7 @@
 # Project setup
 ########################################################################
 cmake_minimum_required(VERSION 2.6)
-project(gr-gr-air-modes CXX)
+project(gr-gr-air-modes CXX C)
 set(gr-gr-air-modes_VERSION_MAJOR 0)
 set(gr-gr-air-modes_VERSION_MINOR 0)
 enable_testing()
@@ -49,6 +49,8 @@ endif()
 ########################################################################
 include(GrBoost)
 
+find_package(PythonLibs 2)
+
 ########################################################################
 # Install directories
 ########################################################################
@@ -69,7 +71,8 @@ set(GRC_BLOCKS_DIR      ${GR_PKG_DATA_DIR}/grc/blocks)
 ########################################################################
 # Find gnuradio build dependencies
 ########################################################################
-find_package(GnuradioRuntime)
+set(GR_REQUIRED_COMPONENTS RUNTIME)
+find_package(Gnuradio "3.7.2" REQUIRED)
 
 if(NOT GNURADIO_RUNTIME_FOUND)
     message(FATAL_ERROR "GnuRadio Runtime required to compile gr-air-modes")

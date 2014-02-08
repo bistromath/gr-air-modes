@@ -23,7 +23,7 @@
 import time, os, sys, socket
 from string import split, join
 import air_modes
-from datetime import *
+import datetime
 from air_modes.exceptions import *
 import threading
 
@@ -63,7 +63,7 @@ class output_sbs1:
     #it could be cleaner if there were separate output_* fns
     #but this works
     for i in (0, 4, 5, 11, 17):
-        pub.subscribe("type%i_dl" % i, output)
+        pub.subscribe("type%i_dl" % i, self.output)
 
     #spawn thread to add new connections as they come in
     self._runner = dumb_task_runner(self.add_pending_conns, 0.1)
@@ -111,7 +111,7 @@ class output_sbs1:
       pass
 
   def current_time(self):
-    timenow = datetime.now()
+    timenow = datetime.datetime.now()
     return [timenow.strftime("%Y/%m/%d"), timenow.strftime("%H:%M:%S.%f")[0:-3]]
 
   def decode_fs(self, fs):
@@ -154,7 +154,7 @@ class output_sbs1:
     [datestr, timestr] = self.current_time()
     aircraft_id = self.get_aircraft_id(ecc)
     retstr = "MSG,7,0,%i,%06X,%i,%s,%s,%s,%s,,%s,,,,,,,,,," % (aircraft_id, ecc, aircraft_id+100, datestr, timestr, datestr, timestr, air_modes.decode_alt(shortdata["ac"], True))
-    if vs:
+    if shortdata["vs"]:
       retstr += "1\r\n"
     else:
       retstr += "0\r\n"
@@ -174,7 +174,7 @@ class output_sbs1:
 
   def pp11(self, shortdata, ecc):
     [datestr, timestr] = self.current_time()
-    aircraft_id = self.get_aircraft_id(icao24)
+    aircraft_id = self.get_aircraft_id(shortdata["aa"])
     return "MSG,8,0,%i,%06X,%i,%s,%s,%s,%s,,,,,,,,,,,,\r\n" % (aircraft_id, shortdata["aa"], aircraft_id+100, datestr, timestr, datestr, timestr)
 
   def pp17(self, data):

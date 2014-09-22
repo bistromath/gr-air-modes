@@ -141,7 +141,12 @@ class modes_radio (gr.top_block, pubsub):
     else:
         self._rx_rate = rate
     self._rx_path.set_rate(self._rx_rate)
-    return self._u.set_rate(rate) if self.live_source() else 0
+    if self._options.source in ("osmocom"):
+        return self._u.set_sample_rate(rate)
+    if self._options.source in ("uhd"):
+        return self._u.set_rate(rate)
+    else:
+        return 0
 
   def set_threshold(self, threshold):
     self._rx_path.set_threshold(threshold)

@@ -233,7 +233,9 @@ class mainwindow(QtGui.QMainWindow):
             try:
                 import osmosdr
                 self.src = osmosdr.source("")
-                self.rates = [rate.start() for rate in self.src.get_sample_rates() if (rate.start() % 2.e6) == 0]
+                self.rates = [rate.start() for rate in self.src.get_sample_rates()
+                             if ((rate.start() % 2.e6) == 0)
+                             or (rate.start() < 4.e6 and ((rate.start()%0.2e6) == 0))]
                 self.antennas = ["RX"]
                 self.src = None
                 self.ui.combo_ant.setEnabled(False)
@@ -263,10 +265,15 @@ class mainwindow(QtGui.QMainWindow):
 
         #set up recommended sample rate
         if len(self.rates) > 1:
-            recommended_rate = min(x for x in self.rates if x >= 4e6 and
-                                 max(self.rates) % x == 0)
+            if max(self.rates) > 4.e6:
+                recommended_rate = min(x for x in self.rates if x >= 4e6 and
+                                      max(self.rates) % x == 0)
+            else:
+                recommended_rate = max(self.rates)
             if recommended_rate >= 8.e6:
                 self.ui.check_pmf.setChecked(True)
+            else:
+                self.ui.check_pmf.setChecked(False)
             self.ui.combo_rate.setCurrentIndex(self.rates.index(recommended_rate))
 
 ################ action handlers ####################

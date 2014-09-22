@@ -27,6 +27,7 @@ from gnuradio import gr, gru, eng_notation, filter, blocks
 from gnuradio.filter import optfir
 from gnuradio.eng_option import eng_option
 from gnuradio.gr.pubsub import pubsub
+from gnuradio.filter import pfb
 from optparse import OptionParser, OptionGroup
 import air_modes
 import zmq
@@ -45,8 +46,15 @@ class modes_radio (gr.top_block, pubsub):
     self._resample = None
     self._setup_source(options)
 
-    self._rx_path = air_modes.rx_path(self._rate, options.threshold,
+    if self._rate < 4e6:
+        self._resample = pfb.arb_resampler_ccf(4.e6/self._rate)
+        self._rx_rate = 4e6
+    else:
+        self._rx_rate = self._rate
+
+    self._rx_path = air_modes.rx_path(self._rx_rate, options.threshold,
                                       self._queue, options.pmf, options.dcblock)
+
 
     #now subscribe to set various options via pubsub
     self.subscribe("freq", self.set_freq)
@@ -125,7 +133,14 @@ class modes_radio (gr.top_block, pubsub):
     return self.get_gain()
 
   def set_rate(self, rate):
-    self._rx_path.set_rate(rate)
+    if(rate < 4e6 and self._rate > 4e6):
+        raise NotImplementedError("Lowering rate <4e6Msps not currently supported.")
+    if(rate < 4e6):
+        self._resample.set_rate(4e6/rate)
+        self._rx_rate = 4e6
+    else:
+        self._rx_rate = rate
+    self._rx_path.set_rate(self._rx_rate)
     return self._u.set_rate(rate) if self.live_source() else 0
 
   def set_threshold(self, threshold):

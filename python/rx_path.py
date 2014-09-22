@@ -37,7 +37,7 @@ class rx_path(gr.hier_block2):
         # Convert incoming I/Q baseband to amplitude
         self._demod = blocks.complex_to_mag_squared()
         if use_dcblock:
-            self._dcblock = filter.dc_blocker_cc(100*self._spc,True)
+            self._dcblock = filter.dc_blocker_cc(100*self._spc,False)
             self.connect(self, self._dcblock, self._demod)
         else:
             self.connect(self, self._demod)

@@ -53,7 +53,6 @@ def html_template(my_position, json_file):
             };
 
             function jsonp_callback(results) { // from JSONP
-                clearMarkers();
                 airplanes = {};
                 for (var i = 0; i < results.length; i++) {
                     airplanes[results[i].icao] = {
@@ -67,10 +66,20 @@ def html_template(my_position, json_file):
                         highlight: results[i].highlight
                     };
                 }
+//                clearMarkers();
                 refreshIcons();
             }
 
             function refreshIcons() {
+                //prune the list
+                for(var i = 0; i < planes.length; i++) {
+                    icao = planes[i].get("icao")
+                    if(!(icao in airplanes)) {
+                        planes[i].setMap(null)
+                        planes.splice(i, 1);
+                    };
+                };
+
                 for (var airplane in airplanes) {
                     if (airplanes[airplane].highlight != 0) {
                         icon_file = "http://www.nerdnetworks.org/~bistromath/airplane_sprite_highlight.png";
@@ -86,7 +95,7 @@ def html_template(my_position, json_file):
                     };
 
                     if (airplanes[airplane].ident.length != 8) {
-                        identstr = airplane; 
+                        identstr = airplane;
                     } else {
                         identstr = airplanes[airplane].ident;
                     };
@@ -94,14 +103,31 @@ def html_template(my_position, json_file):
                     var planeOptions = {
                         map: map,
                         position: airplanes[airplane].center,
+                        icao: airplane,
                         icon: plane_icon,
                         labelContent: identstr,
                         labelAnchor: new google.maps.Point(35, -32),
                         labelClass: "labels",
                         labelStyle: {opacity: 0.75}
                     };
-                    planeMarker = new MarkerWithLabel(planeOptions);
-                    planes.push(planeMarker);
+
+                    var i = 0;
+                    for(i; i<planes.length; i++) {
+                        if(planes[i].get("icao") == airplane) {
+                            planes[i].setPosition(airplanes[airplane].center);
+                            if(planes[i].get("icon") != plane_icon) {
+                                planes[i].setIcon(plane_icon); //handles highlight and heading
+                            };
+                            if(planes[i].get("labelContent") != identstr) {
+                                planes[i].set("labelContent", identstr);
+                            };
+                            break;
+                        };
+                    };
+                    if(i == planes.length) {
+                        planeMarker = new MarkerWithLabel(planeOptions);
+                        planes.push(planeMarker);
+                    };
                 };
             };
 

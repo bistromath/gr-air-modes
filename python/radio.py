@@ -228,5 +228,7 @@ class modes_radio (gr.top_block, pubsub):
     print "Rate is %i" % (options.rate,)
 
   def close(self):
+    self.stop()
+    self.wait()
     self._sender.close()
     self._u = None

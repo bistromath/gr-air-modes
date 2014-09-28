@@ -407,10 +407,10 @@ class mainwindow(QtGui.QMainWindow):
 
     def on_quit(self):
         if self.running is True:
-            self._relay.close()
             self._radio.close()
-            self._relay = None
             self._radio = None
+            self._relay.close()
+            self._relay = None
             self._rps_timer = None
             try:
                 self.kmlgen.done = True

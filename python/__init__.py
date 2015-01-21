@@ -51,6 +51,12 @@ from air_modes_swig import *
 
 # import any pure python here
 #
+
+try:
+    import zmq
+except ImportError:
+    raise RuntimeError("PyZMQ not found! Please install libzmq and PyZMQ to run gr-air-modes")
+
 from rx_path import rx_path
 from zmq_socket import zmq_pubsub_iface
 from parse import *

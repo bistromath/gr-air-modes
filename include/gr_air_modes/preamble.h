@@ -37,11 +37,11 @@ class AIR_MODES_API preamble : virtual public gr::block
 {
 public:
     typedef boost::shared_ptr<preamble> sptr;
-    static sptr make(int channel_rate, float threshold_db);
+    static sptr make(float channel_rate, float threshold_db);
 
-    virtual void set_rate(int channel_rate) = 0;
+    virtual void set_rate(float channel_rate) = 0;
     virtual void set_threshold(float threshold_db) = 0;
-    virtual int get_rate(void) = 0;
+    virtual float get_rate(void) = 0;
     virtual float get_threshold(void) = 0;
 };
 

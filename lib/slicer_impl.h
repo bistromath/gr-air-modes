@@ -38,6 +38,7 @@ private:
     int d_chip_rate;
     int d_samples_per_chip;
     int d_samples_per_symbol;
+    gr::tag_t d_timestamp;
     gr::msg_queue::sptr d_queue;
     std::ostringstream d_payload;
 

@@ -158,8 +158,6 @@ int air_modes::slicer_impl::work(int noutput_items,
             }
         }
 
-        rx_packet.timestamp = pmt::to_double(tag_iter->value);
-
         //here you might want to traverse the whole packet and if you find all 0's, just toss it. don't know why these packets turn up, but they pass ECC.
         bool zeroes = 1;
         for(int m = 0; m < 14; m++) {
@@ -183,13 +181,15 @@ int air_modes::slicer_impl::work(int noutput_items,
         //crc for the other short packets is usually nonzero, so they can't really be trusted that far
         if(rx_packet.crc && (rx_packet.message_type == 11 || rx_packet.message_type == 17)) {continue;}
 
+        pmt::pmt_t tstamp = tag_iter->value;
+
         d_payload.str("");
         for(int m = 0; m < packet_length/8; m++) {
             d_payload << std::hex << std::setw(2) << std::setfill('0') << unsigned(rx_packet.data[m]);
         }
 
         d_payload << " " << std::setw(6) << rx_packet.crc << " " << std::dec << rx_packet.reference_level
-                  << " " << std::setprecision(10) << std::setw(10) << rx_packet.timestamp;
+                  << " " << pmt::to_uint64(pmt::tuple_ref(tstamp, 0)) << " " << std::setprecision(10) << pmt::to_double(pmt::tuple_ref(tstamp, 1));
         gr::message::sptr msg = gr::message::make_from_string(std::string(d_payload.str()));
         d_queue->handle(msg);
     }

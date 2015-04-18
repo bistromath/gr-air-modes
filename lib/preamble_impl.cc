@@ -112,7 +112,6 @@ static pmt::pmt_t tag_to_timestamp(gr::tag_t tstamp, uint64_t abs_sample_cnt, in
 
     uint64_t last_whole_stamp = pmt::to_uint64(pmt::tuple_ref(tstamp.value, 0));
     double last_frac_stamp = pmt::to_double(pmt::tuple_ref(tstamp.value, 1));
-    std::cout << "Rate: " << rate << std::endl;
     uint64_t int_offset = int(abs_sample_cnt - tstamp.offset)/rate;
     double frac_offset = ((abs_sample_cnt - tstamp.offset) % rate) / double(rate);
 

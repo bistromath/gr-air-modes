@@ -83,7 +83,7 @@ class output_sbs1:
     # dictionary is getting too large.
     if len(self._aircraft_id_map) > 1e4:
       minimum = min(self._aircraft_id_map.values()) + (len(self._aircraft_id_map) - 1e4)
-      for icao, _id in map(self._aircraft_id_map).iteritems():
+      for icao, _id in dict(self._aircraft_id_map).iteritems():
         if _id < minimum:
             del self._aircraft_id_map[icao]
 

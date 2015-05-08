@@ -335,13 +335,13 @@ def parseBDS09_1(data):
   ew = bool(data["dew"])
   subtype = data["sub"]
   if subtype == 0x02:
-    ns_vel <<= 2
-    ew_vel <<= 2
+    ns_vel *= 4
+    ew_vel *= 4
 
   velocity = math.hypot(ns_vel, ew_vel)
   if ew:
     ew_vel = 0 - ew_vel
-	
+
   if ns_vel == 0:
     heading = 0
   else:

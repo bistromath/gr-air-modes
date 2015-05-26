@@ -219,7 +219,7 @@ class modes_radio (gr.top_block, pubsub):
           ip, port = re.search("(.*)\:(\d{1,5})", options.source).groups()
         except:
           raise Exception("Please input UDP source e.g. 192.168.10.1:12345")
-        self._u = gr.udp_source(gr.sizeof_gr_complex, ip, int(port))
+        self._u = blocks.udp_source(gr.sizeof_gr_complex, ip, int(port))
         print "Using UDP source %s:%s" % (ip, port)
       else:
         self._u = blocks.file_source(gr.sizeof_gr_complex, options.source)

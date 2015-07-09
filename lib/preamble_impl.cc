@@ -98,10 +98,18 @@ static double correlate_preamble(const float *in, int samples_per_chip) {
 }
 
 static pmt::pmt_t tag_to_timestamp(gr::tag_t tstamp, uint64_t abs_sample_cnt, int rate) {
+    uint64_t last_whole_stamp;
+    double last_frac_stamp;
     pmt::pmt_t tstime = pmt::make_tuple(pmt::from_uint64(0), pmt::from_double(0));
-    if(tstamp.key == NULL) return tstime;
-    if(!pmt::is_symbol(tstamp.key)) return tstime;
-    if(pmt::symbol_to_string(tstamp.key) != "rx_time") return tstime;
+    if(tstamp.key == NULL 
+    || !pmt::is_symbol(tstamp.key) 
+    || pmt::symbol_to_string(tstamp.key) != "rx_time") {
+        last_whole_stamp = 0;
+        last_frac_stamp = 0;
+    } else {
+        last_whole_stamp = pmt::to_uint64(pmt::tuple_ref(tstamp.value, 0));
+        last_frac_stamp = pmt::to_double(pmt::tuple_ref(tstamp.value, 1));
+    }
 
     //the timestamp tag has tstamp.offset, the sample index of the timestamp tag
     //also tstamp.value, a pmt pair with (uint64, double) representing int and
@@ -113,8 +121,6 @@ static pmt::pmt_t tag_to_timestamp(gr::tag_t tstamp, uint64_t abs_sample_cnt, in
     //   int((abs_sample_cnt - tstamp.offset)/sps) is the integer offset
     //   (abs_sample_cnt - tstamp.offset)/sps is the fractional offset
 
-    uint64_t last_whole_stamp = pmt::to_uint64(pmt::tuple_ref(tstamp.value, 0));
-    double last_frac_stamp = pmt::to_double(pmt::tuple_ref(tstamp.value, 1));
     uint64_t int_offset = int(abs_sample_cnt - tstamp.offset)/rate;
     double frac_offset = ((abs_sample_cnt - tstamp.offset) % rate) / double(rate);
 

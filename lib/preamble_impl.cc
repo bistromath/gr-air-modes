@@ -98,9 +98,10 @@ static double correlate_preamble(const float *in, int samples_per_chip) {
 }
 
 static pmt::pmt_t tag_to_timestamp(gr::tag_t tstamp, uint64_t abs_sample_cnt, int rate) {
-    if(tstamp.key == NULL) return 0;
-    if(!pmt::is_symbol(tstamp.key)) return 0;
-    if(pmt::symbol_to_string(tstamp.key) != "rx_time") return 0;
+    pmt::pmt_t tstime = pmt::make_tuple(pmt::from_uint64(0), pmt::from_double(0));
+    if(tstamp.key == NULL) return tstime;
+    if(!pmt::is_symbol(tstamp.key)) return tstime;
+    if(pmt::symbol_to_string(tstamp.key) != "rx_time") return tstime;
 
     //the timestamp tag has tstamp.offset, the sample index of the timestamp tag
     //also tstamp.value, a pmt pair with (uint64, double) representing int and
@@ -124,7 +125,7 @@ static pmt::pmt_t tag_to_timestamp(gr::tag_t tstamp, uint64_t abs_sample_cnt, in
         abs_whole += 1.0f;
     }
 
-    pmt::pmt_t tstime = pmt::make_tuple(pmt::from_uint64(abs_whole), pmt::from_double(abs_frac));
+    tstime = pmt::make_tuple(pmt::from_uint64(abs_whole), pmt::from_double(abs_frac));
 
     return tstime;
 }

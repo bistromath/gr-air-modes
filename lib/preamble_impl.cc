@@ -128,7 +128,7 @@ static pmt::pmt_t tag_to_timestamp(gr::tag_t tstamp, uint64_t abs_sample_cnt, in
     double abs_frac = last_frac_stamp + frac_offset;
     if(abs_frac > 1.0f) {
         abs_frac -= 1.0f;
-        abs_whole += 1.0f;
+        abs_whole += 1;
     }
 
     tstime = pmt::make_tuple(pmt::from_uint64(abs_whole), pmt::from_double(abs_frac));

@@ -97,6 +97,7 @@ gr-air-modes requires:
 
 * Python >= 2.5 (written for Python 2.7, Python 3.0 might work)
 ** NumPy and SciPy are required for the FlightGear output plugin.
+* PyZMQ
 * Gnuradio >= 3.5.0
 * Ettus UHD >= 3.4.0 for use with USRPs
 * osmosdr (any version) for use with RTLSDR dongles

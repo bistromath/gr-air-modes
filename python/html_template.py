@@ -2,7 +2,7 @@
 #HTML template for Mode S map display
 #Nick Foster, 2013
 
-def html_template(my_position, json_file):
+def html_template(my_apikey, my_position, json_file):
     if my_position is None:
         my_position = [37, -122]
 
@@ -25,9 +25,9 @@ def html_template(my_position, json_file):
                 white-space: nowrap;
             }
         </style>
-        <script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=false">
+        <script type="text/javascript" src="http://maps.google.com/maps/api/js?key=%s">
         </script>
-        <script type="text/javascript" src="http://google-maps-utility-library-v3.googlecode.com/svn/tags/markerwithlabel/1.1.9/src/markerwithlabel.js">
+        <script type="text/javascript" src="https://raw.githubusercontent.com/googlemaps/v3-utility-library/master/markerwithlabel/src/markerwithlabel.js">
         </script>
         <script type="text/javascript">
             var map;
@@ -152,4 +152,4 @@ def html_template(my_position, json_file):
         <div id="map_canvas" style="width:100%%; height:100%%">
         </div>
     </body>
-</html>""" % (my_position[0], my_position[1], json_file)
+</html>""" % (my_apikey, my_position[0], my_position[1], json_file)

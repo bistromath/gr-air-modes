@@ -87,7 +87,9 @@ class mainwindow(QtGui.QMainWindow):
             self.ui.line_my_lat.insert(defaults["latitude"])
         if defaults["longitude"] is not None:
             self.ui.line_my_lon.insert(defaults["longitude"])
-
+        if defaults["apikey"] is not None:
+            self.ui.line_my_api_key.insert(defaults["apikey"])
+        
         #disable by default
         self.ui.check_adsbonly.setCheckState(QtCore.Qt.Unchecked)
 
@@ -321,6 +323,11 @@ class mainwindow(QtGui.QMainWindow):
             except:
                 my_position = None
 
+            try:
+                my_apikey = str(self.ui.line_my_api_key.text())
+            except:
+                my_apikey = None
+
             self._cpr_dec = air_modes.cpr_decoder(my_position)
 
             self.datamodelout = dashboard_output(self._cpr_dec, self.datamodel, self._publisher)
@@ -359,7 +366,7 @@ class mainwindow(QtGui.QMainWindow):
             #create SQL database for KML and dashboard displays
             self.dbwriter = air_modes.output_sql(self._cpr_dec, self.dbname, self.lock, self._publisher)
             self.jsonpgen = air_modes.output_jsonp(self._jsonfile.name, self.dbname, my_position, self.lock, timeout=1)
-            htmlstring = air_modes.html_template(my_position, self._jsonfile.name)
+            htmlstring = air_modes.html_template(my_apikey, my_position, self._jsonfile.name)
             self._htmlfile.write(htmlstring)
             self._htmlfile.flush()
             class WebPage(QtWebKit.QWebPage):
@@ -404,7 +411,11 @@ class mainwindow(QtGui.QMainWindow):
                 self.prefs["longitude"] = float(self.ui.line_my_lon.text())
             except:
                 pass
-
+            try:
+                self.prefs["apikey"] = self.ui.line_my_api_key.text()
+            except:
+                pass
+                
     def on_quit(self):
         if self.running is True:
             self._radio.close()
@@ -463,6 +474,7 @@ class mainwindow(QtGui.QMainWindow):
         defaults["threshold"] = "5"
         defaults["latitude"] = None
         defaults["longitude"] = None
+        defaults["apikey"] = None
 
         prefs = ConfigParser.ConfigParser(defaults)
         prefs.optionxform = str

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>687</width>
-    <height>422</height>
+    <width>719</width>
+    <height>454</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -102,8 +102,8 @@
              <rect>
               <x>10</x>
               <y>20</y>
-              <width>236</width>
-              <height>251</height>
+              <width>241</width>
+              <height>281</height>
              </rect>
             </property>
             <property name="title">
@@ -307,7 +307,7 @@
              <property name="geometry">
               <rect>
                <x>10</x>
-               <y>200</y>
+               <y>190</y>
                <width>221</width>
                <height>22</height>
               </rect>
@@ -320,13 +320,23 @@
              <property name="geometry">
               <rect>
                <x>10</x>
-               <y>220</y>
+               <y>210</y>
                <width>221</width>
                <height>22</height>
               </rect>
              </property>
              <property name="text">
               <string>Use DC blocking filter</string>
+             </property>
+            </widget>
+            <widget class="QLineEdit" name="line_my_api_key">
+             <property name="geometry">
+              <rect>
+               <x>90</x>
+               <y>250</y>
+               <width>121</width>
+               <height>27</height>
+              </rect>
              </property>
             </widget>
            </widget>
@@ -548,6 +558,19 @@
               <string>Latitude</string>
              </property>
             </widget>
+           </widget>
+           <widget class="QLabel" name="label_34">
+            <property name="geometry">
+             <rect>
+              <x>20</x>
+              <y>270</y>
+              <width>67</width>
+              <height>17</height>
+             </rect>
+            </property>
+            <property name="text">
+             <string>API Key</string>
+            </property>
            </widget>
           </widget>
           <widget class="QWidget" name="dashboard">
@@ -1031,7 +1054,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>687</width>
+     <width>719</width>
      <height>25</height>
     </rect>
    </property>

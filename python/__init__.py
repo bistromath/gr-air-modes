@@ -67,7 +67,6 @@ from kml import output_kml, output_jsonp
 from raw_server import raw_server
 from radio import modes_radio
 from exceptions import *
-from az_map import *
 from types import *
 from altitude import *
 from cpr import cpr_decoder

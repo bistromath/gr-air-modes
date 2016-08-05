@@ -30,6 +30,7 @@ import air_modes
 from air_modes.exceptions import *
 from air_modes.modes_rx_ui import Ui_MainWindow
 from air_modes.gui_model import *
+from air_modes.az_map import *
 import sqlite3
 import zmq
 

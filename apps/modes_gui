@@ -107,7 +107,7 @@ class mainwindow(QtGui.QMainWindow):
         self.ui.list_aircraft.setModel(self.datamodel)
         self.ui.list_aircraft.setModelColumn(0)
 
-        self.az_model = air_modes.az_map_model(None)
+        self.az_model = air_modes.az_map.az_map_model(None)
         self.ui.azimuth_map.setModel(self.az_model)
 
         #set up dashboard views
@@ -351,7 +351,7 @@ class mainwindow(QtGui.QMainWindow):
 
             #add azimuth map output and hook it up
             if my_position is not None:
-                self.az_map_output = air_modes.az_map_output(self._cpr_dec, self.az_model, self._publisher)
+                self.az_map_output = air_modes.az_map.az_map_output(self._cpr_dec, self.az_model, self._publisher)
                 #self._relay.subscribe("dl_data", self.az_map_output.output)
 
             #set up map

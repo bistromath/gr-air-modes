@@ -121,7 +121,7 @@ static pmt::pmt_t tag_to_timestamp(gr::tag_t tstamp, uint64_t abs_sample_cnt, in
     //   int((abs_sample_cnt - tstamp.offset)/sps) is the integer offset
     //   (abs_sample_cnt - tstamp.offset)/sps is the fractional offset
 
-    uint64_t int_offset = int(abs_sample_cnt - tstamp.offset)/rate;
+    uint64_t int_offset = (abs_sample_cnt - tstamp.offset)/rate;
     double frac_offset = ((abs_sample_cnt - tstamp.offset) % rate) / double(rate);
 
     uint64_t abs_whole = last_whole_stamp + int_offset;

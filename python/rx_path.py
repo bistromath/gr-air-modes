@@ -83,6 +83,6 @@ class rx_path(gr.hier_block2):
     def get_pmf(self, pmf):
         return not (self._bb == self._demod)
 
-    def get_threshold(self, threshold):
+    def get_threshold(self):
         return self._sync.get_threshold()
 

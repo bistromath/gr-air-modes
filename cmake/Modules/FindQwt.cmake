@@ -4,23 +4,34 @@
 # QWT_FOUND If false, do not try to use Qwt
 
 find_path (QWT_INCLUDE_DIRS
-	NAMES qwt_plot.h
-	PATHS
-	/usr/local/include/qwt-qt4
-	/usr/local/include/qwt
-	/usr/include/qwt-qt4
-	/usr/include/qwt
-	/opt/local/include/qwt
-	/sw/include/qwt
+    NAMES qwt_plot.h
+    HINTS
+    ${CMAKE_INSTALL_PREFIX}/include/qwt
+    ${CMAKE_PREFIX_PATH}/include/qwt
+    PATHS
+    /usr/local/include/qwt-qt4
+    /usr/local/include/qwt
+    /usr/include/qwt6
+    /usr/include/qwt-qt4
+    /usr/include/qwt
+    /usr/include/qwt5
+    /opt/local/include/qwt
+    /sw/include/qwt
+    /usr/local/lib/qwt.framework/Headers
 )
 
 find_library (QWT_LIBRARIES
-	NAMES qwt-qt4 qwt
-	PATHS
-	/usr/local/lib
-	/usr/lib
-	/opt/local/lib
-	/sw/lib
+    NAMES qwt6 qwt6-qt4 qwt qwt-qt4 qwt5 qwtd5
+    HINTS
+    ${CMAKE_INSTALL_PREFIX}/lib
+    ${CMAKE_INSTALL_PREFIX}/lib64
+    ${CMAKE_PREFIX_PATH}/lib 
+    PATHS
+    /usr/local/lib
+    /usr/lib
+    /opt/local/lib
+    /sw/lib
+    /usr/local/lib/qwt.framework
 )
 
 # handle the QUIETLY and REQUIRED arguments and set QWT_FOUND to TRUE if

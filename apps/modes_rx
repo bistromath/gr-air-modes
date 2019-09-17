@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright 2010, 2013 Nick Foster
 # 
 # This file is part of gr-air-modes
@@ -23,9 +23,8 @@ from gnuradio.eng_option import eng_option
 from gnuradio.gr.pubsub import pubsub
 from optparse import OptionParser
 import time, os, sys, threading, math
-from string import split, join
 import air_modes
-from air_modes.types import *
+from air_modes.modes_types import *
 from air_modes.exceptions import *
 import zmq
 

@@ -24,7 +24,7 @@ class output_flightgear:
         self._cpr = cprdec
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.connect((self.hostname, self.port))
+#        self.sock.connect((self.hostname, self.port))
         pub.subscribe("type17_dl", self.output)
 
     def output(self, msg):
@@ -69,7 +69,7 @@ class output_flightgear:
                and (icao24 in self.velocities)\
                and (icao24 in self.callsigns)
         if complete:
-            print "FG update: %s" % (self.callsigns[icao24][0])
+            print("FG update: %s" % (self.callsigns[icao24][0]))
             msg = fg_posmsg(self.callsigns[icao24][0],
                             self.callsigns[icao24][1],
                             self.positions[icao24][0],
@@ -80,7 +80,7 @@ class output_flightgear:
                             self.velocities[icao24][2],
                             self.velocities[icao24][3]).pack()
 
-            self.sock.send(msg)
+            self.sock.sendto(msg, (self.hostname, self.port))
 
 class fg_header:
     def __init__(self):
@@ -119,7 +119,7 @@ modelmap = { None:                       'Aircraft/777-200/Models/777-200ER.xml'
             "SMALL":                     'Aircraft/CitationX/Models/Citation-X.xml',
             "LARGE":                     'Aircraft/CRJ700-family/Models/CRJ700.xml',
             "LARGE HIGH VORTEX":         'Aircraft/757-200/Models/757-200.xml',
-            "HEAVY":                     'Aircraft/747-200/Models/boeing747-200.xml',
+            "HEAVY":                     'Aircraft/IDG-A32X/Models/A320neo-CFM.xml',
             "HIGH PERFORMANCE":          'Aircraft/SR71-BlackBird/Models/Blackbird-SR71B.xml', #yeah i know
             "ROTORCRAFT":                'Aircraft/ec130/Models/ec130b4.xml',
             "GLIDER":                    'Aircraft/ASK21-MI/Models/ask21mi.xml',

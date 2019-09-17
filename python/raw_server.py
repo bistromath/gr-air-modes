@@ -21,7 +21,6 @@
 
 
 import time, os, sys, socket
-from string import split, join
 from datetime import *
 
 class raw_server:
@@ -41,12 +40,12 @@ class raw_server:
         conn.send(msg)
       except socket.error:
         self._conns.remove(conn)
-        print "Connections: ", len(self._conns)
+        print("Connections: ", len(self._conns))
 
   def add_pending_conns(self):
     try:
       conn, addr = self._s.accept()
       self._conns.append(conn)
-      print "Connections: ", len(self._conns)
+      print("Connections: ", len(self._conns))
     except socket.error:
       pass

@@ -21,7 +21,6 @@
 
 
 import time, os, sys, socket
-from string import split, join
 import air_modes
 import datetime
 from air_modes.exceptions import *
@@ -98,7 +97,7 @@ class output_sbs1:
           conn.send(sbs1_msg)
     except socket.error:
       self._conns.remove(conn)
-      print "Connections: ", len(self._conns)
+      print("Connections: ", len(self._conns))
     except ADSBError:
       pass
 
@@ -106,7 +105,7 @@ class output_sbs1:
     try:
       conn, addr = self._s.accept()
       self._conns.append(conn)
-      print "Connections: ", len(self._conns)
+      print("Connections: ", len(self._conns))
     except socket.error:
       pass
 

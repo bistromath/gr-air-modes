@@ -129,7 +129,7 @@ class modes_radio (gr.top_block, pubsub):
   def set_gain(self, gain):
     if self.live_source():
         self._u.set_gain(gain)
-        print "Gain is %f" % self.get_gain()
+        print("Gain is %f" % self.get_gain())
     return self.get_gain()
 
   def set_rate(self, rate):
@@ -164,13 +164,19 @@ class modes_radio (gr.top_block, pubsub):
     if options.source == "uhd":
       #UHD source by default
       from gnuradio import uhd
-      self._u = uhd.single_usrp_source(options.args, uhd.io_type_t.COMPLEX_FLOAT32, 1)
+      self._u = uhd.usrp_source(
+          options.args,
+          uhd.stream_args(
+              cpu_format="fc32",
+              channels=range(1),
+          ),
+      )
 
       if(options.subdev):
         self._u.set_subdev_spec(options.subdev, 0)
 
       if not self._u.set_center_freq(options.freq):
-        print "Failed to set initial frequency"
+        print("Failed to set initial frequency")
 
       #check for GPSDO
       #if you have a GPSDO, UHD will automatically set the timestamp to UTC time
@@ -188,9 +194,9 @@ class modes_radio (gr.top_block, pubsub):
         g = self._u.get_gain_range()
         options.gain = (g.start()+g.stop()) / 2.0
 
-      print "Setting gain to %i" % options.gain
+      print("Setting gain to %i" % options.gain)
       self._u.set_gain(options.gain)
-      print "Gain is %i" % self._u.get_gain()
+      print("Gain is %i" % self._u.get_gain())
 
     #TODO: detect if you're using an RTLSDR or Jawbreaker
     #and set up accordingly.
@@ -200,13 +206,13 @@ class modes_radio (gr.top_block, pubsub):
 #        self._u.set_sample_rate(3.2e6) #fixed for RTL dongles
         self._u.set_sample_rate(options.rate)
         if not self._u.set_center_freq(options.freq):
-            print "Failed to set initial frequency"
+            print("Failed to set initial frequency")
 
 #        self._u.set_gain_mode(0) #manual gain mode
         if options.gain is None:
             options.gain = 34
         self._u.set_gain(options.gain)
-        print "Gain is %i" % self._u.get_gain()
+        print("Gain is %i" % self._u.get_gain())
 
         #Note: this should only come into play if using an RTLSDR.
 #        lpfiltcoeffs = gr.firdes.low_pass(1, 5*3.2e6, 1.6e6, 300e3)
@@ -220,12 +226,12 @@ class modes_radio (gr.top_block, pubsub):
         except:
           raise Exception("Please input UDP source e.g. 192.168.10.1:12345")
         self._u = blocks.udp_source(gr.sizeof_gr_complex, ip, int(port))
-        print "Using UDP source %s:%s" % (ip, port)
+        print("Using UDP source %s:%s" % (ip, port))
       else:
         self._u = blocks.file_source(gr.sizeof_gr_complex, options.source)
-        print "Using file source %s" % options.source
+        print("Using file source %s" % options.source)
 
-    print "Rate is %i" % (options.rate,)
+    print("Rate is %i" % (options.rate,))
 
   def close(self):
     self.stop()

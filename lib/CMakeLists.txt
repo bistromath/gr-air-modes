@@ -27,34 +27,29 @@ add_library(air_modes SHARED
     slicer_impl.cc
     modes_crc.cc
 )
-target_link_libraries(air_modes ${Boost_LIBRARIES} ${GNURADIO_RUNTIME_LIBRARIES})
+target_link_libraries(air_modes gnuradio::gnuradio-runtime)
+target_include_directories(air_modes
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
+    PUBLIC $<INSTALL_INTERFACE:include>
+  )
 set_target_properties(air_modes PROPERTIES DEFINE_SYMBOL "AIR_MODES_EXPORTS")
-set_target_properties(air_modes PROPERTIES SOVERSION "${gr-gr-air-modes_VERSION_MAJOR}")
-set_target_properties(air_modes PROPERTIES VERSION "${gr-gr-air-modes_VERSION_MAJOR}.${gr-gr-air-modes_VERSION_MINOR}")
+set_target_properties(air_modes PROPERTIES SOVERSION "${VERSION_MAJOR}")
+set_target_properties(air_modes PROPERTIES VERSION "${VERSION_MAJOR}.${VERSION_MINOR}")
+
+if(APPLE)
+    set_target_properties(air_modes PROPERTIES
+        INSTALL_NAME_DIR "${CMAKE_INSTALL_PREFIX}/lib"
+    )
+endif(APPLE)
 
 ########################################################################
 # Install built library files
 ########################################################################
-install(TARGETS air_modes
-    LIBRARY DESTINATION lib${LIB_SUFFIX} # .so/.dylib file
-    ARCHIVE DESTINATION lib${LIB_SUFFIX} # .lib file
-    RUNTIME DESTINATION bin              # .dll file
-)
+include(GrMiscUtils)
+GR_LIBRARY_FOO(air_modes)
 
 ########################################################################
-# Build and register unit test
+# Print summary
 ########################################################################
-#find_package(Boost COMPONENTS unit_test_framework)
-
-#include(GrTest)
-#set(GR_TEST_TARGET_DEPS gnuradio-gr-air-modes)
-#turn each test cpp file into an executable with an int main() function
-#add_definitions(-DBOOST_TEST_DYN_LINK -DBOOST_TEST_MAIN)
-
-#add_executable(qa_gr-air-modes_square_ff qa_gr-air-modes_square_ff.cc)
-#target_link_libraries(qa_gr-air-modes_square_ff gnuradio-gr-air-modes ${Boost_LIBRARIES})
-#GR_ADD_TEST(qa_gr-air-modes_square_ff qa_gr-air-modes_square_ff)
-
-#add_executable(qa_gr-air-modes_square2_ff qa_gr-air-modes_square2_ff.cc)
-#target_link_libraries(qa_gr-air-modes_square2_ff gnuradio-gr-air-modes ${Boost_LIBRARIES})
-#GR_ADD_TEST(qa_gr-air-modes_square2_ff qa_gr-air-modes_square2_ff)
+message(STATUS "Using install prefix: ${CMAKE_INSTALL_PREFIX}")
+message(STATUS "Building for version: ${VERSION} / ${LIBVER}")

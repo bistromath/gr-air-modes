@@ -55,7 +55,8 @@ wgs84_b2 = wgs84_b**2
 
 #convert ECEF to lat/lon/alt without geoid correction
 #returns alt in meters
-def ecef2llh((x,y,z)):
+def ecef2llh(ecef):
+    x, y, z = ecef
     ep  = math.sqrt((wgs84_a2 - wgs84_b2) / wgs84_b2)
     p   = math.sqrt(x**2+y**2)
     th  = math.atan2(wgs84_a*z, wgs84_b*p)
@@ -71,7 +72,8 @@ def ecef2llh((x,y,z)):
 
 #convert lat/lon/alt coords to ECEF without geoid correction, WGS84 model
 #remember that alt is in meters
-def llh2ecef((lat, lon, alt)):
+def llh2ecef(lla):
+    lat, lon, alt = lla
     lat *= (math.pi / 180.0)
     lon *= (math.pi / 180.0)
     
@@ -84,7 +86,8 @@ def llh2ecef((lat, lon, alt)):
     return [x,y,z]
     
 #do both of the above to get a geoid-corrected x,y,z position
-def llh2geoid((lat, lon, alt)):
+def llh2geoid(lla):
+    lat, lon, alt = lla
     (x,y,z) = llh2ecef((lat, lon, alt + wgs84_height(lat, lon)))
     return [x,y,z]
 
@@ -185,7 +188,7 @@ if __name__ == '__main__':
                     10 + numpy.linalg.norm(testplane-numpy.array(llh2geoid(teststations[3]))) / c,
                 ]
 
-    print teststamps
+    print(teststamps)
 
     replies = []
     for i in range(0, len(teststations)):
@@ -193,7 +196,7 @@ if __name__ == '__main__':
     ans = mlat(replies, testalt)
     error = numpy.linalg.norm(numpy.array(llh2ecef(ans))-numpy.array(testplane))
     range = numpy.linalg.norm(llh2geoid(ans)-numpy.array(testme))
-    print testplane-testme
-    print ans
-    print "Error: %.2fm" % (error)
-    print "Range: %.2fkm (from first station in list)" % (range/1000)
+    print(testplane-testme)
+    print(ans)
+    print("Error: %.2fm" % (error))
+    print("Range: %.2fkm (from first station in list)" % (range/1000))

@@ -20,7 +20,6 @@
 # 
 
 from gnuradio import gr, blocks, filter
-import air_modes_swig
 
 class rx_path(gr.hier_block2):
 

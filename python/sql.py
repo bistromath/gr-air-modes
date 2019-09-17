@@ -20,7 +20,6 @@
 # 
 
 import time, os, sys, threading
-from string import split, join
 import air_modes
 import sqlite3
 from air_modes.exceptions import *

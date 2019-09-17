@@ -20,8 +20,7 @@
 #
 
 import time, os, sys
-from string import split, join
-from altitude import decode_alt
+from air_modes.altitude import decode_alt
 import math
 import air_modes
 from air_modes.exceptions import *
@@ -32,14 +31,14 @@ class data_field:
     self.data = data
     self.fields = self.parse()
 
-  types = { }
+  dtypes = { }
   offset = 1   #field offset applied to all fields. used for offsetting
                #subtypes to reconcile with the spec. Really just for readability.
 
   #get a particular field from the data
   def __getitem__(self, fieldname):
     mytype = self.get_type()
-    if mytype in self.types:
+    if mytype in self.dtypes:
       if fieldname in self.fields: #verify it exists in this packet type
         return self.fields[fieldname]
       else:
@@ -52,9 +51,9 @@ class data_field:
   def parse(self):
     fields = {}
     mytype = self.get_type()
-    if mytype in self.types:
-      for field in self.types[mytype]:
-        bits = self.types[self.get_type()][field]
+    if mytype in self.dtypes:
+      for field in self.dtypes[mytype]:
+        bits = self.dtypes[self.get_type()][field]
         if len(bits) == 3:
           obj = bits[2](self.get_bits(bits[0], bits[1]))
           fields.update(obj.parse())
@@ -93,7 +92,7 @@ class data_field:
 
 class bds09_reply(data_field):
   offset = 6
-  types = {  #BDS0,9 subtype 0
+  dtypes = {  #BDS0,9 subtype 0
              0: {"sub": (6,3), "dew": (10,1), "vew": (11,11), "dns": (22,1),
                  "vns": (23,11), "str": (34,1), "tr": (35,6), "dvr": (41,1),
                  "vr": (42,9)},
@@ -123,7 +122,7 @@ class bds09_reply(data_field):
 class me_reply(data_field):
   #types in this format are listed by BDS register
   #TODO: add comments explaining these fields
-  types = { 0x05: {"ftc": (1,5), "ss": (6,2), "saf": (8,1), "alt": (9,12), "time": (21,1), "cpr": (22,1), "lat": (23,17), "lon": (40,17)}, #airborne position
+  dtypes = { 0x05: {"ftc": (1,5), "ss": (6,2), "saf": (8,1), "alt": (9,12), "time": (21,1), "cpr": (22,1), "lat": (23,17), "lon": (40,17)}, #airborne position
             0x06: {"ftc": (1,5), "mvt": (6,7), "gts": (13,1), "gtk": (14,7), "time": (21,1), "cpr": (22,1), "lat": (23,17), "lon": (40,17)}, #surface position
             0x07: {"ftc": (1,5),}, #TODO extended squitter status
             0x08: {"ftc": (1,5), "cat": (6,3), "ident": (9,48)}, #extended squitter identification and type
@@ -157,7 +156,7 @@ class me_reply(data_field):
 #resolves the TCAS reply types from TTI info
 class tcas_reply(data_field):
   offset = 61
-  types = { 0: {"tti": (61,2)}, #UNKNOWN
+  dtypes = { 0: {"tti": (61,2)}, #UNKNOWN
             1: {"tti": (61,2), "tid": (63,26)},
             2: {"tti": (61,2), "tida": (63,13), "tidr": (76,7), "tidb": (83,6)}
           }
@@ -171,7 +170,7 @@ class tcas_reply(data_field):
 class mb_reply(data_field):
   offset = 33 #fields offset by 33 to match documentation
   #types are based on bds1 subfield
-  types = { 0: {"bds1": (33,4), "bds2": (37,4)}, #TODO
+  dtypes = { 0: {"bds1": (33,4), "bds2": (37,4)}, #TODO
             1: {"bds1": (33,4), "bds2": (37,4), "cfs": (41,4), "acs": (45,20), "bcs": (65,16), "ecs": (81,8)},
             2: {"bds1": (33,4), "bds2": (37,4), "ais": (41,48)},
             3: {"bds1": (33,4), "bds2": (37,4), "ara": (41,14), "rac": (55,4), "rat": (59,1),
@@ -195,7 +194,7 @@ class mb_reply(data_field):
 
 class mv_reply(data_field):
   offset = 33
-  types = { "ara": (41,14), "mte": (60,1),  "rac": (55,4), "rat": (59,1),
+  dtypes = { "ara": (41,14), "mte": (60,1),  "rac": (55,4), "rat": (59,1),
             "vds": (33,8),  "vds1": (33,4), "vds2": (37,4)
           }
 
@@ -211,7 +210,7 @@ class mv_reply(data_field):
 
 #the whole Mode S packet type
 class modes_reply(data_field):
-  types = { 0: {"df": (1,5), "vs": (6,1), "cc": (7,1), "sl": (9,3), "ri": (14,4), "ac": (20,13), "ap": (33,24)},
+  dtypes = { 0: {"df": (1,5), "vs": (6,1), "cc": (7,1), "sl": (9,3), "ri": (14,4), "ac": (20,13), "ap": (33,24)},
             4: {"df": (1,5), "fs": (6,3), "dr": (9,5), "um": (14,6), "ac": (20,13), "ap": (33,24)},
             5: {"df": (1,5), "fs": (6,3), "dr": (9,5), "um": (14,6), "id": (20,13), "ap": (33,24)},
            11: {"df": (1,5), "ca": (6,3), "aa": (9,24), "pi": (33,24)},

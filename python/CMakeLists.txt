@@ -40,6 +40,7 @@ GR_PYTHON_INSTALL(
     flightgear.py
     gui_model.py
     kml.py
+    modes_types.py
     parse.py
     msprint.py
     radio.py
@@ -47,7 +48,6 @@ GR_PYTHON_INSTALL(
     rx_path.py
     sbs1.py
     sql.py
-    types.py
     zmq_socket.py
     Quaternion.py
     DESTINATION ${GR_PYTHON_DIR}/air_modes

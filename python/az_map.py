@@ -25,7 +25,6 @@
 from PyQt4 import QtCore, QtGui
 import threading
 import math
-import air_modes
 from air_modes.exceptions import *
 import numpy as np
 

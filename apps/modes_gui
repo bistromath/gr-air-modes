@@ -372,7 +372,7 @@ class mainwindow(QtGui.QMainWindow):
             self._htmlfile.flush()
             class WebPage(QtWebKit.QWebPage):
                 def javaScriptConsoleMessage(self, msg, line, source):
-                    print '%s line %d: %s' % (source, line, msg)
+                    print('%s line %d: %s' % (source, line, msg))
             page = WebPage()
             self.ui.mapView.setPage(page)
             self.ui.mapView.load( QtCore.QUrl( QtCore.QUrl.fromLocalFile("/tmp/mode_s.html") ) )
@@ -485,7 +485,7 @@ class mainwindow(QtGui.QMainWindow):
             for item in prefs.items("GUI"):
                 defaults[item[0]] = item[1]
         except (IOError, ConfigParser.NoSectionError):
-            print "No preferences file %s found, creating..." % os.path.expanduser(self.opt_file)
+            print("No preferences file %s found, creating..." % os.path.expanduser(self.opt_file))
             self.write_defaults(defaults)
 
         return defaults

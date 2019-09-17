@@ -28,26 +28,10 @@ KML, and PlanePlotter-compliant SBS-1 emulation output. mlat.py provides
 an experimental implementation of a multilateration solver.
 '''
 
-# ----------------------------------------------------------------
-# Temporary workaround for ticket:181 (swig+python problem)
-import sys
-_RTLD_GLOBAL = 0
-try:
-    from dl import RTLD_GLOBAL as _RTLD_GLOBAL
-except ImportError:
-    try:
-	from DLFCN import RTLD_GLOBAL as _RTLD_GLOBAL
-    except ImportError:
-	pass
-    
-if _RTLD_GLOBAL != 0:
-    _dlopenflags = sys.getdlopenflags()
-    sys.setdlopenflags(_dlopenflags|_RTLD_GLOBAL)
-# ----------------------------------------------------------------
-
+from __future__ import unicode_literals
 
 # import swig generated symbols into the gr-air-modes namespace
-from air_modes_swig import *
+from .air_modes_swig import *
 
 # import any pure python here
 #
@@ -57,30 +41,24 @@ try:
 except ImportError:
     raise RuntimeError("PyZMQ not found! Please install libzmq and PyZMQ to run gr-air-modes")
 
-from rx_path import rx_path
-from zmq_socket import zmq_pubsub_iface
-from parse import *
-from msprint import output_print
-from sql import output_sql
-from sbs1 import output_sbs1
-from kml import output_kml, output_jsonp
-from raw_server import raw_server
-from radio import modes_radio
-from exceptions import *
-from types import *
-from altitude import *
-from cpr import cpr_decoder
-from html_template import html_template
+from .rx_path import rx_path
+from .zmq_socket import zmq_pubsub_iface
+from .parse import *
+from .msprint import output_print
+from .sql import output_sql
+from .sbs1 import output_sbs1
+from .kml import output_kml, output_jsonp
+from .raw_server import raw_server
+from .radio import modes_radio
+from .exceptions import *
+from .modes_types import *
+from .altitude import *
+from .cpr import cpr_decoder
+from .html_template import html_template
 #this is try/excepted in case the user doesn't have numpy installed
 try:
-    from flightgear import output_flightgear
-    from Quaternion import *
+    from .flightgear import output_flightgear
+    from .Quaternion import *
 except ImportError:
-    print "gr-air-modes warning: numpy+scipy not installed, FlightGear interface not supported"
+    print("gr-air-modes warning: numpy+scipy not installed, FlightGear interface not supported")
     pass
-
-# ----------------------------------------------------------------
-# Tail of workaround
-if _RTLD_GLOBAL != 0:
-    sys.setdlopenflags(_dlopenflags)      # Restore original flags
-# ----------------------------------------------------------------

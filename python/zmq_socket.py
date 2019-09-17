@@ -27,13 +27,13 @@ import time
 import threading
 import zmq
 from gnuradio.gr.pubsub import pubsub
-import Queue
+import queue
 
 class zmq_pubsub_iface(threading.Thread):
     def __init__(self, context, subaddr=None, pubaddr=None):
         threading.Thread.__init__(self)
         #private data
-        self._queue = Queue.Queue()
+        self._queue = queue.queue()
         self._subsocket = context.socket(zmq.SUB)
         self._pubsocket = context.socket(zmq.PUB)
         self._subaddr = subaddr
@@ -114,7 +114,7 @@ class zmq_pubsub_iface(threading.Thread):
         self.finished.wait(0.2)
 
 def pr(x):
-    print x
+    print(x)
 
 if __name__ == "__main__":
     #create socket pair

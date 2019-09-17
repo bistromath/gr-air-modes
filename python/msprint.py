@@ -20,7 +20,6 @@
 # 
 
 import time, os, sys
-from string import split, join
 import air_modes
 from air_modes.exceptions import *
 import math
@@ -44,7 +43,7 @@ class output_print:
 
   def _print(self, msg):
     if self._callback is None:
-        print msg
+        print(msg)
     else:
         self._callback(msg)
 

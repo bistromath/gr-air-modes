@@ -113,7 +113,7 @@ class modes_radio (gr.top_block, pubsub):
                       help="set sample rate [default=%default]")
     group.add_option("-T", "--threshold", type="eng_float", default=7.0,
                       help="set pulse detection threshold above noise in dB [default=%default]")
-    group.add_option("-p","--pmf", action="store_true", default=False,
+    group.add_option("-p","--pmf", action="store_true", default=True,
                       help="Use pulse matched filtering [default=%default]")
     group.add_option("-d","--dcblock", action="store_true", default=False,
                       help="Use a DC blocking filter (best for HackRF Jawbreaker) [default=%default]")

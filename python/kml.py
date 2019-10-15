@@ -20,7 +20,7 @@
 # 
 
 import sqlite3
-import string, math, threading, time
+import math, threading, time
 
 class output_kml(threading.Thread):
     def __init__(self, filename, dbname, localpos, lock, timeout=5):
@@ -89,7 +89,7 @@ class output_kml(threading.Thread):
             lon_out = center_lon + math.degrees(math.atan2(math.sin(bearing)*math.sin(tmp0)*math.cos(lat_rad), math.cos(tmp0)-math.sin(lat_rad)*math.sin(math.radians(lat_out))))
             retstr += " %.8f,%.8f, 0" % (lon_out, lat_out,)
 
-        retstr = string.lstrip(retstr)
+        retstr = retstr.lstrip()
         return retstr
 
     def genkml(self):
@@ -132,7 +132,7 @@ class output_kml(threading.Thread):
                 for pos in track:
                     trackstr += " %f,%f,%f" % (pos[4], pos[3], pos[2]*0.3048)
 
-                trackstr = string.lstrip(trackstr)
+                trackstr = trackstr.lstrip()
             else:
                 alt = 0
                 metric_alt = 0

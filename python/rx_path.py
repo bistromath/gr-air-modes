@@ -20,6 +20,7 @@
 # 
 
 from gnuradio import gr, blocks, filter
+import air_modes
 
 class rx_path(gr.hier_block2):
 
@@ -53,10 +54,10 @@ class rx_path(gr.hier_block2):
         self._avg = blocks.moving_average_ff(48*self._spc, 1.0/(48*self._spc))#, self._rate) # 3 preambles
 
         # Synchronize to Mode-S preamble
-        self._sync = air_modes_swig.preamble(self._rate, self._threshold)
+        self._sync = air_modes.preamble(self._rate, self._threshold)
 
         # Slice Mode-S bits and send to message queue
-        self._slicer = air_modes_swig.slicer(self._queue)
+        self._slicer = air_modes.slicer(self._queue)
 
         # Wire up the flowgraph
         self.connect(self._bb, (self._sync, 0))

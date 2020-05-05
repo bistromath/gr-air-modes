@@ -193,11 +193,11 @@ class cpr_decoder:
 
     def weed_poslists(self):
         for poslist in [self.evenlist, self.oddlist]:
-            for key, item in poslist.items():
+            for key, item in tuple(poslist.items()):
                 if time.time() - item[2] > 10:
                     del poslist[key]
         for poslist in [self.evenlist_sfc, self.oddlist_sfc]:
-            for key, item in poslist.items():
+            for key, item in tuple(poslist.items()):
                 if time.time() - item[2] > 25:
                     del poslist[key]
 

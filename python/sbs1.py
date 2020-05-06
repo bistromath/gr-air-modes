@@ -93,8 +93,9 @@ class output_sbs1:
     try:
       sbs1_msg = self.parse(msg)
       if sbs1_msg is not None:
+        sbs1_bytes = sbs1_msg.encode('utf-8')
         for conn in self._conns[:]: #iterate over a copy of the list
-          conn.send(sbs1_msg)
+          conn.send(sbs1_bytes)
     except socket.error:
       self._conns.remove(conn)
       print("Connections: ", len(self._conns))

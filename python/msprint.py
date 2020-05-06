@@ -80,7 +80,7 @@ class output_print:
     except ADSBError:
         return
 
-    if msg.data["vs"] is 1:
+    if msg.data["vs"] == 1:
       retstr += " (aircraft is on the ground)"
 
     self._print(retstr)
